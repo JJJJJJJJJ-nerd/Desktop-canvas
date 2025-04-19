@@ -1,18 +1,16 @@
 import { useState } from "react";
-import { useNavigate } from "wouter";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 
 export default function AuthPage() {
   const { toast } = useToast();
-  const { user, loginMutation, registerMutation } = useAuth();
-  const [, navigate] = useNavigate();
+  const [, setLocation] = useLocation();
 
   // State for login form
   const [loginUsername, setLoginUsername] = useState("");
@@ -22,12 +20,7 @@ export default function AuthPage() {
   const [registerUsername, setRegisterUsername] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
-  // If user is already logged in, redirect to home
-  if (user) {
-    navigate("/");
-    return null;
-  }
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,24 +34,40 @@ export default function AuthPage() {
       return;
     }
     
+    setIsLoading(true);
+    
     try {
-      await loginMutation.mutateAsync({
-        username: loginUsername,
-        password: loginPassword,
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: loginUsername,
+          password: loginPassword,
+        }),
       });
+      
+      if (!response.ok) {
+        throw new Error('Login failed');
+      }
+      
+      const data = await response.json();
       
       toast({
         title: "Success",
         description: "Logged in successfully",
       });
       
-      navigate("/");
+      setLocation("/");
     } catch (error) {
       toast({
         title: "Error",
         description: "Invalid username or password",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -83,29 +92,42 @@ export default function AuthPage() {
       return;
     }
     
+    setIsLoading(true);
+    
     try {
-      await registerMutation.mutateAsync({
-        username: registerUsername,
-        password: registerPassword,
+      const response = await fetch('/api/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: registerUsername,
+          password: registerPassword,
+        }),
       });
+      
+      if (!response.ok) {
+        throw new Error('Registration failed');
+      }
+      
+      const data = await response.json();
       
       toast({
         title: "Success",
         description: "Account created successfully",
       });
       
-      navigate("/");
+      setLocation("/");
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to create account. Username may already be taken.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
-
-  const isLoginLoading = loginMutation.isPending;
-  const isRegisterLoading = registerMutation.isPending;
 
   return (
     <div className="h-screen w-screen flex flex-col md:flex-row">
@@ -151,8 +173,8 @@ export default function AuthPage() {
                     </div>
                   </CardContent>
                   <CardFooter>
-                    <Button type="submit" className="w-full" disabled={isLoginLoading}>
-                      {isLoginLoading ? (
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                      {isLoading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           Logging in...
@@ -210,8 +232,8 @@ export default function AuthPage() {
                     </div>
                   </CardContent>
                   <CardFooter>
-                    <Button type="submit" className="w-full" disabled={isRegisterLoading}>
-                      {isRegisterLoading ? (
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                      {isLoading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           Creating account...
