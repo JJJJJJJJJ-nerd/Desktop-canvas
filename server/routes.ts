@@ -1,9 +1,10 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import express from "express";
 import multer from "multer";
 import { z } from "zod";
+import { insertDesktopFileSchema, type DesktopFile } from "@shared/schema";
 
 // Configure multer for memory storage
 const upload = multer({ 
@@ -14,37 +15,127 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // File upload endpoint
-  app.post('/api/files/upload', upload.array('files'), (req, res) => {
+  // Get all files
+  app.get('/api/files', async (req, res) => {
+    try {
+      const userId = req.query.userId ? parseInt(req.query.userId as string) : undefined;
+      const files = await storage.getFiles(userId);
+      return res.status(200).json({ files });
+    } catch (error) {
+      console.error('Error getting files:', error);
+      return res.status(500).json({ message: 'Error getting files' });
+    }
+  });
+
+  // Get a single file by ID
+  app.get('/api/files/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const file = await storage.getFile(id);
+      
+      if (!file) {
+        return res.status(404).json({ message: 'File not found' });
+      }
+      
+      return res.status(200).json({ file });
+    } catch (error) {
+      console.error('Error getting file:', error);
+      return res.status(500).json({ message: 'Error getting file' });
+    }
+  });
+
+  // File upload endpoint - now saves to database
+  app.post('/api/files/upload', upload.array('files'), async (req, res) => {
     try {
       if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
         return res.status(400).json({ message: 'No files uploaded' });
       }
 
-      const uploadedFiles = req.files.map(file => {
+      const savedFiles = [];
+      for (const file of req.files) {
         // Convert the Buffer to a Base64 string
         const dataUrl = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
         
-        return {
+        // Generate random position for the new file
+        const position = {
+          x: Math.floor(Math.random() * 800),
+          y: Math.floor(Math.random() * 500)
+        };
+
+        const newFile = {
           name: file.originalname,
           type: file.mimetype || 'application/octet-stream',
           size: file.size,
-          dataUrl
+          dataUrl,
+          position,
+          // userId is optional in our schema
         };
-      });
 
-      return res.status(200).json({ files: uploadedFiles });
+        // Validate with zod schema
+        const validationResult = insertDesktopFileSchema.safeParse(newFile);
+        if (!validationResult.success) {
+          console.error('Validation error:', validationResult.error);
+          continue; // Skip invalid files
+        }
+
+        // Save to database
+        const savedFile = await storage.createFile(newFile);
+        savedFiles.push(savedFile);
+      }
+
+      return res.status(200).json({ files: savedFiles });
     } catch (error) {
       console.error('Error uploading files:', error);
       return res.status(500).json({ message: 'Error uploading files' });
     }
   });
 
+  // Update file position
+  app.patch('/api/files/:id/position', express.json(), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const positionSchema = z.object({
+        x: z.number(),
+        y: z.number()
+      });
+
+      // Validate input
+      const validationResult = positionSchema.safeParse(req.body.position);
+      if (!validationResult.success) {
+        return res.status(400).json({ message: 'Invalid position data' });
+      }
+
+      const updatedFile = await storage.updateFile(id, req.body.position);
+      
+      if (!updatedFile) {
+        return res.status(404).json({ message: 'File not found' });
+      }
+      
+      return res.status(200).json({ file: updatedFile });
+    } catch (error) {
+      console.error('Error updating file position:', error);
+      return res.status(500).json({ message: 'Error updating file position' });
+    }
+  });
+
+  // Delete a file
+  app.delete('/api/files/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteFile(id);
+      return res.status(200).json({ message: 'File deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting file:', error);
+      return res.status(500).json({ message: 'Error deleting file' });
+    }
+  });
+
   // Save desktop state endpoint
-  app.post('/api/desktop/save', express.json({ limit: '50mb' }), (req, res) => {
+  app.post('/api/desktop/save', express.json({ limit: '50mb' }), async (req, res) => {
     try {
       const filesSchema = z.array(
         z.object({
+          id: z.number().optional(),
           name: z.string(),
           type: z.string(),
           size: z.number(),
@@ -62,8 +153,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Invalid file data' });
       }
 
-      // In this version, we're just acknowledging the save
-      // In a real application, we would save to a database
+      const files = validationResult.data;
+      
+      // Update position of each file in the database
+      for (const file of files) {
+        if (file.id) {
+          await storage.updateFile(file.id, file.position);
+        }
+      }
+      
       return res.status(200).json({ message: 'Desktop state saved successfully' });
     } catch (error) {
       console.error('Error saving desktop state:', error);
