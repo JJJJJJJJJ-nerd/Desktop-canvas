@@ -44,8 +44,9 @@ export function FileItem({
   onPreview
 }: FileItemProps) {
   const fileRef = useRef<HTMLDivElement>(null);
-  const dragStartPos = useRef<{ x: number, y: number, newX?: number, newY?: number } | null>(null);
-  const offsetRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
+  const [position, setPosition] = useState({ x: file.position.x, y: file.position.y });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragOffset = useRef({ x: 0, y: 0 });
   const resizeStartPos = useRef<{ x: number, y: number, width: number, height: number } | null>(null);
   const [isResizing, setIsResizing] = useState(false);
 
@@ -60,6 +61,13 @@ export function FileItem({
     return isImage ? { width: 192, height: 160 } : { width: 96, height: 96 };
   });
 
+  // Update position state when file position changes from props
+  useEffect(() => {
+    if (!isDragging) {
+      setPosition({ x: file.position.x, y: file.position.y });
+    }
+  }, [file.position, isDragging]);
+
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return; // Only left click
     e.preventDefault();
@@ -68,54 +76,35 @@ export function FileItem({
     
     if (fileRef.current) {
       const rect = fileRef.current.getBoundingClientRect();
-      offsetRef.current = {
+      dragOffset.current = {
         x: e.clientX - rect.left,
         y: e.clientY - rect.top
       };
-      dragStartPos.current = { 
-        x: e.clientX, 
-        y: e.clientY,
-        newX: file.position.x,
-        newY: file.position.y
-      };
       
+      setIsDragging(true);
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
     }
   };
 
   const handleMouseMove = (e: MouseEvent) => {
-    if (fileRef.current && dragStartPos.current) {
-      const x = e.clientX - offsetRef.current.x;
-      const y = e.clientY - offsetRef.current.y;
+    if (isDragging) {
+      const newX = e.clientX - dragOffset.current.x;
+      const newY = e.clientY - dragOffset.current.y;
       
-      // Store these calculated positions as we'll need them on mouse up
-      dragStartPos.current.newX = x;
-      dragStartPos.current.newY = y;
-      
-      // Use transform instead of left/top for smoother animation
-      fileRef.current.style.transform = `translate3d(${x}px, ${y}px, 0)`;
-      fileRef.current.style.transition = 'none'; // Disable transition during drag
+      setPosition({ x: newX, y: newY });
     }
   };
 
   const handleMouseUp = (e: MouseEvent) => {
-    if (fileRef.current && dragStartPos.current) {
-      // Reset transform to avoid the teleport effect
-      fileRef.current.style.transform = '';
-      fileRef.current.style.transition = '';
+    if (isDragging) {
+      // Update the server with the final position
+      onDragEnd(index, position.x, position.y);
+      setIsDragging(false);
       
-      // Use the stored calculated positions from mouse move
-      const finalX = dragStartPos.current.newX !== undefined ? dragStartPos.current.newX : file.position.x;
-      const finalY = dragStartPos.current.newY !== undefined ? dragStartPos.current.newY : file.position.y;
-      
-      // Update the actual position
-      onDragEnd(index, finalX, finalY);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
     }
-    
-    dragStartPos.current = null;
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
   };
 
   const handleDoubleClick = () => {
@@ -195,15 +184,17 @@ export function FileItem({
       className={cn(
         "file-item absolute backdrop-blur-sm rounded-lg shadow-md relative",
         isImage ? "w-48" : "w-24 bg-white/80 p-3",
-        "transition-all duration-150 ease-in-out cursor-move",
+        "transition-colors duration-150 ease-in-out cursor-move",
         isSelected && "ring-2 ring-primary shadow-lg z-10",
+        isDragging && "z-50 shadow-xl",
         isSearchMatch && "animate-pulse shadow-xl shadow-primary/20",
         isSearchMatch && !isSelected && "ring-2 ring-yellow-400 z-10"
       )}
       style={{
-        left: `${file.position.x}px`,
-        top: `${file.position.y}px`,
-        width: isImage && file.dimensions ? `${file.dimensions.width}px` : 'auto'
+        left: `${position.x}px`,
+        top: `${position.y}px`,
+        width: isImage && file.dimensions ? `${file.dimensions.width}px` : 'auto',
+        transition: isDragging ? 'none' : 'all 0.1s ease'
       }}
       onMouseDown={handleMouseDown}
       onClick={() => onSelect(index)}
