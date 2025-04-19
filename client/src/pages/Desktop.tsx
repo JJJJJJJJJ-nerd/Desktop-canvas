@@ -79,11 +79,18 @@ export default function Desktop() {
     }
   };
 
-  // Handle file selection
-  const handleSelectFile = (index: number) => {
-    selectFile(index);
+  // Check if file is an Excel file
+  const isExcelFile = (file: DesktopFile) => {
+    return (
+      file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" || 
+      file.type === "application/vnd.ms-excel" ||
+      file.type === "text/csv" ||
+      file.name.endsWith('.xlsx') ||
+      file.name.endsWith('.xls') ||
+      file.name.endsWith('.csv')
+    );
   };
-  
+
   // Handle file position update
   const handleFilePositionUpdate = (index: number, x: number, y: number) => {
     const file = files[index];
@@ -99,34 +106,27 @@ export default function Desktop() {
       updateFileDimensions(file.id, width, height);
     }
   };
-  
-  // Check if file is an Excel file
-  const isExcelFile = (file: DesktopFile) => {
-    return (
-      file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" || 
-      file.type === "application/vnd.ms-excel" ||
-      file.type === "text/csv" ||
-      file.name.endsWith('.xlsx') ||
-      file.name.endsWith('.xls') ||
-      file.name.endsWith('.csv')
-    );
+
+  // Handle file selection with enhanced behavior for Excel files
+  const handleSelectFile = (index: number) => {
+    // Select the file
+    selectFile(index);
+    
+    // If this is an Excel file, also open it in a window on single click
+    const file = files[index];
+    if (file && isExcelFile(file) && file.id && !openExcelFiles.includes(file.id)) {
+      setOpenExcelFiles([...openExcelFiles, file.id]);
+    }
   };
 
-  // Handle file preview
+  // Handle file preview (called on double-click from FileItem)
   const handlePreviewFile = (file: DesktopFile) => {
-    // If this is an Excel file, open it in a window instead of preview modal
-    if (isExcelFile(file) && file.id) {
-      if (!openExcelFiles.includes(file.id)) {
-        setOpenExcelFiles([...openExcelFiles, file.id]);
-      }
-      if (file.id && selectedFile !== files.findIndex(f => f.id === file.id)) {
-        const fileIndex = files.findIndex(f => f.id === file.id);
-        selectFile(fileIndex);
-      }
-    } else {
+    // For non-Excel files, open in preview modal
+    if (!isExcelFile(file)) {
       setPreviewFile(file);
       setIsPreviewOpen(true);
     }
+    // For Excel files, the handleSelectFile will handle opening in window
   };
   
   // Close preview modal
