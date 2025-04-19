@@ -101,7 +101,7 @@ export function FileItem({
   // to avoid re-renders that might cause jumps
   const currentPosition = useRef({ x: 0, y: 0 });
 
-  // Define mouse event handlers
+  // Define mouse event handlers - allow immediate drag on first click
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return; // Only left click
     if (isResizing) return; // Don't drag if resizing
@@ -109,8 +109,10 @@ export function FileItem({
     e.stopPropagation();
     e.preventDefault();
     
-    // Select file
-    onSelect(index);
+    // Always select file on mousedown - ensures file is selected before drag starts
+    if (!isSelected) {
+      onSelect(index);
+    }
     
     // Calculate the offset of the mouse from the top-left corner of the element
     startPosRef.current = {
@@ -121,7 +123,7 @@ export function FileItem({
     // Initialize current position
     currentPosition.current = localPosition;
     
-    // Start dragging
+    // Start dragging immediately
     setDragging(true);
     
     // Add global event listeners
@@ -249,7 +251,6 @@ export function FileItem({
         transition: dragging ? 'none' : 'transform 0.1s ease'
       }}
       onMouseDown={handleMouseDown}
-      onClick={() => onSelect(index)}
       onDoubleClick={handleDoubleClick}
     >
       {isImage ? (
