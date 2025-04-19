@@ -4,20 +4,50 @@ import { getFileIcon, formatFileSize } from "@/utils/file-utils";
 import { cn } from "@/lib/utils";
 import { Maximize2 } from "lucide-react";
 
-// Function to highlight text matches in a string
+// Function to highlight text with fuzzy matches
 function highlightMatchedText(text: string, searchTerm: string) {
-  if (!searchTerm) return text;
+  if (!searchTerm || searchTerm.length < 2) return text;
   
-  const parts = text.split(new RegExp(`(${searchTerm})`, 'gi'));
-  return parts.map((part, index) => 
-    part.toLowerCase() === searchTerm.toLowerCase() ? (
-      <span key={index} className="bg-yellow-400 text-black px-0.5 rounded">
-        {part}
-      </span>
-    ) : (
-      <Fragment key={index}>{part}</Fragment>
-    )
-  );
+  try {
+    // Handle fuzzy matching highlighting
+    // We'll highlight any characters that appear in the search term
+    const searchChars = searchTerm.toLowerCase().split('');
+    let result = [];
+    let textLower = text.toLowerCase();
+    let lastIndex = 0;
+    let charIndex = 0;
+    
+    // Try to find each character of the search term in sequence
+    for (let i = 0; i < text.length; i++) {
+      if (charIndex < searchChars.length && text[i].toLowerCase() === searchChars[charIndex]) {
+        // Add unhighlighted part
+        if (i > lastIndex) {
+          result.push(<Fragment key={`text-${i}`}>{text.substring(lastIndex, i)}</Fragment>);
+        }
+        
+        // Add highlighted character
+        result.push(
+          <span key={`match-${i}`} className="bg-yellow-400 text-black px-0.5 font-semibold">
+            {text[i]}
+          </span>
+        );
+        
+        lastIndex = i + 1;
+        charIndex++;
+      }
+    }
+    
+    // Add any remaining unhighlighted text
+    if (lastIndex < text.length) {
+      result.push(<Fragment key={`text-end`}>{text.substring(lastIndex)}</Fragment>);
+    }
+    
+    // If we didn't find all characters or didn't highlight anything, fall back to the original text
+    return result.length > 0 ? result : text;
+  } catch (error) {
+    console.error('Error in highlightMatchedText:', error);
+    return text;
+  }
 }
 
 interface FileItemProps {

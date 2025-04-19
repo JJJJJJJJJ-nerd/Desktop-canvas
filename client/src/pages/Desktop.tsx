@@ -163,18 +163,25 @@ export default function Desktop() {
       />
       
       {searchQuery && (
-        <div className="relative bg-black/30 backdrop-blur-sm py-2 px-4">
+        <div className="relative bg-gradient-to-r from-blue-900/80 via-primary/60 to-blue-900/80 backdrop-blur-sm py-2 px-4 border-b border-primary/30 shadow-md">
           <div className="container mx-auto flex items-center justify-between">
-            <p className="text-white text-sm">
-              {filteredFiles.length === 0 
-                ? "No files found" 
-                : `Found ${filteredFiles.length} file${filteredFiles.length !== 1 ? 's' : ''} matching "${searchQuery}"`}
-            </p>
+            <div className="flex items-center">
+              <Search className="h-4 w-4 text-white mr-2" />
+              <p className="text-white text-sm font-medium">
+                {filteredFiles.length === 0 
+                  ? "No files found" 
+                  : `Found ${filteredFiles.length} file${filteredFiles.length !== 1 ? 's' : ''} matching `}
+                {filteredFiles.length > 0 && (
+                  <span className="bg-primary/30 rounded px-1 py-0.5 mx-1 font-semibold">"{searchQuery}"</span>
+                )}
+              </p>
+            </div>
             <button 
               onClick={() => setSearchQuery("")}
-              className="text-white text-sm hover:underline flex items-center"
+              className="text-white text-sm hover:bg-white/10 px-2 py-1 rounded flex items-center transition-colors"
             >
-              Clear search
+              <X className="h-3.5 w-3.5 mr-1" />
+              Clear
             </button>
           </div>
         </div>
@@ -203,13 +210,21 @@ export default function Desktop() {
           <EmptyState onUploadClick={handleUploadClick} />
         ) : filteredFiles.length === 0 && searchQuery ? (
           <div className="flex flex-col items-center justify-center h-full text-white">
-            <p className="text-lg">No files match your search: "{searchQuery}"</p>
-            <button 
-              onClick={() => setSearchQuery("")}
-              className="mt-4 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-md"
-            >
-              Clear Search
-            </button>
+            <div className="p-6 bg-black/20 backdrop-blur-md rounded-lg max-w-md text-center border border-primary/30 shadow-lg">
+              <FileSearch className="w-16 h-16 mx-auto text-primary/70 mb-4" />
+              <h3 className="text-xl font-semibold mb-2">No Matches Found</h3>
+              <p className="mb-4 text-gray-300">
+                No files match your fuzzy search for <span className="bg-primary/20 px-2 py-0.5 rounded font-mono">"{searchQuery}"</span>
+              </p>
+              <p className="text-sm text-gray-400 mb-4">Try using shorter search terms or checking for typos</p>
+              <button 
+                onClick={() => setSearchQuery("")}
+                className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-md transition-colors duration-200 inline-flex items-center"
+              >
+                <X className="w-4 h-4 mr-2" />
+                Clear Search
+              </button>
+            </div>
           </div>
         ) : (
           filteredFiles.map((file: DesktopFile, index: number) => {
