@@ -9,11 +9,14 @@ import { queryClient } from "@/lib/queryClient";
 
 interface User {
   id: number;
-  username: string;
+  email: string;
   createdAt: string;
 }
 
-type LoginData = Pick<User, "username"> & { password: string };
+type LoginData = {
+  email: string;
+  password: string;
+};
 type RegisterData = LoginData;
 
 interface AuthContextType {
