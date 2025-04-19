@@ -103,18 +103,28 @@ export function FileItem({
 
   // Fixed mouse event handler - implements direct drag on first click
   const handleMouseDown = (e: React.MouseEvent) => {
+    console.log('🖱️ MouseDown - Button:', e.button, 'File:', file.name, 'isSelected:', isSelected, 'isResizing:', isResizing);
+    
     // Only respond to left mouse button
-    if (e.button !== 0) return;
+    if (e.button !== 0) {
+      console.log('⚠️ Ignoring non-left click');
+      return;
+    }
     
     // Don't interfere with resize operation
-    if (isResizing) return;
+    if (isResizing) {
+      console.log('⚠️ Ignoring because resizing is active');
+      return;
+    }
     
     // Prevent default browser behavior and stop event propagation
     e.stopPropagation();
     e.preventDefault();
+    console.log('🚫 Prevented default and stopped propagation');
     
     // Always select on mousedown if not already selected
     if (!isSelected) {
+      console.log('📌 Selecting file on mousedown');
       onSelect(index);
     }
     
@@ -123,21 +133,27 @@ export function FileItem({
       x: e.clientX - localPosition.x,
       y: e.clientY - localPosition.y
     };
+    console.log('📍 Start position:', startPosRef.current, 'Client:', {x: e.clientX, y: e.clientY}, 'Local:', localPosition);
     
     // Store current position for reference
     currentPosition.current = localPosition;
     
     // Set dragging state immediately - this is key to making it work
+    console.log('🔄 Setting dragging to true');
     setDragging(true);
     
     // Add document-level event listeners for move and release
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
+    console.log('👂 Added mousemove and mouseup listeners to document');
   };
 
   // Handle mouse movement during drag
   const handleMouseMove = (e: MouseEvent) => {
-    if (!dragging) return;
+    if (!dragging) {
+      console.log('👆 MouseMove ignored: not dragging');
+      return;
+    }
     
     // Calculate new position - ensure it stays within visible area
     const newX = Math.max(0, e.clientX - startPosRef.current.x);
@@ -148,21 +164,30 @@ export function FileItem({
     
     // Then update state (causing re-render)
     setLocalPosition(currentPosition.current);
+    console.log('📱 Moving to:', { x: newX, y: newY }, 'Client:', { x: e.clientX, y: e.clientY });
   };
 
   // Handle mouse up - end dragging
   const handleMouseUp = (e: MouseEvent) => {
-    if (!dragging) return;
+    console.log('👆 MouseUp - dragging state:', dragging);
+    
+    if (!dragging) {
+      console.log('⚠️ MouseUp ignored: not dragging');
+      return;
+    }
     
     // Save the final position
+    console.log('💾 Saving final position:', currentPosition.current);
     onDragEnd(index, currentPosition.current.x, currentPosition.current.y);
     
     // End dragging state
+    console.log('⏹️ Setting dragging to false');
     setDragging(false);
     
     // Remove event listeners - using document to match where we added them
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
+    console.log('🔕 Removed event listeners');
   };
 
   const handleDoubleClick = () => {
