@@ -1,11 +1,12 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { DesktopToolbar } from "@/components/DesktopToolbar";
 import { FileItem } from "@/components/FileItem";
 import { FilePreviewModal } from "@/components/FilePreviewModal";
 import { EmptyState } from "@/components/EmptyState";
 import { useDesktopFiles } from "@/hooks/use-desktop-files";
 import { DesktopFile } from "@/types";
-import { Loader2 as Spinner } from "lucide-react";
+import { Loader2 as Spinner, Search, X } from "lucide-react";
+import Fuse from 'fuse.js';
 
 export default function Desktop() {
   const {
@@ -108,20 +109,29 @@ export default function Desktop() {
     setIsPreviewOpen(false);
   };
 
-  // Filter files based on search query
+  // Setup Fuse.js for fuzzy search
+  const fuse = useMemo(() => {
+    return new Fuse(files, {
+      keys: ['name', 'type'],
+      threshold: 0.4, // Lower threshold = more strict matching
+      ignoreLocation: true,
+      includeScore: true, // Include score to see how close the match is
+    });
+  }, [files]);
+
+  // Filter files based on search query with fuzzy matching
   useEffect(() => {
     if (!searchQuery) {
       // If no search query, show all files
       setFilteredFiles(files);
     } else {
-      // Filter files based on name and type
-      const filtered = files.filter(file => 
-        file.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        file.type.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+      // Use fuzzy search to find matches
+      const results = fuse.search(searchQuery);
+      // Extract the items from results and sort them by score
+      const filtered = results.map(result => result.item);
       setFilteredFiles(filtered);
     }
-  }, [searchQuery, files]);
+  }, [searchQuery, files, fuse]);
   
   // Handle search
   const handleSearch = (query: string) => {
@@ -208,11 +218,8 @@ export default function Desktop() {
               (f.id && file.id) ? f.id === file.id : f === file
             );
             
-            // Determine if file matches search criteria
-            const isMatch = searchQuery ? 
-              file.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-              file.type.toLowerCase().includes(searchQuery.toLowerCase()) 
-              : false;
+            // All files in filteredFiles match the search criteria when using fuzzy search
+            const isMatch = searchQuery ? true : false;
             
             return (
               <FileItem
