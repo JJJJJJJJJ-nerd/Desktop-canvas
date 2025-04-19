@@ -1,7 +1,7 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { DesktopFile } from "@/types";
 import { formatFileSize } from "@/utils/file-utils";
-import { X } from "lucide-react";
+import { X, FileSpreadsheet, ArrowLeft, ArrowRight } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import * as XLSX from 'xlsx';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface FilePreviewModalProps {
   file: DesktopFile | null;
@@ -32,6 +34,15 @@ export function FilePreviewModal({
   }, [isOpen, file]);
 
   if (!file) return null;
+
+  // Check if file is an Excel/spreadsheet file
+  const isExcel = 
+    file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" || 
+    file.type === "application/vnd.ms-excel" ||
+    file.type === "text/csv" ||
+    file.name.endsWith('.xlsx') ||
+    file.name.endsWith('.xls') ||
+    file.name.endsWith('.csv');
 
   return (
     <Dialog open={isOpen} onOpenChange={() => onClose()}>
@@ -85,6 +96,8 @@ export function FilePreviewModal({
             </div>
           ) : file.type.startsWith("text/") ? (
             <PreviewTextContent dataUrl={file.dataUrl} />
+          ) : isExcel ? (
+            <ExcelPreview dataUrl={file.dataUrl} />
           ) : (
             <div className="flex flex-col items-center justify-center h-[40vh] text-center p-8">
               <svg
@@ -142,6 +155,7 @@ export function FilePreviewModal({
   );
 }
 
+// Component to display text content
 function PreviewTextContent({ dataUrl }: { dataUrl: string }) {
   const [text, setText] = useState<string>("");
   const [error, setError] = useState<boolean>(false);
@@ -171,4 +185,143 @@ function PreviewTextContent({ dataUrl }: { dataUrl: string }) {
   );
 }
 
-import { useState } from "react";
+// Component to display Excel spreadsheet content
+function ExcelPreview({ dataUrl }: { dataUrl: string }) {
+  const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
+  const [activeSheet, setActiveSheet] = useState<string>("");
+  const [sheetData, setSheetData] = useState<any[][]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadExcel = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Fetch the Excel file
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        const arrayBuffer = await blob.arrayBuffer();
+        
+        // Parse Excel data
+        const wb = XLSX.read(arrayBuffer, { type: 'array' });
+        setWorkbook(wb);
+        
+        // Set the first sheet as active by default
+        if (wb.SheetNames.length > 0) {
+          const firstSheet = wb.SheetNames[0];
+          setActiveSheet(firstSheet);
+          
+          // Convert worksheet to array of arrays
+          const ws = wb.Sheets[firstSheet];
+          const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+          setSheetData(data as any[][]);
+        }
+        
+        setLoading(false);
+      } catch (err) {
+        console.error("Error loading Excel file:", err);
+        setError("Failed to load spreadsheet. The file might be corrupted or in an unsupported format.");
+        setLoading(false);
+      }
+    };
+
+    loadExcel();
+  }, [dataUrl]);
+
+  const handleSheetChange = (sheetName: string) => {
+    if (workbook) {
+      setActiveSheet(sheetName);
+      const ws = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      setSheetData(data as any[][]);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[40vh]">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+        <span className="ml-3 text-gray-600">Loading spreadsheet...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center text-red-500 p-4 flex flex-col items-center">
+        <FileSpreadsheet className="w-12 h-12 mb-3 text-red-400" />
+        <h3 className="text-lg font-semibold mb-2">Error Loading Spreadsheet</h3>
+        <p>{error}</p>
+      </div>
+    );
+  }
+
+  if (!workbook || workbook.SheetNames.length === 0) {
+    return (
+      <div className="text-center text-gray-500 p-4">
+        No data found in this spreadsheet.
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-[60vh] flex flex-col">
+      {/* Sheet tabs */}
+      {workbook.SheetNames.length > 1 && (
+        <Tabs value={activeSheet} onValueChange={handleSheetChange} className="w-full">
+          <div className="overflow-x-auto border-b">
+            <TabsList className="h-9 px-0 bg-transparent mb-px">
+              {workbook.SheetNames.map(sheetName => (
+                <TabsTrigger 
+                  key={sheetName}
+                  value={sheetName}
+                  className={`data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-3 py-1.5 text-sm`}
+                >
+                  {sheetName}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+        </Tabs>
+      )}
+
+      {/* Sheet content */}
+      <div className="flex-1 overflow-auto">
+        {sheetData.length > 0 ? (
+          <div className="inline-block min-w-full">
+            <table className="min-w-full border-collapse">
+              <tbody>
+                {sheetData.map((row, rowIndex) => (
+                  <tr key={`row-${rowIndex}`} className={rowIndex === 0 ? "bg-gray-100 font-medium" : "border-b"}>
+                    {/* Row header (line number) */}
+                    <td className="px-3 py-2 text-xs text-gray-500 border-r bg-gray-50 sticky left-0">
+                      {rowIndex + 1}
+                    </td>
+                    
+                    {/* Columns */}
+                    {Array.isArray(row) ? row.map((cell, cellIndex) => (
+                      <td 
+                        key={`cell-${rowIndex}-${cellIndex}`}
+                        className={`px-3 py-2 text-sm border-r ${
+                          rowIndex === 0 ? "font-medium bg-gray-100" : ""
+                        }`}
+                      >
+                        {cell !== undefined && cell !== null ? cell.toString() : ""}
+                      </td>
+                    )) : null}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-full text-gray-500">
+            This sheet appears to be empty.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
