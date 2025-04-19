@@ -11,15 +11,15 @@ import { Loader2 } from "lucide-react";
 export default function AuthPage() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const [user, setUser] = useState<null | { id: number; username: string }>(null);
+  const [user, setUser] = useState<null | { id: number; email: string }>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   // State for login form
-  const [loginUsername, setLoginUsername] = useState("");
+  const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   
   // State for registration form
-  const [registerUsername, setRegisterUsername] = useState("");
+  const [registerEmail, setRegisterEmail] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -53,10 +53,20 @@ export default function AuthPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!loginUsername || !loginPassword) {
+    if (!loginEmail || !loginPassword) {
       toast({
         title: "Error",
         description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Basic email validation
+    if (!loginEmail.includes('@')) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid email address",
         variant: "destructive",
       });
       return;
@@ -71,7 +81,7 @@ export default function AuthPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          username: loginUsername,
+          email: loginEmail,
           password: loginPassword,
         }),
       });
@@ -92,7 +102,7 @@ export default function AuthPage() {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Invalid username or password",
+        description: "Invalid email or password",
         variant: "destructive",
       });
     } finally {
@@ -103,10 +113,20 @@ export default function AuthPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!registerUsername || !registerPassword || !confirmPassword) {
+    if (!registerEmail || !registerPassword || !confirmPassword) {
       toast({
         title: "Error",
         description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Basic email validation
+    if (!registerEmail.includes('@')) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid email address",
         variant: "destructive",
       });
       return;
@@ -130,7 +150,7 @@ export default function AuthPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          username: registerUsername,
+          email: registerEmail,
           password: registerPassword,
         }),
       });
@@ -152,7 +172,7 @@ export default function AuthPage() {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to create account. Username may already be taken.",
+        description: error.message || "Failed to create account. Email may already be in use.",
         variant: "destructive",
       });
     } finally {
@@ -182,12 +202,13 @@ export default function AuthPage() {
                 <form onSubmit={handleLogin}>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="username">Username</Label>
+                      <Label htmlFor="email">Email Address</Label>
                       <Input
-                        id="username"
-                        placeholder="Enter your username"
-                        value={loginUsername}
-                        onChange={(e) => setLoginUsername(e.target.value)}
+                        id="email"
+                        type="email"
+                        placeholder="Enter your email address"
+                        value={loginEmail}
+                        onChange={(e) => setLoginEmail(e.target.value)}
                         required
                       />
                     </div>
@@ -230,12 +251,13 @@ export default function AuthPage() {
                 <form onSubmit={handleRegister}>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="new-username">Username</Label>
+                      <Label htmlFor="new-email">Email Address</Label>
                       <Input
-                        id="new-username"
-                        placeholder="Choose a username"
-                        value={registerUsername}
-                        onChange={(e) => setRegisterUsername(e.target.value)}
+                        id="new-email"
+                        type="email"
+                        placeholder="Enter your email address"
+                        value={registerEmail}
+                        onChange={(e) => setRegisterEmail(e.target.value)}
                         required
                       />
                     </div>
