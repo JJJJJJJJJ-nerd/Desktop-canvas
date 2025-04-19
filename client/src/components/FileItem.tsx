@@ -103,14 +103,24 @@ export function FileItem({
 
   // Define mouse event handlers - allow immediate drag on first click
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0) return; // Only left click
-    if (isResizing) return; // Don't drag if resizing
+    console.log('🖱️ MouseDown - Button:', e.button, 'File:', file.name, 'isSelected:', isSelected, 'isResizing:', isResizing);
+    
+    if (e.button !== 0) {
+      console.log('⚠️ Ignoring non-left click');
+      return; // Only left click
+    }
+    
+    if (isResizing) {
+      console.log('⚠️ Ignoring because resizing is active');
+      return; // Don't drag if resizing
+    }
     
     e.stopPropagation();
     e.preventDefault();
     
     // Always select file on mousedown - ensures file is selected before drag starts
     if (!isSelected) {
+      console.log('📌 Selecting file on mousedown');
       onSelect(index);
     }
     
@@ -119,21 +129,27 @@ export function FileItem({
       x: e.clientX - localPosition.x,
       y: e.clientY - localPosition.y
     };
+    console.log('📍 Start position:', startPosRef.current, 'Client:', {x: e.clientX, y: e.clientY}, 'Local:', localPosition);
     
     // Initialize current position
     currentPosition.current = localPosition;
     
     // Start dragging immediately
+    console.log('🔄 Setting dragging to true');
     setDragging(true);
     
     // Add global event listeners
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
+    console.log('👂 Added mousemove and mouseup listeners');
   };
 
   // Handle mouse movement during drag
   const handleMouseMove = (e: MouseEvent) => {
-    if (!dragging) return;
+    if (!dragging) {
+      console.log('👆 MouseMove ignored: not dragging');
+      return;
+    }
     
     // Calculate new position
     const newX = Math.max(0, e.clientX - startPosRef.current.x);
@@ -144,21 +160,30 @@ export function FileItem({
     
     // Then update state (causing re-render)
     setLocalPosition(currentPosition.current);
+    console.log('📱 Moving to:', { x: newX, y: newY }, 'Client:', { x: e.clientX, y: e.clientY });
   };
 
   // Handle mouse up - end dragging
   const handleMouseUp = (e: MouseEvent) => {
-    if (!dragging) return;
+    console.log('👆 MouseUp - dragging state:', dragging);
+    
+    if (!dragging) {
+      console.log('⚠️ MouseUp ignored: not dragging');
+      return;
+    }
     
     // Save the final position
+    console.log('💾 Saving final position:', currentPosition.current);
     onDragEnd(index, currentPosition.current.x, currentPosition.current.y);
     
     // End dragging state
+    console.log('⏹️ Setting dragging to false');
     setDragging(false);
     
     // Remove event listeners
     window.removeEventListener('mousemove', handleMouseMove);
     window.removeEventListener('mouseup', handleMouseUp);
+    console.log('🔕 Removed event listeners');
   };
 
   const handleDoubleClick = () => {
