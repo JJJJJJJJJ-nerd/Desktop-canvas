@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,8 @@ import { Loader2 } from "lucide-react";
 export default function AuthPage() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const [user, setUser] = useState<null | { id: number; username: string }>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   // State for login form
   const [loginUsername, setLoginUsername] = useState("");
@@ -21,6 +23,32 @@ export default function AuthPage() {
   const [registerPassword, setRegisterPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Check if user is already logged in
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const response = await fetch('/api/user');
+        if (response.ok) {
+          const userData = await response.json();
+          setUser(userData);
+        }
+      } catch (error) {
+        console.error('Error checking auth:', error);
+      } finally {
+        setCheckingAuth(false);
+      }
+    }
+    
+    checkAuth();
+  }, []);
+
+  // If already logged in, redirect to home
+  useEffect(() => {
+    if (user && !checkingAuth) {
+      setLocation("/");
+    }
+  }, [user, checkingAuth, setLocation]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,6 +81,7 @@ export default function AuthPage() {
       }
       
       const data = await response.json();
+      setUser(data);
       
       toast({
         title: "Success",
@@ -107,10 +136,12 @@ export default function AuthPage() {
       });
       
       if (!response.ok) {
-        throw new Error('Registration failed');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Registration failed');
       }
       
       const data = await response.json();
+      setUser(data);
       
       toast({
         title: "Success",
@@ -118,10 +149,10 @@ export default function AuthPage() {
       });
       
       setLocation("/");
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to create account. Username may already be taken.",
+        description: error.message || "Failed to create account. Username may already be taken.",
         variant: "destructive",
       });
     } finally {

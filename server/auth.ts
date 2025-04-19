@@ -31,21 +31,21 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
-  // Setup PostgreSQL session store
   const PostgresSessionStore = connectPg(session);
-
+  
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || 'dev-secret-key',
+    secret: process.env.SESSION_SECRET || 'desktop-file-manager-secret',
     resave: false,
     saveUninitialized: false,
+    store: new PostgresSessionStore({ 
+      pool, 
+      tableName: 'session',
+      createTableIfMissing: true 
+    }),
     cookie: {
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       secure: process.env.NODE_ENV === 'production',
-    },
-    store: new PostgresSessionStore({
-      pool,
-      createTableIfMissing: true
-    })
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 1 week
+    }
   };
 
   app.set("trust proxy", 1);
@@ -80,25 +80,20 @@ export function setupAuth(app: Express) {
 
   app.post("/api/register", async (req, res, next) => {
     try {
-      const { username, password } = req.body;
-      
-      if (!username || !password) {
-        return res.status(400).json({ message: "Username and password are required" });
-      }
-      
-      const existingUser = await storage.getUserByUsername(username);
+      const existingUser = await storage.getUserByUsername(req.body.username);
       if (existingUser) {
         return res.status(400).json({ message: "Username already exists" });
       }
 
+      const hashedPassword = await hashPassword(req.body.password);
       const user = await storage.createUser({
-        username,
-        password: await hashPassword(password),
+        ...req.body,
+        password: hashedPassword,
       });
 
       req.login(user, (err) => {
         if (err) return next(err);
-        // Send user without password
+        // Don't send the password back to the client
         const { password, ...userWithoutPassword } = user;
         res.status(201).json(userWithoutPassword);
       });
@@ -108,15 +103,15 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err: Error | null, user: Express.User | false, info: { message: string } | undefined) => {
+    passport.authenticate("local", (err, user, info) => {
       if (err) return next(err);
-      if (!user) return res.status(401).json({ message: "Invalid username or password" });
+      if (!user) return res.status(401).json({ message: "Invalid credentials" });
       
-      req.login(user, (loginErr) => {
-        if (loginErr) return next(loginErr);
-        // Send user without password
+      req.login(user, (err) => {
+        if (err) return next(err);
+        // Don't send the password back to the client
         const { password, ...userWithoutPassword } = user;
-        return res.json(userWithoutPassword);
+        res.status(200).json(userWithoutPassword);
       });
     })(req, res, next);
   });
@@ -124,7 +119,7 @@ export function setupAuth(app: Express) {
   app.post("/api/logout", (req, res, next) => {
     req.logout((err) => {
       if (err) return next(err);
-      res.status(200).json({ message: "Logged out successfully" });
+      res.sendStatus(200);
     });
   });
 
@@ -132,7 +127,7 @@ export function setupAuth(app: Express) {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Not authenticated" });
     }
-    // Send user without password
+    // Don't send the password back to the client
     const { password, ...userWithoutPassword } = req.user as SelectUser;
     res.json(userWithoutPassword);
   });
