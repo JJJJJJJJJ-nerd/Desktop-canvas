@@ -1,4 +1,5 @@
 export interface DesktopFile {
+  id?: number;
   name: string;
   type: string;
   size: number;
@@ -7,6 +8,9 @@ export interface DesktopFile {
     x: number;
     y: number;
   };
+  createdAt?: string;
+  updatedAt?: string;
+  userId?: number;
 }
 
 export interface FileIconInfo {
