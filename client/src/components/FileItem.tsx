@@ -25,6 +25,7 @@ export function FileItem({
   const offsetRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
 
   const fileIcon = getFileIcon(file.type);
+  const isImage = file.type.startsWith('image/');
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return; // Only left click
@@ -80,7 +81,8 @@ export function FileItem({
     <div
       ref={fileRef}
       className={cn(
-        "file-item absolute bg-white/80 backdrop-blur-sm rounded-lg p-3 shadow-md w-24",
+        "file-item absolute backdrop-blur-sm rounded-lg shadow-md",
+        isImage ? "w-48" : "w-24 bg-white/80 p-3",
         "transition-all duration-150 ease-in-out cursor-move",
         isSelected && "ring-2 ring-primary shadow-lg z-10"
       )}
@@ -92,17 +94,39 @@ export function FileItem({
       onClick={() => onSelect(index)}
       onDoubleClick={handleDoubleClick}
     >
-      <div className={`file-icon ${fileIcon.class} mb-2 w-12 h-12 mx-auto flex items-center justify-center rounded-md`}>
-        {fileIcon.icon}
-      </div>
-      <div className="text-center">
-        <p className="text-xs font-medium truncate" title={file.name}>
-          {file.name}
-        </p>
-        <p className="text-[10px] text-gray-500">
-          {formatFileSize(file.size)}
-        </p>
-      </div>
+      {isImage ? (
+        <div className="flex flex-col">
+          <div className="w-full h-32 overflow-hidden rounded-t-lg">
+            <img 
+              src={file.dataUrl} 
+              alt={file.name} 
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <div className="bg-black/70 text-white p-2 rounded-b-lg">
+            <p className="text-xs font-medium truncate" title={file.name}>
+              {file.name}
+            </p>
+            <p className="text-[10px] text-gray-300">
+              {formatFileSize(file.size)}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className={`file-icon ${fileIcon.class} mb-2 w-12 h-12 mx-auto flex items-center justify-center rounded-md`}>
+            {fileIcon.icon}
+          </div>
+          <div className="text-center">
+            <p className="text-xs font-medium truncate" title={file.name}>
+              {file.name}
+            </p>
+            <p className="text-[10px] text-gray-500">
+              {formatFileSize(file.size)}
+            </p>
+          </div>
+        </>
+      )}
     </div>
   );
 }
