@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    overflow: hidden;
+    height: 100vh;
+  }
+}
+
+@layer components {
+  .file-icon {
+    @apply w-12 h-12 flex items-center justify-center rounded-md;
+  }
+  
+  .file-icon.image {
+    @apply bg-amber-100/80;
+  }
+  
+  .file-icon.document {
+    @apply bg-blue-100/80;
+  }
+  
+  .file-icon.pdf {
+    @apply bg-red-100/80;
+  }
+  
+  .file-icon.video {
+    @apply bg-purple-100/80;
+  }
+  
+  .file-icon.audio {
+    @apply bg-green-100/80;
+  }
+  
+  .file-icon.archive {
+    @apply bg-orange-100/80;
+  }
+  
+  .file-icon.other {
+    @apply bg-slate-100/80;
+  }
+  
+  .canvas-area {
+    background-image: url('https://images.unsplash.com/photo-1579546929518-9e396f3cc809?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80');
+    background-size: cover;
+    background-position: center;
+  }
+}
