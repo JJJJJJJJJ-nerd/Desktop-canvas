@@ -14,9 +14,10 @@ export const desktopFiles = pgTable("desktop_files", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   type: text("type").notNull(),
-  size: integer("size").notNull(),
+  size: integer("size").notNull(), // File byte size
   dataUrl: text("data_url").notNull(),
   position: jsonb("position").notNull().$type<{ x: number; y: number }>(),
+  dimensions: jsonb("dimensions").$type<{ width: number; height: number }>(), // UI dimensions
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }),
@@ -46,6 +47,7 @@ export const insertDesktopFileSchema = createInsertSchema(desktopFiles).pick({
   size: true,
   dataUrl: true,
   position: true,
+  dimensions: true,
   userId: true,
 });
 
@@ -65,5 +67,9 @@ export type DesktopFile = {
   position: {
     x: number;
     y: number;
+  };
+  dimensions?: {
+    width: number;
+    height: number;
   };
 };
