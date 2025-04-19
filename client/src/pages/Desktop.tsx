@@ -4,14 +4,15 @@ import { FileItem } from "@/components/FileItem";
 import { FilePreviewModal } from "@/components/FilePreviewModal";
 import { EmptyState } from "@/components/EmptyState";
 import { useDesktopFiles } from "@/hooks/use-desktop-files";
-import { getRandomPosition } from "@/utils/file-utils";
 import { DesktopFile } from "@/types";
-import { apiRequest } from "@/lib/queryClient";
+import { Loader2 as Spinner } from "lucide-react";
 
 export default function Desktop() {
   const {
     files,
     selectedFile,
+    isLoading,
+    error,
     addFiles,
     updateFilePosition,
     clearAllFiles,
@@ -32,55 +33,16 @@ export default function Desktop() {
   };
 
   // Handle file selection from file input
-  const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     
-    const canvasWidth = canvasRef.current?.clientWidth || window.innerWidth;
-    const canvasHeight = canvasRef.current?.clientHeight || window.innerHeight;
-    
-    const filesArray = Array.from(e.target.files);
-    const newFiles: DesktopFile[] = [];
-    
-    for (const file of filesArray) {
-      // Read file as data URL
-      const dataUrl = await readFileAsDataURL(file);
-      
-      newFiles.push({
-        name: file.name,
-        type: file.type || 'application/octet-stream',
-        size: file.size,
-        dataUrl,
-        position: getRandomPosition(canvasWidth, canvasHeight)
-      });
-    }
-    
-    addFiles(newFiles);
+    // Pass the FileList to addFiles, which will handle uploading to server
+    addFiles(e.target.files);
     
     // Reset the file input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  };
-
-  // Read file as data URL
-  const readFileAsDataURL = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      
-      reader.onload = (event) => {
-        if (event.target && typeof event.target.result === 'string') {
-          resolve(event.target.result);
-        } else {
-          reject(new Error('Failed to read file'));
-        }
-      };
-      
-      reader.onerror = () => {
-        reject(new Error('Failed to read file'));
-      };
-      
-      reader.readAsDataURL(file);
-    });
   };
 
   // Handle drag and drop
@@ -94,36 +56,14 @@ export default function Desktop() {
     setIsDraggingOver(false);
   };
   
-  const handleDrop = async (e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDraggingOver(false);
     
     if (!e.dataTransfer.files || e.dataTransfer.files.length === 0) return;
     
-    const canvasWidth = canvasRef.current?.clientWidth || window.innerWidth;
-    const canvasHeight = canvasRef.current?.clientHeight || window.innerHeight;
-    
-    const filesArray = Array.from(e.dataTransfer.files);
-    const newFiles: DesktopFile[] = [];
-    
-    for (const file of filesArray) {
-      // Read file as data URL
-      const dataUrl = await readFileAsDataURL(file);
-      
-      // Generate a position near the drop point, but ensure it's within the canvas
-      const x = Math.min(Math.max(e.clientX - 50, 0), canvasWidth - 100);
-      const y = Math.min(Math.max(e.clientY - 50, 0), canvasHeight - 100);
-      
-      newFiles.push({
-        name: file.name,
-        type: file.type || 'application/octet-stream',
-        size: file.size,
-        dataUrl,
-        position: { x, y }
-      });
-    }
-    
-    addFiles(newFiles);
+    // Pass files to addFiles function
+    addFiles(e.dataTransfer.files);
   };
 
   // Handle canvas click (deselects files)
@@ -140,7 +80,10 @@ export default function Desktop() {
   
   // Handle file position update
   const handleFilePositionUpdate = (index: number, x: number, y: number) => {
-    updateFilePosition(index, x, y);
+    const file = files[index];
+    if (file && file.id) {
+      updateFilePosition(file.id, x, y);
+    }
   };
   
   // Handle file preview
@@ -152,16 +95,6 @@ export default function Desktop() {
   // Close preview modal
   const closePreview = () => {
     setIsPreviewOpen(false);
-  };
-
-  // Save files to server (optional)
-  const saveFilesToServer = async () => {
-    try {
-      await apiRequest('POST', '/api/desktop/save', { files });
-      console.log('Desktop state saved to server');
-    } catch (error) {
-      console.error('Failed to save desktop state to server:', error);
-    }
   };
 
   // Prevent default browser behavior for drag and drop
@@ -197,12 +130,21 @@ export default function Desktop() {
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        {files.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <Spinner className="animate-spin text-white w-8 h-8" />
+            <span className="ml-2 text-white text-lg">Loading files...</span>
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center h-full text-white">
+            <p className="text-lg">Error loading files. Please try again.</p>
+          </div>
+        ) : files.length === 0 ? (
           <EmptyState onUploadClick={handleUploadClick} />
         ) : (
-          files.map((file, index) => (
+          files.map((file: DesktopFile, index: number) => (
             <FileItem
-              key={`${file.name}-${index}`}
+              key={file.id ? `file-${file.id}` : `file-${index}`}
               file={file}
               index={index}
               isSelected={selectedFile === index}
