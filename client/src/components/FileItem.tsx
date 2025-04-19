@@ -191,6 +191,7 @@ export function FileItem({
   };
 
   const handleDoubleClick = () => {
+    // Open file in preview or Excel window
     onPreview(file);
   };
   

@@ -100,15 +100,43 @@ export default function Desktop() {
     }
   };
   
+  // Check if file is an Excel file
+  const isExcelFile = (file: DesktopFile) => {
+    return (
+      file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" || 
+      file.type === "application/vnd.ms-excel" ||
+      file.type === "text/csv" ||
+      file.name.endsWith('.xlsx') ||
+      file.name.endsWith('.xls') ||
+      file.name.endsWith('.csv')
+    );
+  };
+
   // Handle file preview
   const handlePreviewFile = (file: DesktopFile) => {
-    setPreviewFile(file);
-    setIsPreviewOpen(true);
+    // If this is an Excel file, open it in a window instead of preview modal
+    if (isExcelFile(file) && file.id) {
+      if (!openExcelFiles.includes(file.id)) {
+        setOpenExcelFiles([...openExcelFiles, file.id]);
+      }
+      if (file.id && selectedFile !== files.findIndex(f => f.id === file.id)) {
+        const fileIndex = files.findIndex(f => f.id === file.id);
+        selectFile(fileIndex);
+      }
+    } else {
+      setPreviewFile(file);
+      setIsPreviewOpen(true);
+    }
   };
   
   // Close preview modal
   const closePreview = () => {
     setIsPreviewOpen(false);
+  };
+  
+  // Close Excel file window
+  const closeExcelFile = (fileId: number) => {
+    setOpenExcelFiles(openExcelFiles.filter(id => id !== fileId));
   };
 
   // Setup Fuse.js for fuzzy search
@@ -229,30 +257,59 @@ export default function Desktop() {
             </div>
           </div>
         ) : (
-          filteredFiles.map((file: DesktopFile, index: number) => {
-            // Get the real index from the original files array
-            const realIndex = files.findIndex(f => 
-              (f.id && file.id) ? f.id === file.id : f === file
-            );
+          <>
+            {/* Regular file icons */}
+            {filteredFiles.map((file: DesktopFile, index: number) => {
+              // Get the real index from the original files array
+              const realIndex = files.findIndex(f => 
+                (f.id && file.id) ? f.id === file.id : f === file
+              );
+              
+              // All files in filteredFiles match the search criteria when using fuzzy search
+              const isMatch = searchQuery ? true : false;
+              
+              // Skip rendering files that are currently open as Excel windows
+              if (file.id && openExcelFiles.includes(file.id)) {
+                return null;
+              }
+              
+              return (
+                <FileItem
+                  key={file.id ? `file-${file.id}` : `file-${index}`}
+                  file={file}
+                  index={realIndex !== -1 ? realIndex : index}
+                  isSelected={selectedFile === realIndex}
+                  isSearchMatch={isMatch}
+                  searchTerm={searchQuery}
+                  onSelect={handleSelectFile}
+                  onDragEnd={handleFilePositionUpdate}
+                  onResize={handleFileResize}
+                  onPreview={handlePreviewFile}
+                />
+              );
+            })}
             
-            // All files in filteredFiles match the search criteria when using fuzzy search
-            const isMatch = searchQuery ? true : false;
-            
-            return (
-              <FileItem
-                key={file.id ? `file-${file.id}` : `file-${index}`}
-                file={file}
-                index={realIndex !== -1 ? realIndex : index}
-                isSelected={selectedFile === realIndex}
-                isSearchMatch={isMatch}
-                searchTerm={searchQuery}
-                onSelect={handleSelectFile}
-                onDragEnd={handleFilePositionUpdate}
-                onResize={handleFileResize}
-                onPreview={handlePreviewFile}
-              />
-            );
-          })
+            {/* Open Excel files as windows */}
+            {openExcelFiles.map(fileId => {
+              const fileIndex = files.findIndex(f => f.id === fileId);
+              if (fileIndex === -1) return null;
+              
+              const file = files[fileIndex];
+              
+              return (
+                <ExcelFileItem
+                  key={`excel-${fileId}`}
+                  file={file}
+                  index={fileIndex}
+                  isSelected={selectedFile === fileIndex}
+                  onSelect={handleSelectFile}
+                  onDragEnd={handleFilePositionUpdate}
+                  onResize={handleFileResize}
+                  onClose={() => closeExcelFile(fileId)}
+                />
+              );
+            })}
+          </>
         )}
       </div>
       
