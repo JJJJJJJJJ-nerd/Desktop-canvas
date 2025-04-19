@@ -149,13 +149,32 @@ export default function Desktop() {
         fileCount={files.length}
         onUploadClick={handleUploadClick}
         onClearClick={clearAllFiles}
+        onSearch={handleSearch}
       />
       
+      {searchQuery && (
+        <div className="relative bg-black/30 backdrop-blur-sm py-2 px-4">
+          <div className="container mx-auto flex items-center justify-between">
+            <p className="text-white text-sm">
+              {filteredFiles.length === 0 
+                ? "No files found" 
+                : `Found ${filteredFiles.length} file${filteredFiles.length !== 1 ? 's' : ''} matching "${searchQuery}"`}
+            </p>
+            <button 
+              onClick={() => setSearchQuery("")}
+              className="text-white text-sm hover:underline flex items-center"
+            >
+              Clear search
+            </button>
+          </div>
+        </div>
+      )}
+
       <div
         ref={canvasRef}
         className={`canvas-area relative flex-1 ${
           isDraggingOver ? "bg-blue-100/20" : ""
-        }`}
+        }${searchQuery ? " bg-blue-900/50" : ""}`}
         onClick={handleCanvasClick}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -172,8 +191,18 @@ export default function Desktop() {
           </div>
         ) : files.length === 0 ? (
           <EmptyState onUploadClick={handleUploadClick} />
+        ) : filteredFiles.length === 0 && searchQuery ? (
+          <div className="flex flex-col items-center justify-center h-full text-white">
+            <p className="text-lg">No files match your search: "{searchQuery}"</p>
+            <button 
+              onClick={() => setSearchQuery("")}
+              className="mt-4 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-md"
+            >
+              Clear Search
+            </button>
+          </div>
         ) : (
-          files.map((file: DesktopFile, index: number) => (
+          filteredFiles.map((file: DesktopFile, index: number) => (
             <FileItem
               key={file.id ? `file-${file.id}` : `file-${index}`}
               file={file}

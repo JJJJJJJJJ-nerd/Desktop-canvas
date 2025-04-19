@@ -1,13 +1,31 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, Fragment } from "react";
 import { DesktopFile } from "@/types";
 import { getFileIcon, formatFileSize } from "@/utils/file-utils";
 import { cn } from "@/lib/utils";
 import { Maximize2 } from "lucide-react";
 
+// Function to highlight text matches in a string
+function highlightMatchedText(text: string, searchTerm: string) {
+  if (!searchTerm) return text;
+  
+  const parts = text.split(new RegExp(`(${searchTerm})`, 'gi'));
+  return parts.map((part, index) => 
+    part.toLowerCase() === searchTerm.toLowerCase() ? (
+      <span key={index} className="bg-yellow-400 text-black px-0.5 rounded">
+        {part}
+      </span>
+    ) : (
+      <Fragment key={index}>{part}</Fragment>
+    )
+  );
+}
+
 interface FileItemProps {
   file: DesktopFile;
   index: number;
   isSelected: boolean;
+  isSearchMatch?: boolean;
+  searchTerm?: string;
   onSelect: (index: number) => void;
   onDragEnd: (index: number, x: number, y: number) => void;
   onResize?: (index: number, width: number, height: number) => void;
@@ -17,7 +35,9 @@ interface FileItemProps {
 export function FileItem({ 
   file, 
   index, 
-  isSelected, 
+  isSelected,
+  isSearchMatch = false,
+  searchTerm = "",
   onSelect, 
   onDragEnd,
   onResize,
@@ -165,7 +185,9 @@ export function FileItem({
         "file-item absolute backdrop-blur-sm rounded-lg shadow-md relative",
         isImage ? "w-48" : "w-24 bg-white/80 p-3",
         "transition-all duration-150 ease-in-out cursor-move",
-        isSelected && "ring-2 ring-primary shadow-lg z-10"
+        isSelected && "ring-2 ring-primary shadow-lg z-10",
+        isSearchMatch && "animate-pulse shadow-xl shadow-primary/20",
+        isSearchMatch && !isSelected && "ring-2 ring-yellow-400 z-10"
       )}
       style={{
         left: `${file.position.x}px`,
@@ -204,7 +226,13 @@ export function FileItem({
           </div>
           <div className="text-center">
             <p className="text-xs font-medium truncate" title={file.name}>
-              {file.name}
+              {isSearchMatch && searchTerm ? (
+                <span className="relative">
+                  {highlightMatchedText(file.name, searchTerm)}
+                </span>
+              ) : (
+                file.name
+              )}
             </p>
             <p className="text-[10px] text-gray-500">
               {formatFileSize(file.size)}
