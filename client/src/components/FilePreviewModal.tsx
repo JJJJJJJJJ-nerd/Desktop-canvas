@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from "react";
 import { DesktopFile } from "@/types";
 import { formatFileSize } from "@/utils/file-utils";
-import { X, FileSpreadsheet, Save, Edit, Check, Maximize2, Minimize2 } from "lucide-react";
+import { X, FileSpreadsheet, Save, Edit, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,6 @@ import {
 import { Button } from "@/components/ui/button";
 import * as XLSX from 'xlsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 
 interface FilePreviewModalProps {
   file: DesktopFile | null;
@@ -26,11 +25,6 @@ export function FilePreviewModal({
   onClose,
 }: FilePreviewModalProps) {
   const downloadRef = useRef<HTMLAnchorElement>(null);
-  const [isFullScreen, setIsFullScreen] = useState(false);
-  const [layout, setLayout] = useState({
-    width: window.innerWidth * 0.8 > 1024 ? 1024 : window.innerWidth * 0.8,
-    height: window.innerHeight * 0.8
-  });
 
   useEffect(() => {
     if (isOpen && file && downloadRef.current) {
@@ -38,10 +32,6 @@ export function FilePreviewModal({
       downloadRef.current.download = file.name;
     }
   }, [isOpen, file]);
-
-  const toggleFullScreen = () => {
-    setIsFullScreen(!isFullScreen);
-  };
 
   if (!file) return null;
 
@@ -56,136 +46,110 @@ export function FilePreviewModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={() => onClose()}>
-      <DialogContent className={`${isFullScreen ? 'max-w-full w-full h-full max-h-full' : 'max-w-4xl w-full max-h-[90vh]'} flex flex-col overflow-hidden`}>
-        <DialogHeader className="px-4 py-3 border-b shrink-0">
+      <DialogContent className="max-w-4xl w-full max-h-[90vh] flex flex-col">
+        <DialogHeader className="px-4 py-3 border-b">
           <div className="flex justify-between items-center">
             <DialogTitle className="font-semibold text-lg">{file.name}</DialogTitle>
-            <div className="flex gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 rounded-full"
-                onClick={toggleFullScreen}
-                title={isFullScreen ? "Exit full screen" : "Full screen"}
-              >
-                {isFullScreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 rounded-full"
-                onClick={onClose}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-full"
+              onClick={onClose}
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
         </DialogHeader>
         
-        <ResizablePanelGroup
-          direction="vertical"
-          className="flex-1 overflow-hidden"
-        >
-          <ResizablePanel defaultSize={85} minSize={30}>
-            <div className="flex-1 overflow-auto p-4 h-full">
-              {file.type.startsWith("image/") ? (
-                <div className="flex items-center justify-center h-full">
-                  <img
-                    src={file.dataUrl}
-                    alt={file.name}
-                    className="max-w-full max-h-full object-contain"
-                  />
-                </div>
-              ) : file.type === "application/pdf" ? (
-                <div className="flex items-center justify-center h-full">
-                  <iframe
-                    src={file.dataUrl}
-                    width="100%"
-                    height="100%"
-                    className="border-0"
-                    title={file.name}
-                  />
-                </div>
-              ) : file.type.startsWith("video/") ? (
-                <div className="flex items-center justify-center h-full">
-                  <video controls className="max-w-full max-h-full">
-                    <source src={file.dataUrl} type={file.type} />
-                    Your browser does not support video playback.
-                  </video>
-                </div>
-              ) : file.type.startsWith("audio/") ? (
-                <div className="flex items-center justify-center h-full">
-                  <audio controls className="w-full max-w-md">
-                    <source src={file.dataUrl} type={file.type} />
-                    Your browser does not support audio playback.
-                  </audio>
-                </div>
-              ) : file.type.startsWith("text/") ? (
-                <div className="h-full overflow-auto">
-                  <PreviewTextContent dataUrl={file.dataUrl} />
-                </div>
-              ) : isExcel ? (
-                <div className="h-full overflow-auto">
-                  <ExcelPreview dataUrl={file.dataUrl} />
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-16 w-16 text-gray-400 mb-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
-                  <h3 className="text-lg font-semibold mb-2">
-                    Preview not available
-                  </h3>
-                  <p className="text-gray-500 mb-6">
-                    This file type cannot be previewed. Please download the file to
-                    view its contents.
-                  </p>
-                </div>
-              )}
+        <div className="flex-1 overflow-auto p-4 min-h-[40vh]">
+          {file.type.startsWith("image/") ? (
+            <div className="flex items-center justify-center h-full">
+              <img
+                src={file.dataUrl}
+                alt={file.name}
+                className="max-w-full max-h-[60vh] object-contain"
+              />
             </div>
-          </ResizablePanel>
-          
-          <ResizableHandle withHandle />
-          
-          <ResizablePanel defaultSize={15} minSize={10}>
-            <DialogFooter className="px-4 py-3 border-t h-full flex items-center">
-              <div className="flex justify-between items-center w-full">
-                <div className="text-sm text-gray-500">
-                  {file.type} · {formatFileSize(file.size)}
-                </div>
-                <a
-                  ref={downloadRef}
-                  className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded text-neutral bg-white hover:bg-gray-50"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4 mr-1.5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  Download
-                </a>
-              </div>
-            </DialogFooter>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+          ) : file.type === "application/pdf" ? (
+            <div className="flex items-center justify-center h-[60vh]">
+              <iframe
+                src={file.dataUrl}
+                width="100%"
+                height="100%"
+                className="border-0"
+                title={file.name}
+              />
+            </div>
+          ) : file.type.startsWith("video/") ? (
+            <div className="flex items-center justify-center h-full">
+              <video controls className="max-w-full max-h-[60vh]">
+                <source src={file.dataUrl} type={file.type} />
+                Your browser does not support video playback.
+              </video>
+            </div>
+          ) : file.type.startsWith("audio/") ? (
+            <div className="flex items-center justify-center h-full">
+              <audio controls className="w-full max-w-md">
+                <source src={file.dataUrl} type={file.type} />
+                Your browser does not support audio playback.
+              </audio>
+            </div>
+          ) : file.type.startsWith("text/") ? (
+            <PreviewTextContent dataUrl={file.dataUrl} />
+          ) : isExcel ? (
+            <ExcelPreview dataUrl={file.dataUrl} />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-[40vh] text-center p-8">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-16 w-16 text-gray-400 mb-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+              <h3 className="text-lg font-semibold mb-2">
+                Preview not available
+              </h3>
+              <p className="text-gray-500 mb-6">
+                This file type cannot be previewed. Please download the file to
+                view its contents.
+              </p>
+            </div>
+          )}
+        </div>
+        
+        <DialogFooter className="px-4 py-3 border-t">
+          <div className="flex justify-between items-center w-full">
+            <div className="text-sm text-gray-500">
+              {file.type} · {formatFileSize(file.size)}
+            </div>
+            <a
+              ref={downloadRef}
+              className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded text-neutral bg-white hover:bg-gray-50"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4 mr-1.5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Download
+            </a>
+          </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -213,8 +177,8 @@ function PreviewTextContent({ dataUrl }: { dataUrl: string }) {
   }
 
   return (
-    <div className="h-full overflow-auto">
-      <pre className="text-sm whitespace-pre-wrap p-4 bg-gray-50 rounded border border-gray-200 h-full">
+    <div className="h-[60vh] overflow-auto">
+      <pre className="text-sm whitespace-pre-wrap p-4 bg-gray-50 rounded border border-gray-200">
         {text}
       </pre>
     </div>
@@ -385,7 +349,7 @@ function ExcelPreview({ dataUrl }: { dataUrl: string }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-[40vh]">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
         <span className="ml-3 text-gray-600">Loading spreadsheet...</span>
       </div>
@@ -394,7 +358,7 @@ function ExcelPreview({ dataUrl }: { dataUrl: string }) {
 
   if (error) {
     return (
-      <div className="text-center text-red-500 p-4 flex flex-col items-center justify-center h-full">
+      <div className="text-center text-red-500 p-4 flex flex-col items-center">
         <FileSpreadsheet className="w-12 h-12 mb-3 text-red-400" />
         <h3 className="text-lg font-semibold mb-2">Error Loading Spreadsheet</h3>
         <p>{error}</p>
@@ -404,16 +368,16 @@ function ExcelPreview({ dataUrl }: { dataUrl: string }) {
 
   if (!workbook || workbook.SheetNames.length === 0) {
     return (
-      <div className="text-center text-gray-500 p-4 flex items-center justify-center h-full">
+      <div className="text-center text-gray-500 p-4">
         No data found in this spreadsheet.
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-[60vh] flex flex-col">
       {/* Controls bar */}
-      <div className="flex justify-between items-center py-2 px-4 border-b bg-gray-50 shrink-0">
+      <div className="flex justify-between items-center py-2 px-4 border-b bg-gray-50">
         <div className="flex gap-2">
           <Button 
             variant={editMode ? "default" : "outline"} 
@@ -443,7 +407,7 @@ function ExcelPreview({ dataUrl }: { dataUrl: string }) {
       
       {/* Sheet tabs */}
       {workbook.SheetNames.length > 1 && (
-        <Tabs value={activeSheet} onValueChange={handleSheetChange} className="w-full shrink-0">
+        <Tabs value={activeSheet} onValueChange={handleSheetChange} className="w-full">
           <div className="overflow-x-auto border-b">
             <TabsList className="h-9 px-0 bg-transparent mb-px">
               {workbook.SheetNames.map(sheetName => (
@@ -461,7 +425,7 @@ function ExcelPreview({ dataUrl }: { dataUrl: string }) {
       )}
 
       {/* Sheet content */}
-      <div className="flex-1 overflow-auto min-h-0">
+      <div className="flex-1 overflow-auto">
         {sheetData.length > 0 ? (
           <div className="inline-block min-w-full">
             <table className="min-w-full border-collapse">
