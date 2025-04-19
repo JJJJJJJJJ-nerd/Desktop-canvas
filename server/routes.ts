@@ -5,6 +5,7 @@ import express from "express";
 import multer from "multer";
 import { z } from "zod";
 import { insertDesktopFileSchema, type DesktopFile } from "@shared/schema";
+import { setupAuth } from "./auth";
 
 // Configure multer for memory storage
 const upload = multer({ 
@@ -15,12 +16,21 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Get all files
+  // Setup authentication
+  setupAuth(app);
+  // Get all files (protected route - requires authentication)
   app.get('/api/files', async (req, res) => {
     try {
-      const userId = req.query.userId ? parseInt(req.query.userId as string) : undefined;
-      const files = await storage.getFiles(userId);
-      return res.status(200).json({ files });
+      // If user is authenticated, get their files
+      if (req.isAuthenticated()) {
+        const userId = req.user?.id;
+        const files = await storage.getFiles(userId);
+        return res.status(200).json({ files });
+      } else {
+        // For non-authenticated users, return public files or empty array
+        const files = await storage.getFiles();
+        return res.status(200).json({ files });
+      }
     } catch (error) {
       console.error('Error getting files:', error);
       return res.status(500).json({ message: 'Error getting files' });
@@ -68,7 +78,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           size: file.size,
           dataUrl,
           position,
-          // userId is optional in our schema
+          userId: req.user?.id, // Associate with logged-in user if available
         };
 
         // Validate with zod schema
