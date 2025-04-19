@@ -1,7 +1,8 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { DesktopFile } from "@/types";
 import { getFileIcon, formatFileSize } from "@/utils/file-utils";
 import { cn } from "@/lib/utils";
+import { Maximize2 } from "lucide-react";
 
 interface FileItemProps {
   file: DesktopFile;
@@ -9,6 +10,7 @@ interface FileItemProps {
   isSelected: boolean;
   onSelect: (index: number) => void;
   onDragEnd: (index: number, x: number, y: number) => void;
+  onResize?: (index: number, width: number, height: number) => void;
   onPreview: (file: DesktopFile) => void;
 }
 
@@ -18,14 +20,25 @@ export function FileItem({
   isSelected, 
   onSelect, 
   onDragEnd,
+  onResize,
   onPreview
 }: FileItemProps) {
   const fileRef = useRef<HTMLDivElement>(null);
   const dragStartPos = useRef<{ x: number, y: number } | null>(null);
   const offsetRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
+  const resizeStartPos = useRef<{ x: number, y: number, width: number, height: number } | null>(null);
+  const [isResizing, setIsResizing] = useState(false);
 
   const fileIcon = getFileIcon(file.type);
   const isImage = file.type.startsWith('image/');
+  
+  // Set initial dimensions from file or defaults
+  const [dimensions, setDimensions] = useState<{ width: number; height: number }>(() => {
+    if (file.dimensions) {
+      return file.dimensions;
+    }
+    return isImage ? { width: 192, height: 160 } : { width: 96, height: 96 };
+  });
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return; // Only left click

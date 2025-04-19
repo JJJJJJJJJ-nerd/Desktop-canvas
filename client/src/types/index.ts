@@ -8,6 +8,10 @@ export interface DesktopFile {
     x: number;
     y: number;
   };
+  dimensions?: {
+    width: number;
+    height: number;
+  };
   createdAt?: string;
   updatedAt?: string;
   userId?: number;

@@ -50,6 +50,23 @@ export function useDesktopFiles() {
       queryClient.invalidateQueries({ queryKey: ['/api/files'] });
     },
   });
+  
+  // Update file dimensions mutation
+  const updateDimensionsMutation = useMutation({
+    mutationFn: async ({ id, dimensions }: { id: number; dimensions: { width: number; height: number } }) => {
+      const response = await fetch(`/api/files/${id}/dimensions`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ dimensions }),
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+    },
+  });
 
   // Delete file mutation
   const deleteFileMutation = useMutation({
@@ -103,6 +120,18 @@ export function useDesktopFiles() {
       console.error('Error updating file position:', error);
     }
   };
+  
+  // Update file dimensions
+  const updateFileDimensions = async (id: number, width: number, height: number) => {
+    try {
+      await updateDimensionsMutation.mutateAsync({
+        id,
+        dimensions: { width, height }
+      });
+    } catch (error) {
+      console.error('Error updating file dimensions:', error);
+    }
+  };
 
   // Clear all files
   const clearAllFiles = async () => {
@@ -148,6 +177,7 @@ export function useDesktopFiles() {
     error,
     addFiles,
     updateFilePosition,
+    updateFileDimensions,
     clearAllFiles,
     selectFile
   };
