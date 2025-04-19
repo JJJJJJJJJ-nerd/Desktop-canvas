@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { DesktopToolbar } from "@/components/DesktopToolbar";
 import { FileItem } from "@/components/FileItem";
 import { FilePreviewModal } from "@/components/FilePreviewModal";
+import { ExcelFileItem } from "@/components/ExcelFileItem";
 import { EmptyState } from "@/components/EmptyState";
 import { useDesktopFiles } from "@/hooks/use-desktop-files";
 import { DesktopFile } from "@/types";
@@ -25,6 +26,7 @@ export default function Desktop() {
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredFiles, setFilteredFiles] = useState<DesktopFile[]>([]);
+  const [openExcelFiles, setOpenExcelFiles] = useState<number[]>([]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
