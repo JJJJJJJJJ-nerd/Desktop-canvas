@@ -64,8 +64,9 @@ export function FileItem({
       const x = e.clientX - offsetRef.current.x;
       const y = e.clientY - offsetRef.current.y;
       
-      fileRef.current.style.left = `${x}px`;
-      fileRef.current.style.top = `${y}px`;
+      // Use transform instead of left/top for smoother animation
+      fileRef.current.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+      fileRef.current.style.transition = 'none'; // Disable transition during drag
     }
   };
 

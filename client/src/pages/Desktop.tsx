@@ -22,6 +22,8 @@ export default function Desktop() {
   const [previewFile, setPreviewFile] = useState<DesktopFile | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filteredFiles, setFilteredFiles] = useState<DesktopFile[]>([]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -104,6 +106,26 @@ export default function Desktop() {
   // Close preview modal
   const closePreview = () => {
     setIsPreviewOpen(false);
+  };
+
+  // Filter files based on search query
+  useEffect(() => {
+    if (!searchQuery) {
+      // If no search query, show all files
+      setFilteredFiles(files);
+    } else {
+      // Filter files based on name and type
+      const filtered = files.filter(file => 
+        file.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        file.type.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredFiles(filtered);
+    }
+  }, [searchQuery, files]);
+  
+  // Handle search
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
   };
 
   // Prevent default browser behavior for drag and drop

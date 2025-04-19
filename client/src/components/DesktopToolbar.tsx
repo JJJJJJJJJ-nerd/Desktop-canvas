@@ -1,6 +1,7 @@
-import { UploadIcon, Trash2, LogOut, User } from "lucide-react";
+import { UploadIcon, Trash2, LogOut, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
 import { useLocation } from "wouter";
 import { useState } from "react";
 
@@ -8,11 +9,13 @@ interface DesktopToolbarProps {
   fileCount: number;
   onUploadClick: () => void;
   onClearClick: () => void;
+  onSearch?: (query: string) => void;
 }
 
-export function DesktopToolbar({ fileCount, onUploadClick, onClearClick }: DesktopToolbarProps) {
+export function DesktopToolbar({ fileCount, onUploadClick, onClearClick, onSearch }: DesktopToolbarProps) {
   const [, setLocation] = useLocation();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -33,6 +36,14 @@ export function DesktopToolbar({ fileCount, onUploadClick, onClearClick }: Deskt
       console.error('Error during logout:', error);
     } finally {
       setIsLoggingOut(false);
+    }
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    if (onSearch) {
+      onSearch(query);
     }
   };
 
@@ -57,6 +68,19 @@ export function DesktopToolbar({ fileCount, onUploadClick, onClearClick }: Deskt
           <Trash2 className="h-4 w-4 mr-1.5" />
           Clear All
         </Button>
+      </div>
+      
+      <div className="relative mx-auto max-w-sm w-72">
+        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+          <Search className="h-4 w-4 text-gray-400" />
+        </div>
+        <Input
+          type="text"
+          placeholder="Search files..."
+          value={searchQuery}
+          onChange={handleSearchChange}
+          className="pl-10 pr-4 py-2 bg-white/50 border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary"
+        />
       </div>
       
       <div className="flex items-center gap-4">
