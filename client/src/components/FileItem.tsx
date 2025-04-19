@@ -97,45 +97,66 @@ export function FileItem({
     setLocalPosition({ x: file.position.x, y: file.position.y });
   }, []);
 
+  // Track mouse position during dragging in non-reactive ref
+  // to avoid re-renders that might cause jumps
+  const currentPosition = useRef({ x: 0, y: 0 });
+
+  // Define mouse event handlers
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return; // Only left click
+    if (isResizing) return; // Don't drag if resizing
+    
     e.stopPropagation();
     e.preventDefault();
     
+    // Select file
     onSelect(index);
     
-    // Store initial mouse position and offset
+    // Calculate the offset of the mouse from the top-left corner of the element
     startPosRef.current = {
       x: e.clientX - localPosition.x,
       y: e.clientY - localPosition.y
     };
     
+    // Initialize current position
+    currentPosition.current = localPosition;
+    
+    // Start dragging
     setDragging(true);
     
-    // Add event listeners to document
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    // Add global event listeners
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
   };
 
+  // Handle mouse movement during drag
   const handleMouseMove = (e: MouseEvent) => {
     if (!dragging) return;
     
-    const newX = e.clientX - startPosRef.current.x;
-    const newY = e.clientY - startPosRef.current.y;
+    // Calculate new position
+    const newX = Math.max(0, e.clientX - startPosRef.current.x);
+    const newY = Math.max(0, e.clientY - startPosRef.current.y);
     
-    setLocalPosition({ x: newX, y: newY });
+    // Update current position ref first (without causing re-renders)
+    currentPosition.current = { x: newX, y: newY };
+    
+    // Then update state (causing re-render)
+    setLocalPosition(currentPosition.current);
   };
 
-  const handleMouseUp = () => {
-    if (dragging) {
-      // Save the position to server
-      onDragEnd(index, localPosition.x, localPosition.y);
-      setDragging(false);
-      
-      // Remove event listeners
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    }
+  // Handle mouse up - end dragging
+  const handleMouseUp = (e: MouseEvent) => {
+    if (!dragging) return;
+    
+    // Save the final position
+    onDragEnd(index, currentPosition.current.x, currentPosition.current.y);
+    
+    // End dragging state
+    setDragging(false);
+    
+    // Remove event listeners
+    window.removeEventListener('mousemove', handleMouseMove);
+    window.removeEventListener('mouseup', handleMouseUp);
   };
 
   const handleDoubleClick = () => {

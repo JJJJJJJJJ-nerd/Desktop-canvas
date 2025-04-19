@@ -5,7 +5,7 @@ import { FilePreviewModal } from "@/components/FilePreviewModal";
 import { EmptyState } from "@/components/EmptyState";
 import { useDesktopFiles } from "@/hooks/use-desktop-files";
 import { DesktopFile } from "@/types";
-import { Loader2 as Spinner, Search, X } from "lucide-react";
+import { Loader2 as Spinner, Search, X, FileText, FolderSearch } from "lucide-react";
 import Fuse from 'fuse.js';
 
 export default function Desktop() {
@@ -211,7 +211,7 @@ export default function Desktop() {
         ) : filteredFiles.length === 0 && searchQuery ? (
           <div className="flex flex-col items-center justify-center h-full text-white">
             <div className="p-6 bg-black/20 backdrop-blur-md rounded-lg max-w-md text-center border border-primary/30 shadow-lg">
-              <FileSearch className="w-16 h-16 mx-auto text-primary/70 mb-4" />
+              <FolderSearch className="w-16 h-16 mx-auto text-primary/70 mb-4" />
               <h3 className="text-xl font-semibold mb-2">No Matches Found</h3>
               <p className="mb-4 text-gray-300">
                 No files match your fuzzy search for <span className="bg-primary/20 px-2 py-0.5 rounded font-mono">"{searchQuery}"</span>
