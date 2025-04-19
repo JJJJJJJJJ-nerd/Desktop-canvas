@@ -21,6 +21,7 @@ export interface IStorage {
   getFile(id: number): Promise<DesktopFileDB | undefined>;
   createFile(file: InsertDesktopFile): Promise<DesktopFileDB>;
   updateFile(id: number, position: { x: number, y: number }): Promise<DesktopFileDB | undefined>;
+  updateFileDimensions(id: number, dimensions: { width: number, height: number }): Promise<DesktopFileDB | undefined>;
   deleteFile(id: number): Promise<void>;
 }
 
@@ -69,6 +70,15 @@ export class DatabaseStorage implements IStorage {
     const [updatedFile] = await db
       .update(desktopFiles)
       .set({ position })
+      .where(eq(desktopFiles.id, id))
+      .returning();
+    return updatedFile || undefined;
+  }
+  
+  async updateFileDimensions(id: number, dimensions: { width: number, height: number }): Promise<DesktopFileDB | undefined> {
+    const [updatedFile] = await db
+      .update(desktopFiles)
+      .set({ dimensions })
       .where(eq(desktopFiles.id, id))
       .returning();
     return updatedFile || undefined;
