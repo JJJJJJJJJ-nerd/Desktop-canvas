@@ -287,6 +287,58 @@ export function ExcelFileItem({
     // Save dimensions to parent
     onResize(index, rect.width, rect.height);
   };
+  
+  // Manual resize handlers
+  const resizeStartPos = useRef<{ x: number, y: number, width: number, height: number } | null>(null);
+  const [isResizing, setIsResizing] = useState(false);
+  
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
+    if (fileRef.current) {
+      const rect = fileRef.current.getBoundingClientRect();
+      resizeStartPos.current = {
+        x: e.clientX,
+        y: e.clientY,
+        width: rect.width,
+        height: rect.height
+      };
+      
+      setIsResizing(true);
+      document.addEventListener('mousemove', handleResizeMove);
+      document.addEventListener('mouseup', handleResizeEnd);
+    }
+  };
+  
+  const handleResizeMove = (e: MouseEvent) => {
+    if (resizeStartPos.current && fileRef.current) {
+      const deltaX = e.clientX - resizeStartPos.current.x;
+      const deltaY = e.clientY - resizeStartPos.current.y;
+      
+      const newWidth = Math.max(400, resizeStartPos.current.width + deltaX);
+      const newHeight = Math.max(300, resizeStartPos.current.height + deltaY);
+      
+      // Update local dimensions state
+      setLocalDimensions({ width: newWidth, height: newHeight });
+      
+      // Apply dimensions to element
+      fileRef.current.style.width = `${newWidth}px`;
+      fileRef.current.style.height = `${newHeight}px`;
+    }
+  };
+  
+  const handleResizeEnd = (e: MouseEvent) => {
+    if (resizeStartPos.current && fileRef.current) {
+      // Save the final dimensions
+      onResize(index, localDimensions.width, localDimensions.height);
+    }
+    
+    resizeStartPos.current = null;
+    setIsResizing(false);
+    document.removeEventListener('mousemove', handleResizeMove);
+    document.removeEventListener('mouseup', handleResizeEnd);
+  };
 
   return (
     <div
@@ -295,7 +347,8 @@ export function ExcelFileItem({
         "absolute rounded-lg shadow-md overflow-hidden",
         "bg-white backdrop-blur-sm",
         isSelected && "ring-2 ring-primary shadow-lg z-10",
-        dragging && "z-50 shadow-xl opacity-90"
+        dragging && "z-50 shadow-xl opacity-90",
+        isResizing && "z-50 shadow-xl ring-2 ring-blue-400"
       )}
       style={{
         left: `${localPosition.x}px`,
@@ -473,12 +526,18 @@ export function ExcelFileItem({
       
       {/* Resize handle */}
       <div 
-        className="absolute bottom-0 right-0 w-4 h-4 bg-gray-300/50 flex items-center justify-center cursor-se-resize z-20"
+        className={cn(
+          "absolute bottom-0 right-0 w-6 h-6 flex items-center justify-center cursor-se-resize z-20",
+          "bg-gray-200 hover:bg-gray-300 transition-colors",
+          "border-t border-l border-gray-300 rounded-tl-md",
+          isSelected && "bg-blue-100 hover:bg-blue-200 border-blue-300"
+        )}
         style={{ 
-          borderTopLeftRadius: '3px',
+          borderTopLeftRadius: '6px',
         }}
+        onMouseDown={handleResizeStart}
       >
-        <Maximize2 className="w-3 h-3 text-gray-600" />
+        <Maximize2 className="w-3.5 h-3.5 text-gray-600" />
       </div>
     </div>
   );
