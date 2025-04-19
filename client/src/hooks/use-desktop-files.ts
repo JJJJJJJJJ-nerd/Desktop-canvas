@@ -111,6 +111,21 @@ export function useDesktopFiles() {
 
   // Update file position
   const updateFilePosition = async (id: number, x: number, y: number) => {
+    // First, update the file position locally in the cache
+    const currentFiles = queryClient.getQueryData<ApiResponse>(['/api/files']);
+    if (currentFiles?.files) {
+      const updatedFiles = currentFiles.files.map(file => {
+        if (file.id === id) {
+          return { ...file, position: { x, y } };
+        }
+        return file;
+      });
+      
+      // Update the cache immediately for a responsive UI
+      queryClient.setQueryData(['/api/files'], { ...currentFiles, files: updatedFiles });
+    }
+    
+    // Then send the update to the server
     try {
       await updatePositionMutation.mutateAsync({ 
         id, 
@@ -118,6 +133,8 @@ export function useDesktopFiles() {
       });
     } catch (error) {
       console.error('Error updating file position:', error);
+      // On error, revert to the original data
+      queryClient.invalidateQueries({ queryKey: ['/api/files'] });
     }
   };
   

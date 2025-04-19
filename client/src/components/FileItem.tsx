@@ -61,12 +61,11 @@ export function FileItem({
     return isImage ? { width: 192, height: 160 } : { width: 96, height: 96 };
   });
 
-  // Update local position when prop changes (only if not dragging)
+  // Only update position from props on initial render
   useEffect(() => {
-    if (!dragging) {
-      setLocalPosition({ x: file.position.x, y: file.position.y });
-    }
-  }, [file.position.x, file.position.y, dragging]);
+    // Only run on first mount
+    setLocalPosition({ x: file.position.x, y: file.position.y });
+  }, []);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return; // Only left click
