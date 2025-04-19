@@ -212,7 +212,13 @@ export function FileItem({
           </div>
           <div className="bg-black/70 text-white p-2 rounded-b-lg">
             <p className="text-xs font-medium truncate" title={file.name}>
-              {file.name}
+              {isSearchMatch && searchTerm ? (
+                <span className="relative">
+                  {highlightMatchedText(file.name, searchTerm)}
+                </span>
+              ) : (
+                file.name
+              )}
             </p>
             <p className="text-[10px] text-gray-300">
               {formatFileSize(file.size)}

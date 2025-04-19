@@ -202,18 +202,33 @@ export default function Desktop() {
             </button>
           </div>
         ) : (
-          filteredFiles.map((file: DesktopFile, index: number) => (
-            <FileItem
-              key={file.id ? `file-${file.id}` : `file-${index}`}
-              file={file}
-              index={index}
-              isSelected={selectedFile === index}
-              onSelect={handleSelectFile}
-              onDragEnd={handleFilePositionUpdate}
-              onResize={handleFileResize}
-              onPreview={handlePreviewFile}
-            />
-          ))
+          filteredFiles.map((file: DesktopFile, index: number) => {
+            // Get the real index from the original files array
+            const realIndex = files.findIndex(f => 
+              (f.id && file.id) ? f.id === file.id : f === file
+            );
+            
+            // Determine if file matches search criteria
+            const isMatch = searchQuery ? 
+              file.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+              file.type.toLowerCase().includes(searchQuery.toLowerCase()) 
+              : false;
+            
+            return (
+              <FileItem
+                key={file.id ? `file-${file.id}` : `file-${index}`}
+                file={file}
+                index={realIndex !== -1 ? realIndex : index}
+                isSelected={selectedFile === realIndex}
+                isSearchMatch={isMatch}
+                searchTerm={searchQuery}
+                onSelect={handleSelectFile}
+                onDragEnd={handleFilePositionUpdate}
+                onResize={handleFileResize}
+                onPreview={handlePreviewFile}
+              />
+            );
+          })
         )}
       </div>
       

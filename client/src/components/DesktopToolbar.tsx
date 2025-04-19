@@ -79,8 +79,21 @@ export function DesktopToolbar({ fileCount, onUploadClick, onClearClick, onSearc
           placeholder="Search files..."
           value={searchQuery}
           onChange={handleSearchChange}
-          className="pl-10 pr-4 py-2 bg-white/50 border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          className="pl-10 pr-10 py-2 bg-white/50 border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary"
         />
+        {searchQuery && (
+          <button
+            className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+            onClick={() => {
+              setSearchQuery("");
+              if (onSearch) onSearch("");
+            }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
       </div>
       
       <div className="flex items-center gap-4">
