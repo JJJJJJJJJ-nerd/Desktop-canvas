@@ -128,6 +128,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update file dimensions
+  app.patch('/api/files/:id/dimensions', express.json(), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const dimensionsSchema = z.object({
+        width: z.number().min(100),
+        height: z.number().min(100)
+      });
+
+      // Validate input
+      const validationResult = dimensionsSchema.safeParse(req.body.dimensions);
+      if (!validationResult.success) {
+        return res.status(400).json({ message: 'Invalid dimensions data' });
+      }
+
+      const updatedFile = await storage.updateFileDimensions(id, req.body.dimensions);
+      
+      if (!updatedFile) {
+        return res.status(404).json({ message: 'File not found' });
+      }
+      
+      return res.status(200).json({ file: updatedFile });
+    } catch (error) {
+      console.error('Error updating file dimensions:', error);
+      return res.status(500).json({ message: 'Error updating file dimensions' });
+    }
+  });
+
   // Delete a file
   app.delete('/api/files/:id', async (req, res) => {
     try {

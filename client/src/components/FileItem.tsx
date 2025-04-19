@@ -89,12 +89,79 @@ export function FileItem({
   const handleDoubleClick = () => {
     onPreview(file);
   };
+  
+  // Resize handlers
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
+    if (fileRef.current) {
+      const rect = fileRef.current.getBoundingClientRect();
+      resizeStartPos.current = {
+        x: e.clientX,
+        y: e.clientY,
+        width: rect.width,
+        height: rect.height
+      };
+      
+      setIsResizing(true);
+      document.addEventListener('mousemove', handleResizeMove);
+      document.addEventListener('mouseup', handleResizeEnd);
+    }
+  };
+  
+  const handleResizeMove = (e: MouseEvent) => {
+    if (resizeStartPos.current && fileRef.current) {
+      const deltaX = e.clientX - resizeStartPos.current.x;
+      const deltaY = e.clientY - resizeStartPos.current.y;
+      
+      const newWidth = Math.max(100, resizeStartPos.current.width + deltaX);
+      const newHeight = Math.max(100, resizeStartPos.current.height + deltaY);
+      
+      // Update local dimensions state
+      setDimensions({ width: newWidth, height: newHeight });
+      
+      // Apply dimensions to element
+      if (isImage) {
+        fileRef.current.style.width = `${newWidth}px`;
+        const imgContainer = fileRef.current.querySelector('.image-container') as HTMLElement;
+        if (imgContainer) {
+          imgContainer.style.height = `${newHeight - 40}px`; // Subtract footer height
+        }
+      }
+    }
+  };
+  
+  const handleResizeEnd = (e: MouseEvent) => {
+    if (resizeStartPos.current && onResize && fileRef.current) {
+      // Save the final dimensions
+      onResize(index, dimensions.width, dimensions.height);
+    }
+    
+    resizeStartPos.current = null;
+    setIsResizing(false);
+    document.removeEventListener('mousemove', handleResizeMove);
+    document.removeEventListener('mouseup', handleResizeEnd);
+  };
+
+  // Use the file's dimensions if available
+  useEffect(() => {
+    if (fileRef.current && file.dimensions) {
+      if (isImage) {
+        fileRef.current.style.width = `${file.dimensions.width}px`;
+        const imgContainer = fileRef.current.querySelector('.image-container') as HTMLElement;
+        if (imgContainer) {
+          imgContainer.style.height = `${file.dimensions.height - 40}px`; // Subtract footer height
+        }
+      }
+    }
+  }, [file.dimensions, isImage]);
 
   return (
     <div
       ref={fileRef}
       className={cn(
-        "file-item absolute backdrop-blur-sm rounded-lg shadow-md",
+        "file-item absolute backdrop-blur-sm rounded-lg shadow-md relative",
         isImage ? "w-48" : "w-24 bg-white/80 p-3",
         "transition-all duration-150 ease-in-out cursor-move",
         isSelected && "ring-2 ring-primary shadow-lg z-10"
@@ -102,6 +169,7 @@ export function FileItem({
       style={{
         left: `${file.position.x}px`,
         top: `${file.position.y}px`,
+        width: isImage && file.dimensions ? `${file.dimensions.width}px` : 'auto'
       }}
       onMouseDown={handleMouseDown}
       onClick={() => onSelect(index)}
@@ -109,7 +177,10 @@ export function FileItem({
     >
       {isImage ? (
         <div className="flex flex-col">
-          <div className="w-full h-32 overflow-hidden rounded-t-lg">
+          <div className="image-container w-full h-32 overflow-hidden rounded-t-lg"
+              style={{
+                height: file.dimensions ? `${file.dimensions.height - 40}px` : '128px'
+              }}>
             <img 
               src={file.dataUrl} 
               alt={file.name} 
@@ -139,6 +210,16 @@ export function FileItem({
             </p>
           </div>
         </>
+      )}
+      
+      {/* Resize handle - only for images and only shown when selected */}
+      {isImage && isSelected && (
+        <div 
+          className="absolute bottom-0 right-0 w-5 h-5 bg-primary/90 flex items-center justify-center rounded-tl rounded-br-lg cursor-se-resize z-20"
+          onMouseDown={handleResizeStart}
+        >
+          <Maximize2 className="w-3 h-3 text-white" />
+        </div>
       )}
     </div>
   );

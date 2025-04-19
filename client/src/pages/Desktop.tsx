@@ -15,6 +15,7 @@ export default function Desktop() {
     error,
     addFiles,
     updateFilePosition,
+    updateFileDimensions,
     clearAllFiles,
     selectFile,
   } = useDesktopFiles();
@@ -86,6 +87,14 @@ export default function Desktop() {
     }
   };
   
+  // Handle file resize
+  const handleFileResize = (index: number, width: number, height: number) => {
+    const file = files[index];
+    if (file && file.id) {
+      updateFileDimensions(file.id, width, height);
+    }
+  };
+  
   // Handle file preview
   const handlePreviewFile = (file: DesktopFile) => {
     setPreviewFile(file);
@@ -150,6 +159,7 @@ export default function Desktop() {
               isSelected={selectedFile === index}
               onSelect={handleSelectFile}
               onDragEnd={handleFilePositionUpdate}
+              onResize={handleFileResize}
               onPreview={handlePreviewFile}
             />
           ))
