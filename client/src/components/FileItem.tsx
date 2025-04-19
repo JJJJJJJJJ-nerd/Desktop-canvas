@@ -44,7 +44,7 @@ export function FileItem({
   onPreview
 }: FileItemProps) {
   const fileRef = useRef<HTMLDivElement>(null);
-  const dragStartPos = useRef<{ x: number, y: number } | null>(null);
+  const dragStartPos = useRef<{ x: number, y: number, newX?: number, newY?: number } | null>(null);
   const offsetRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
   const resizeStartPos = useRef<{ x: number, y: number, width: number, height: number } | null>(null);
   const [isResizing, setIsResizing] = useState(false);
@@ -72,7 +72,12 @@ export function FileItem({
         x: e.clientX - rect.left,
         y: e.clientY - rect.top
       };
-      dragStartPos.current = { x: e.clientX, y: e.clientY };
+      dragStartPos.current = { 
+        x: e.clientX, 
+        y: e.clientY,
+        newX: file.position.x,
+        newY: file.position.y
+      };
       
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
@@ -84,6 +89,10 @@ export function FileItem({
       const x = e.clientX - offsetRef.current.x;
       const y = e.clientY - offsetRef.current.y;
       
+      // Store these calculated positions as we'll need them on mouse up
+      dragStartPos.current.newX = x;
+      dragStartPos.current.newY = y;
+      
       // Use transform instead of left/top for smoother animation
       fileRef.current.style.transform = `translate3d(${x}px, ${y}px, 0)`;
       fileRef.current.style.transition = 'none'; // Disable transition during drag
@@ -92,14 +101,16 @@ export function FileItem({
 
   const handleMouseUp = (e: MouseEvent) => {
     if (fileRef.current && dragStartPos.current) {
-      // Only trigger click if it wasn't a significant drag
-      const moveX = Math.abs(e.clientX - dragStartPos.current.x);
-      const moveY = Math.abs(e.clientY - dragStartPos.current.y);
+      // Reset transform to avoid the teleport effect
+      fileRef.current.style.transform = '';
+      fileRef.current.style.transition = '';
       
-      const x = parseInt(fileRef.current.style.left);
-      const y = parseInt(fileRef.current.style.top);
+      // Use the stored calculated positions from mouse move
+      const finalX = dragStartPos.current.newX !== undefined ? dragStartPos.current.newX : file.position.x;
+      const finalY = dragStartPos.current.newY !== undefined ? dragStartPos.current.newY : file.position.y;
       
-      onDragEnd(index, x, y);
+      // Update the actual position
+      onDragEnd(index, finalX, finalY);
     }
     
     dragStartPos.current = null;
