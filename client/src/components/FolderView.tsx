@@ -330,14 +330,14 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
         left: position.x,
         top: position.y,
         zIndex: isDragging ? 100 : 50,
+        cursor: isDragging ? 'grabbing' : 'move'
       }}
+      onMouseDown={handleHeaderMouseDown}
     >
-      {/* Window header - make this the primary drag handle */}
+      {/* Window header */}
       <div 
         ref={headerRef}
-        className="bg-primary/90 text-white py-2 px-3 flex items-center justify-between select-none cursor-grab"
-        onMouseDown={handleHeaderMouseDown}
-        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+        className="bg-primary/90 text-white py-2 px-3 flex items-center justify-between select-none"
       >
         <div className="flex items-center space-x-2">
           <FolderOpen className="w-5 h-5" />
@@ -384,13 +384,14 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
         </div>
       </div>
 
-      {/* Window content area - normal function */}
+      {/* Window content area - prevent mousedown events from affecting parent */}
       <div 
         ref={dropAreaRef}
         className={`p-4 h-[calc(100%-40px)] overflow-auto ${isDraggingOver ? 'bg-primary/10 ring-2 ring-primary/30 ring-inset' : ''}`}
         onDragOver={!isSelectMode ? handleDragOver : undefined}
         onDragLeave={!isSelectMode ? handleDragLeave : undefined}
         onDrop={!isSelectMode ? handleDrop : undefined}
+        onMouseDown={(e) => e.stopPropagation()}
       >
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
