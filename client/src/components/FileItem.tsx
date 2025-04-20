@@ -60,9 +60,6 @@ interface FileItemProps {
   onDragEnd: (index: number, x: number, y: number) => void;
   onResize?: (index: number, width: number, height: number) => void;
   onPreview: (file: DesktopFile) => void;
-  startFolderCreation?: (sourceFileId: number, targetFileId: number) => void;
-  cancelFolderCreation?: () => void;
-  filesForFolderCreation?: { source: number, target: number } | null;
 }
 
 export function FileItem({ 
@@ -74,10 +71,7 @@ export function FileItem({
   onSelect, 
   onDragEnd,
   onResize,
-  onPreview,
-  startFolderCreation,
-  cancelFolderCreation,
-  filesForFolderCreation
+  onPreview
 }: FileItemProps) {
   const fileRef = useRef<HTMLDivElement>(null);
   const startPosRef = useRef({ x: 0, y: 0 });
@@ -86,7 +80,7 @@ export function FileItem({
   const resizeStartPos = useRef<{ x: number, y: number, width: number, height: number } | null>(null);
   const [isResizing, setIsResizing] = useState(false);
 
-  const fileIcon = getFileIcon(file.type, file.name, file.isFolder);
+  const fileIcon = getFileIcon(file.type);
   const isImage = file.type.startsWith('image/');
   
   // Set initial dimensions from file or defaults
@@ -113,7 +107,6 @@ export function FileItem({
 
   // Improved direct drag implementation - allows immediate dragging
   const handleMouseDown = (e: React.MouseEvent) => {
-    console.log('Mouse down on file', file.id);
     // Only respond to left mouse button
     if (e.button !== 0) return;
     
@@ -142,18 +135,9 @@ export function FileItem({
     // Store current position for reference
     currentPosition.current = localPosition;
     
-    // First, clean up any existing handlers to prevent duplicates
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
-    document.removeEventListener('mousemove', handleMouseMoveWithFolderDetection);
-    document.removeEventListener('mouseup', handleMouseUpWithFolderDetection);
-    
-    // Add document-level event listeners immediately - we'll use regular handlers first
+    // Add document-level event listeners immediately
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-    
-    // The drag event handlers will be replaced with folder detection handlers
-    // once dragging actually starts (in useEffect based on dragging state)
   };
 
   // Handle mouse movement during drag with requestAnimationFrame for better performance
@@ -196,7 +180,6 @@ export function FileItem({
   const handleMouseUp = (e: MouseEvent) => {
     // Prevent default behavior
     e.preventDefault();
-    console.log('Regular mouseUp handler called');
     
     // Handle as a click if there was minimal movement
     if (isClick.current) {
@@ -216,13 +199,9 @@ export function FileItem({
     initialClick.current = null;
     isClick.current = true;
     
-    // Remove all possible event listeners to avoid any stuck event handlers
+    // Remove event listeners
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
-    
-    // Also remove our enhanced versions if they're being used
-    document.removeEventListener('mousemove', handleMouseMoveWithFolderDetection);
-    document.removeEventListener('mouseup', handleMouseUpWithFolderDetection);
   };
 
   const handleDoubleClick = () => {
@@ -297,170 +276,6 @@ export function FileItem({
     }
   }, [file.dimensions, isImage]);
 
-  // Target element detection for folder creation - find element under the pointer
-  const findElementUnderPointer = (x: number, y: number) => {
-    console.log('Finding element under pointer at', x, y);
-    // Get all file items in the DOM
-    const elements = document.querySelectorAll('.file-item');
-    console.log('Found', elements.length, 'file items');
-    
-    // Check each element
-    for (const element of Array.from(elements)) {
-      const rect = element.getBoundingClientRect();
-      
-      // Skip elements that are too far away (optimization)
-      if (
-        x < rect.left - 50 || 
-        x > rect.right + 50 || 
-        y < rect.top - 50 || 
-        y > rect.bottom + 50
-      ) {
-        continue;
-      }
-      
-      // Check if point is inside or very close to this element (allow some margin)
-      // This makes it easier to create folders
-      const margin = 20; // pixels
-      if (
-        x >= rect.left - margin && 
-        x <= rect.right + margin && 
-        y >= rect.top - margin && 
-        y <= rect.bottom + margin
-      ) {
-        // Get the file id from the element
-        const fileIdMatch = element.getAttribute('data-file-id');
-        console.log('Found potential match element with id:', fileIdMatch);
-        
-        // Only return a valid file ID if it's not our own file
-        if (fileIdMatch && file.id && fileIdMatch !== file.id.toString()) {
-          const targetId = parseInt(fileIdMatch, 10);
-          console.log('Returning target file ID:', targetId);
-          return targetId;
-        }
-      }
-    }
-    console.log('No matching element found');
-    return null;
-  };
-  
-  // Enhanced mousemove to detect target files
-  const handleMouseMoveWithFolderDetection = (e: MouseEvent) => {
-    // Call the original mouse move handler
-    handleMouseMove(e);
-    
-    // Only check for folder creation if we're actively dragging
-    if (dragging && file.id && startFolderCreation && cancelFolderCreation) {
-      // Try to find element under pointer
-      const targetFileId = findElementUnderPointer(e.clientX, e.clientY);
-      
-      if (targetFileId) {
-        // Check if we're already tracking folder creation for these files
-        if (
-          !filesForFolderCreation || 
-          filesForFolderCreation.source !== file.id || 
-          filesForFolderCreation.target !== targetFileId
-        ) {
-          // Start folder creation timer for these two files
-          startFolderCreation(file.id, targetFileId);
-        }
-      } else if (filesForFolderCreation) {
-        // If we're not over any file, cancel folder creation
-        cancelFolderCreation();
-      }
-    }
-  };
-  
-  // Enhanced mouseup to cancel folder creation
-  const handleMouseUpWithFolderDetection = (e: MouseEvent) => {
-    // Prevent default behavior
-    e.preventDefault();
-    console.log('Enhanced mouseUp handler called');
-    
-    // Handle as a click if there was minimal movement
-    if (isClick.current) {
-      // Select on click
-      onSelect(index);
-    } 
-    // Handle as a drag completion
-    else if (dragging) {
-      // Save the final position
-      onDragEnd(index, currentPosition.current.x, currentPosition.current.y);
-      
-      // End dragging state
-      setDragging(false);
-    }
-    
-    // Reset tracking variables
-    initialClick.current = null;
-    isClick.current = true;
-    
-    // Cancel any folder creation in progress
-    if (cancelFolderCreation) {
-      console.log('Canceling folder creation on mouse up');
-      cancelFolderCreation();
-    }
-    
-    // Remove all possible event listeners to avoid any stuck event handlers
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
-    document.removeEventListener('mousemove', handleMouseMoveWithFolderDetection);
-    document.removeEventListener('mouseup', handleMouseUpWithFolderDetection);
-  };
-  
-  // Fix for the folder creation detection - we need to ensure we're using the right event listeners
-  // This effect shouldn't just remove listeners, it should also add them when dragging starts
-  useEffect(() => {
-    if (dragging && startFolderCreation && cancelFolderCreation) {
-      console.log('Setting up folder detection event listeners');
-      // Remove any existing listeners to be safe
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      
-      // Add the enhanced listeners
-      document.addEventListener('mousemove', handleMouseMoveWithFolderDetection);
-      document.addEventListener('mouseup', handleMouseUpWithFolderDetection);
-      
-      return () => {
-        console.log('Cleaning up folder detection event listeners');
-        document.removeEventListener('mousemove', handleMouseMoveWithFolderDetection);
-        document.removeEventListener('mouseup', handleMouseUpWithFolderDetection);
-      };
-    }
-  }, [dragging, startFolderCreation, cancelFolderCreation]);
-  
-  // Check if this file is part of a folder creation process
-  const isPartOfFolderCreation = 
-    filesForFolderCreation && 
-    file.id && 
-    (filesForFolderCreation.source === file.id || filesForFolderCreation.target === file.id);
-    
-  // Add a timer animation effect when folder creation is in progress
-  const [timerProgress, setTimerProgress] = useState(0);
-  
-  // Update timer progress while folder creation is active
-  useEffect(() => {
-    if (isPartOfFolderCreation) {
-      setTimerProgress(0);
-      const animationFrames = 50; // Number of animation frames
-      const frameInterval = 1000 / animationFrames; // Frame interval in ms (for 1 second total)
-      
-      let frame = 0;
-      const progressInterval = setInterval(() => {
-        frame++;
-        setTimerProgress(frame / animationFrames);
-        
-        if (frame >= animationFrames) {
-          clearInterval(progressInterval);
-        }
-      }, frameInterval);
-      
-      return () => {
-        clearInterval(progressInterval);
-        setTimerProgress(0);
-      };
-    }
-  }, [isPartOfFolderCreation]);
-  
   return (
     <div
       ref={fileRef}
@@ -471,8 +286,7 @@ export function FileItem({
         isSelected && "ring-2 ring-primary shadow-lg z-10",
         dragging && "z-50 shadow-xl",
         isSearchMatch && "animate-pulse shadow-xl shadow-primary/20",
-        isSearchMatch && !isSelected && "ring-2 ring-yellow-400 z-10",
-        isPartOfFolderCreation && "ring-4 ring-green-500 z-20 animate-pulse shadow-lg shadow-green-500/50 scale-105"
+        isSearchMatch && !isSelected && "ring-2 ring-yellow-400 z-10"
       )}
       style={{
         left: `${localPosition.x}px`,
@@ -480,7 +294,6 @@ export function FileItem({
         width: isImage && file.dimensions ? `${file.dimensions.width}px` : 'auto',
         transition: dragging ? 'none' : 'transform 0.1s ease'
       }}
-      data-file-id={file.id}
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
     >
@@ -540,16 +353,6 @@ export function FileItem({
           onMouseDown={handleResizeStart}
         >
           <Maximize2 className="w-3 h-3 text-white" />
-        </div>
-      )}
-      
-      {/* Folder creation timer progress indicator */}
-      {isPartOfFolderCreation && (
-        <div className="absolute -bottom-1 left-0 right-0 h-1 bg-green-200 rounded-full overflow-hidden z-30">
-          <div 
-            className="h-full bg-green-500 transition-all duration-100 ease-linear"
-            style={{ width: `${timerProgress * 100}%` }}
-          />
         </div>
       )}
     </div>

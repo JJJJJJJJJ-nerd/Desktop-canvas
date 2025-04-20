@@ -17,18 +17,12 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   
   // Desktop file operations
-  getFiles(userId?: number, parentId?: number | null): Promise<DesktopFileDB[]>;
+  getFiles(userId?: number): Promise<DesktopFileDB[]>;
   getFile(id: number): Promise<DesktopFileDB | undefined>;
   createFile(file: InsertDesktopFile): Promise<DesktopFileDB>;
   updateFile(id: number, position: { x: number, y: number }): Promise<DesktopFileDB | undefined>;
   updateFileDimensions(id: number, dimensions: { width: number, height: number }): Promise<DesktopFileDB | undefined>;
   deleteFile(id: number): Promise<void>;
-  deleteAllFiles(): Promise<void>;
-  
-  // Folder operations
-  createFolder(name: string, position: { x: number, y: number }, userId?: number): Promise<DesktopFileDB>;
-  addFileToFolder(fileId: number, folderId: number): Promise<DesktopFileDB | undefined>;
-  getFilesInFolder(folderId: number): Promise<DesktopFileDB[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -52,36 +46,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Desktop file operations
-  async getFiles(userId?: number, parentId?: number | null): Promise<DesktopFileDB[]> {
-    if (userId && parentId !== undefined) {
-      if (parentId === null) {
-        // Get only root-level files for this user (files without a parent)
-        return db.select().from(desktopFiles)
-          .where(and(
-            eq(desktopFiles.userId, userId),
-            eq(desktopFiles.parentId, null)
-          ));
-      } else {
-        // Get files within a specific folder
-        return db.select().from(desktopFiles)
-          .where(and(
-            eq(desktopFiles.userId, userId),
-            eq(desktopFiles.parentId, parentId)
-          ));
-      }
-    } else if (userId) {
-      // Get all files for this user regardless of parent
+  async getFiles(userId?: number): Promise<DesktopFileDB[]> {
+    if (userId) {
       return db.select().from(desktopFiles).where(eq(desktopFiles.userId, userId));
-    } else if (parentId !== undefined) {
-      if (parentId === null) {
-        // Get only root-level files (files without a parent)
-        return db.select().from(desktopFiles).where(eq(desktopFiles.parentId, null));
-      } else {
-        // Get files within a specific folder
-        return db.select().from(desktopFiles).where(eq(desktopFiles.parentId, parentId));
-      }
     }
-    // Get all files
     return db.select().from(desktopFiles);
   }
 
@@ -117,80 +85,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteFile(id: number): Promise<void> {
-    // First, check if this is a folder
-    const file = await this.getFile(id);
-    if (file && file.isFolder) {
-      // If it's a folder, first delete all files inside it
-      const filesInFolder = await this.getFilesInFolder(id);
-      for (const childFile of filesInFolder) {
-        await this.deleteFile(childFile.id);
-      }
-    }
-    
-    // Then delete the file or empty folder
     await db.delete(desktopFiles).where(eq(desktopFiles.id, id));
-  }
-  
-  async deleteAllFiles(): Promise<void> {
-    // Delete all files from the database - this handles cascade deletion
-    await db.delete(desktopFiles);
-  }
-  
-  // Folder operations
-  async createFolder(name: string, position: { x: number, y: number }, userId?: number): Promise<DesktopFileDB> {
-    // Create a folder (special type of file)
-    const folderData: InsertDesktopFile = {
-      name,
-      type: 'application/folder', // Special mimetype for folders
-      size: 0,
-      dataUrl: 'data:application/folder;base64,', // Empty data URL
-      position,
-      isFolder: true,
-      userId
-    };
-    
-    const [newFolder] = await db
-      .insert(desktopFiles)
-      .values(folderData)
-      .returning();
-    
-    return newFolder;
-  }
-  
-  async addFileToFolder(fileId: number, folderId: number): Promise<DesktopFileDB | undefined> {
-    console.log(`Adding file ${fileId} to folder ${folderId}`);
-    
-    // First check if folder exists and is actually a folder
-    const folder = await this.getFile(folderId);
-    if (!folder || !folder.isFolder) {
-      console.error(`Folder ${folderId} not found or not a folder`);
-      return undefined;
-    }
-    
-    // Also check if the file exists
-    const file = await this.getFile(fileId);
-    if (!file) {
-      console.error(`File ${fileId} not found`);
-      return undefined;
-    }
-    
-    console.log(`File and folder both exist, setting parentId of file ${fileId} to ${folderId}`);
-    
-    // Update the file to be in this folder
-    const [updatedFile] = await db
-      .update(desktopFiles)
-      .set({ parentId: folderId })
-      .where(eq(desktopFiles.id, fileId))
-      .returning();
-    
-    console.log(`File updated:`, updatedFile);
-    return updatedFile;
-  }
-  
-  async getFilesInFolder(folderId: number): Promise<DesktopFileDB[]> {
-    return db.select()
-      .from(desktopFiles)
-      .where(eq(desktopFiles.parentId, folderId));
   }
 }
 

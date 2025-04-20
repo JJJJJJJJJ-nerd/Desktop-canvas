@@ -5,9 +5,8 @@ import { FilePreviewModal } from "@/components/FilePreviewModal";
 import { WindowItem } from "@/components/WindowItem";
 import { EmptyState } from "@/components/EmptyState";
 import { useDesktopFiles } from "@/hooks/use-desktop-files";
-import { useToast } from "@/hooks/use-toast";
 import { DesktopFile } from "@/types";
-import { Loader2 as Spinner, Search, X, FileText, FolderSearch, Folder } from "lucide-react";
+import { Loader2 as Spinner, Search, X, FileText, FolderSearch } from "lucide-react";
 import Fuse from 'fuse.js';
 
 export default function Desktop() {
@@ -21,33 +20,7 @@ export default function Desktop() {
     updateFileDimensions,
     clearAllFiles,
     selectFile,
-    startFolderCreation,
-    cancelFolderCreation,
-    filesForFolderCreation
   } = useDesktopFiles();
-  
-  // Display a tooltip when folders are created
-  const { toast } = useToast();
-  
-  // Create a ref to track folder count
-  const lastFolderCount = useRef(0);
-  
-  // Show feedback when folders are created
-  useEffect(() => {
-    // We can detect folder creation by checking for files that are folders with no parentId
-    const hasFolders = files.some(file => file.isFolder && !file.parentId);
-    const currentFolderCount = files.filter(file => file.isFolder && !file.parentId).length;
-    
-    if (hasFolders && currentFolderCount > lastFolderCount.current) {
-      // New folder created
-      toast({
-        title: "Folder created",
-        description: "Files have been organized into a folder",
-        variant: "default"
-      });
-      lastFolderCount.current = currentFolderCount;
-    }
-  }, [files, toast]);
   const [previewFile, setPreviewFile] = useState<DesktopFile | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
@@ -309,9 +282,6 @@ export default function Desktop() {
                   onDragEnd={handleFilePositionUpdate}
                   onResize={handleFileResize}
                   onPreview={handlePreviewFile}
-                  startFolderCreation={startFolderCreation}
-                  cancelFolderCreation={cancelFolderCreation}
-                  filesForFolderCreation={filesForFolderCreation}
                 />
               );
             })}
