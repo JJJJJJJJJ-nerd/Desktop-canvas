@@ -66,6 +66,9 @@ export function WindowItem({
     photo?: string;
   } | null>(null);
   
+  // Debug mode toggle for VCF files
+  const [showVcfDebug, setShowVcfDebug] = useState(false);
+  
   // Current position reference to avoid jumps during drag
   const currentPosition = useRef({ x: 0, y: 0 });
   
@@ -559,7 +562,6 @@ export function WindowItem({
       const phones = vCardData.phones || [];
       const hasEmails = emails.length > 0;
       const hasPhones = phones.length > 0;
-      const [showDebug, setShowDebug] = useState(false);
       
       return (
         <div className="h-full overflow-auto bg-gradient-to-br from-gray-50 to-gray-100">
@@ -570,14 +572,14 @@ export function WindowItem({
                 variant="outline" 
                 size="sm" 
                 className="text-xs no-drag" 
-                onClick={() => setShowDebug(!showDebug)}
+                onClick={() => setShowVcfDebug(!showVcfDebug)}
               >
-                {showDebug ? "Hide Debug" : "Show Debug"}
+                {showVcfDebug ? "Hide Debug" : "Show Debug"}
               </Button>
             </div>
             
             {/* Debug info */}
-            {showDebug && (
+            {showVcfDebug && (
               <div className="w-full mb-4 bg-gray-800 text-gray-200 p-2 rounded text-xs font-mono overflow-auto">
                 <p>Photo data: {vCardData.photo ? `${vCardData.photo.substring(0, 50)}...` : 'None'}</p>
                 <p>Photo URL length: {vCardData.photo ? vCardData.photo.length : 0}</p>
