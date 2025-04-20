@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { FileItem } from './FileItem';
 import { DesktopFile } from '@/types';
-import { X, FolderOpen, ArrowLeft, Upload } from 'lucide-react';
+import { X, FolderOpen, ArrowLeft, Upload, Check, Folder, MoveRight, FileX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { queryClient } from '@/lib/queryClient';
+import { Button } from '@/components/ui/button';
 
 interface FolderViewProps {
   folder: DesktopFile;
@@ -16,6 +17,9 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedFileIds, setSelectedFileIds] = useState<number[]>([]);
+  const [externalFiles, setExternalFiles] = useState<DesktopFile[]>([]);
   
   const dropAreaRef = useRef<HTMLDivElement>(null);
 
@@ -125,6 +129,75 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
     }
   };
 
+  // Fetch all external files (files not in this folder)
+  const fetchExternalFiles = async () => {
+    try {
+      const response = await fetch('/api/files');
+      if (!response.ok) {
+        throw new Error('Failed to fetch external files');
+      }
+      const data = await response.json();
+      
+      // Filter to include only files that aren't in this folder
+      // and are not folders themselves
+      const externalFilesOnly = data.files.filter((file: DesktopFile) => 
+        file.id && 
+        !file.isFolder && 
+        (!file.parentId || file.parentId !== folder.id)
+      );
+      
+      setExternalFiles(externalFilesOnly);
+    } catch (error) {
+      console.error('Error fetching external files:', error);
+    }
+  };
+  
+  // Toggle select mode
+  const toggleSelectMode = () => {
+    // If turning on select mode, fetch external files first
+    if (!isSelectMode) {
+      fetchExternalFiles();
+    } else {
+      // If turning off select mode, clear selected files
+      setSelectedFileIds([]);
+    }
+    
+    setIsSelectMode(!isSelectMode);
+  };
+  
+  // Toggle file selection
+  const toggleFileSelection = (fileId: number) => {
+    setSelectedFileIds(prev => {
+      if (prev.includes(fileId)) {
+        return prev.filter(id => id !== fileId);
+      } else {
+        return [...prev, fileId];
+      }
+    });
+  };
+  
+  // Move selected files to this folder
+  const moveSelectedFilesToFolder = async () => {
+    if (selectedFileIds.length === 0 || !folder.id) return;
+    
+    try {
+      // Add each selected file to this folder
+      for (const fileId of selectedFileIds) {
+        await addFileToFolder(fileId, folder.id);
+      }
+      
+      // Refresh folder contents and desktop view
+      fetchFiles();
+      queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+      
+      // Exit select mode
+      setIsSelectMode(false);
+      setSelectedFileIds([]);
+    } catch (error) {
+      console.error('Error moving files to folder:', error);
+    }
+  };
+
   // Initial fetch of files
   useEffect(() => {
     if (folder.id) {
@@ -148,21 +221,54 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
           <FolderOpen className="w-5 h-5" />
           <h3 className="font-medium text-sm">{folder.name}</h3>
         </div>
-        <button 
-          onClick={onClose}
-          className="text-white/80 hover:text-white transition-colors"
-        >
-          <X className="w-4 h-4" />
-        </button>
+        <div className="flex items-center space-x-2">
+          {isSelectMode && selectedFileIds.length > 0 && (
+            <Button 
+              size="sm" 
+              variant="secondary"
+              className="py-0.5 h-8 bg-green-600 hover:bg-green-700 text-white"
+              onClick={moveSelectedFilesToFolder}
+            >
+              <MoveRight className="w-3 h-3 mr-1" />
+              Move Files ({selectedFileIds.length})
+            </Button>
+          )}
+          
+          <Button 
+            size="sm" 
+            variant="ghost"
+            className={`py-0.5 h-8 ${isSelectMode ? 'bg-orange-600 hover:bg-orange-700 text-white' : 'text-white/80 hover:text-white hover:bg-primary-600'}`}
+            onClick={toggleSelectMode}
+          >
+            {isSelectMode ? (
+              <>
+                <X className="w-3 h-3 mr-1" />
+                Cancel
+              </>
+            ) : (
+              <>
+                <Upload className="w-3 h-3 mr-1" />
+                Upload Files
+              </>
+            )}
+          </Button>
+          
+          <button 
+            onClick={onClose}
+            className="text-white/80 hover:text-white transition-colors ml-1"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Window content */}
       <div 
         ref={dropAreaRef}
         className={`p-4 h-[calc(100%-40px)] overflow-auto ${isDraggingOver ? 'bg-primary/10 ring-2 ring-primary/30 ring-inset' : ''}`}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
+        onDragOver={!isSelectMode ? handleDragOver : undefined}
+        onDragLeave={!isSelectMode ? handleDragLeave : undefined}
+        onDrop={!isSelectMode ? handleDrop : undefined}
       >
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
@@ -179,7 +285,49 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
               Retry
             </button>
           </div>
+        ) : isSelectMode ? (
+          // Selection mode - show files from desktop that can be moved here
+          <>
+            {externalFiles.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                  <FileX className="w-12 h-12 mb-2 opacity-30" />
+                  <p>No files available to move</p>
+                  <p className="text-xs mt-2 text-gray-400">All files are already in this folder or there are no files on the desktop</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="mb-3 bg-blue-50 p-3 rounded-md text-sm">
+                  <p className="text-blue-800">Select files to move to this folder. Files will blink until selected.</p>
+                </div>
+                <div className="grid grid-cols-4 gap-4">
+                  {externalFiles.map((file) => (
+                    <div 
+                      key={file.id} 
+                      className={cn(
+                        "file-item flex flex-col items-center justify-center p-2 rounded cursor-pointer transition-colors relative",
+                        selectedFileIds.includes(file.id!) ? "bg-green-100 ring-2 ring-green-400" : "hover:bg-gray-100 animate-pulse"
+                      )}
+                      onClick={() => file.id && toggleFileSelection(file.id)}
+                    >
+                      <FileItemPreview file={file} />
+                      <p className="text-xs font-medium mt-1 text-center truncate w-full">{file.name}</p>
+                      
+                      {/* Selection checkmark */}
+                      {selectedFileIds.includes(file.id!) && (
+                        <div className="absolute top-1 right-1 bg-green-500 text-white rounded-full p-0.5">
+                          <Check className="w-3 h-3" />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </>
         ) : files.length === 0 ? (
+          // Empty folder view
           <div className="flex flex-col items-center justify-center h-full text-gray-500">
             <FolderOpen className="w-12 h-12 mb-2 opacity-30" />
             <p>This folder is empty</p>
@@ -189,6 +337,7 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
             </div>
           </div>
         ) : (
+          // Normal folder view with files
           <div className="grid grid-cols-4 gap-4">
             {files.map((file) => (
               <div 
@@ -204,7 +353,7 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
         )}
         
         {/* Drag overlay */}
-        {isDraggingOver && (
+        {isDraggingOver && !isSelectMode && (
           <div className="absolute inset-0 bg-primary/20 backdrop-blur-sm flex items-center justify-center pointer-events-none">
             <div className="bg-white p-4 rounded-lg shadow-lg text-center">
               <Upload className="w-10 h-10 mx-auto text-primary mb-2" />
