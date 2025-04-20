@@ -4,6 +4,7 @@ import { DesktopToolbar } from "@/components/DesktopToolbar";
 import { FileItem } from "@/components/FileItem";
 import { FilePreviewModal } from "@/components/FilePreviewModal";
 import { WindowItem } from "@/components/WindowItem";
+import { FolderView } from "@/components/FolderView";
 import { EmptyState } from "@/components/EmptyState";
 import { useDesktopFiles } from "@/hooks/use-desktop-files";
 import { DesktopFile } from "@/types";
@@ -153,24 +154,15 @@ export default function Desktop() {
 
   // Handle file preview
   const handlePreviewFile = (file: DesktopFile) => {
-    // If it's a folder, we'll handle it separately
-    if (file.isFolder === 'true' && file.id) {
-      // For folders, toggle showing files inside
-      const fileIndex = files.findIndex(f => f.id === file.id);
-      selectFile(fileIndex);
-      
-      // Call backend API to get files in folder (handled in getFiles)
-      queryClient.invalidateQueries({ queryKey: ['/api/files'] });
-      return;
-    }
-    
-    // For regular files, open in a window
     if (file.id) {
+      // For all files (including folders), open in a window
       if (!openWindowFiles.includes(file.id)) {
         setOpenWindowFiles([...openWindowFiles, file.id]);
       }
-      if (file.id && selectedFile !== files.findIndex(f => f.id === file.id)) {
-        const fileIndex = files.findIndex(f => f.id === file.id);
+      
+      // Select the file
+      const fileIndex = files.findIndex(f => f.id === file.id);
+      if (fileIndex !== -1 && selectedFile !== fileIndex) {
         selectFile(fileIndex);
       }
     }
@@ -485,6 +477,19 @@ export default function Desktop() {
               
               const file = files[fileIndex];
               
+              // Check if this is a folder
+              if (file.isFolder === 'true') {
+                return (
+                  <FolderView
+                    key={`folder-${fileId}`}
+                    folder={file}
+                    onClose={() => closeWindowFile(fileId)}
+                    onSelectFile={handlePreviewFile}
+                  />
+                );
+              }
+              
+              // Regular file window
               return (
                 <WindowItem
                   key={`window-${fileId}`}
