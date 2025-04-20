@@ -10,6 +10,9 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Define desktop files table with a self-referencing foreign key
+export type DesktopFilesTable = ReturnType<typeof pgTable>;
+
 export const desktopFiles = pgTable("desktop_files", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -21,6 +24,8 @@ export const desktopFiles = pgTable("desktop_files", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }),
+  parentId: integer("parent_id"), // Will be set after table creation
+  isFolder: text("is_folder").default("false").notNull(),
 });
 
 // Define the relations
@@ -28,11 +33,17 @@ export const usersRelations = relations(users, ({ many }) => ({
   files: many(desktopFiles),
 }));
 
-export const desktopFilesRelations = relations(desktopFiles, ({ one }) => ({
+export const desktopFilesRelations = relations(desktopFiles, ({ one, many }) => ({
   user: one(users, {
     fields: [desktopFiles.userId],
     references: [users.id],
   }),
+  parent: one(desktopFiles, {
+    fields: [desktopFiles.parentId],
+    references: [desktopFiles.id],
+    relationName: "childToParent",
+  }),
+  children: many(desktopFiles, { relationName: "childToParent" }),
 }));
 
 // Create insert schemas with zod
