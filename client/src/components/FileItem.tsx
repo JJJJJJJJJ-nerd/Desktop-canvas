@@ -60,6 +60,9 @@ interface FileItemProps {
   onDragEnd: (index: number, x: number, y: number) => void;
   onResize?: (index: number, width: number, height: number) => void;
   onPreview: (file: DesktopFile) => void;
+  onDragStart?: (fileId: number | undefined) => void;
+  onDragMove?: (fileId: number | undefined) => void;
+  registerRef?: (fileId: number | undefined, element: HTMLElement | null) => void;
 }
 
 export function FileItem({ 
@@ -71,7 +74,10 @@ export function FileItem({
   onSelect, 
   onDragEnd,
   onResize,
-  onPreview
+  onPreview,
+  onDragStart,
+  onDragMove,
+  registerRef
 }: FileItemProps) {
   const fileRef = useRef<HTMLDivElement>(null);
   const startPosRef = useRef({ x: 0, y: 0 });
@@ -159,6 +165,10 @@ export function FileItem({
         // Start dragging immediately upon movement
         if (!dragging) {
           setDragging(true);
+          // Notify parent that we started dragging this file
+          if (onDragStart && file.id) {
+            onDragStart(file.id);
+          }
         }
         
         // Calculate new position - ensure it stays within visible area
@@ -167,6 +177,11 @@ export function FileItem({
         
         // Update current position ref first (without causing re-renders)
         currentPosition.current = { x: newX, y: newY };
+        
+        // Notify parent that we've moved (for overlap detection)
+        if (onDragMove && file.id) {
+          onDragMove(file.id);
+        }
         
         // Use requestAnimationFrame for smoother dragging
         window.requestAnimationFrame(() => {
@@ -275,6 +290,19 @@ export function FileItem({
       }
     }
   }, [file.dimensions, isImage]);
+  
+  // Register the file element with the parent component for overlap detection
+  useEffect(() => {
+    if (registerRef && fileRef.current) {
+      registerRef(file.id, fileRef.current);
+    }
+    
+    return () => {
+      if (registerRef) {
+        registerRef(file.id, null);
+      }
+    };
+  }, [file.id, registerRef]);
 
   return (
     <div

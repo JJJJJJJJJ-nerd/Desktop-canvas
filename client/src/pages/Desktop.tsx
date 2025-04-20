@@ -9,6 +9,39 @@ import { DesktopFile } from "@/types";
 import { Loader2 as Spinner, Search, X, FileText, FolderSearch } from "lucide-react";
 import Fuse from 'fuse.js';
 
+// Interface for tracking overlapping files
+interface FileOverlap {
+  fileId: number;
+  targetId: number;
+  overlapStartTime: number;
+  position: { x: number; y: number };
+}
+
+// Function to check if two files are overlapping
+function areFilesOverlapping(file1Element: HTMLElement, file2Element: HTMLElement): boolean {
+  const rect1 = file1Element.getBoundingClientRect();
+  const rect2 = file2Element.getBoundingClientRect();
+  
+  // Check if one rectangle is to the left of the other
+  if (rect1.right < rect2.left || rect2.right < rect1.left) return false;
+  
+  // Check if one rectangle is above the other
+  if (rect1.bottom < rect2.top || rect2.bottom < rect1.top) return false;
+  
+  // Calculate the overlap area (minimum)
+  const overlapWidth = Math.min(rect1.right, rect2.right) - Math.max(rect1.left, rect2.left);
+  const overlapHeight = Math.min(rect1.bottom, rect2.bottom) - Math.max(rect1.top, rect2.top);
+  const overlapArea = overlapWidth * overlapHeight;
+  
+  // Require significant overlap (at least 30% of the smaller element)
+  const area1 = rect1.width * rect1.height;
+  const area2 = rect2.width * rect2.height;
+  const smallerArea = Math.min(area1, area2);
+  const overlapPercentage = overlapArea / smallerArea;
+  
+  return overlapPercentage > 0.3; // 30% overlap threshold
+}
+
 export default function Desktop() {
   const {
     files,
@@ -20,6 +53,7 @@ export default function Desktop() {
     updateFileDimensions,
     clearAllFiles,
     selectFile,
+    createFolderFromFiles,
   } = useDesktopFiles();
   const [previewFile, setPreviewFile] = useState<DesktopFile | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -27,9 +61,13 @@ export default function Desktop() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredFiles, setFilteredFiles] = useState<DesktopFile[]>([]);
   const [openWindowFiles, setOpenWindowFiles] = useState<number[]>([]);
+  const [activeOverlap, setActiveOverlap] = useState<FileOverlap | null>(null);
+  const [draggingFileId, setDraggingFileId] = useState<number | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const fileElementsRef = useRef<{[key: string]: HTMLElement}>({});
+  const dragTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Handle upload button click
   const handleUploadClick = () => {
@@ -165,6 +203,112 @@ export default function Desktop() {
     setSearchQuery(query);
   };
 
+  // Register file element refs for overlap detection
+  const registerFileElement = (id: number | undefined, element: HTMLElement | null) => {
+    if (id && element) {
+      fileElementsRef.current[`file-${id}`] = element;
+    }
+  };
+  
+  // Handle file drag start
+  const handleFileDragStart = (fileId: number | undefined) => {
+    if (fileId) {
+      setDraggingFileId(fileId);
+    }
+  };
+  
+  // Handle file drag end - check for overlaps and create folder if needed
+  const handleFileDragEnd = (fileId: number | undefined, x: number, y: number) => {
+    if (!fileId) return;
+    
+    // Clear dragging state
+    setDraggingFileId(null);
+    
+    // Clear any active overlap timeout
+    if (dragTimeoutRef.current) {
+      clearTimeout(dragTimeoutRef.current);
+      dragTimeoutRef.current = null;
+    }
+    
+    // If we had an active overlap, create a folder
+    if (activeOverlap && activeOverlap.fileId === fileId) {
+      const now = Date.now();
+      if (now - activeOverlap.overlapStartTime >= 1000) { // Ensure it's been 1 second
+        createFolderFromOverlap(activeOverlap);
+      }
+      setActiveOverlap(null);
+    }
+  };
+  
+  // Check for file overlaps
+  const checkFileOverlap = (fileId: number | undefined) => {
+    if (!fileId || !draggingFileId || fileId === draggingFileId) return;
+    
+    // Clear any existing timeout
+    if (dragTimeoutRef.current) {
+      clearTimeout(dragTimeoutRef.current);
+      dragTimeoutRef.current = null;
+    }
+    
+    const draggedElement = fileElementsRef.current[`file-${draggingFileId}`];
+    const targetElement = fileElementsRef.current[`file-${fileId}`];
+    
+    if (draggedElement && targetElement) {
+      const isOverlapping = areFilesOverlapping(draggedElement, targetElement);
+      
+      if (isOverlapping) {
+        // Calculate the midpoint between the two files for folder position
+        const draggedRect = draggedElement.getBoundingClientRect();
+        const targetRect = targetElement.getBoundingClientRect();
+        
+        const position = {
+          x: (draggedRect.left + targetRect.left) / 2,
+          y: (draggedRect.top + targetRect.top) / 2
+        };
+        
+        // Start the timer for folder creation
+        const overlap: FileOverlap = {
+          fileId: draggingFileId,
+          targetId: fileId,
+          overlapStartTime: Date.now(),
+          position
+        };
+        
+        setActiveOverlap(overlap);
+        
+        // Set timeout for 1 second
+        dragTimeoutRef.current = setTimeout(() => {
+          createFolderFromOverlap(overlap);
+        }, 1000);
+      } else if (activeOverlap && 
+                (activeOverlap.fileId === draggingFileId || activeOverlap.targetId === fileId)) {
+        // Files are no longer overlapping, cancel folder creation
+        setActiveOverlap(null);
+      }
+    }
+  };
+  
+  // Create a folder from overlapping files
+  const createFolderFromOverlap = async (overlap: FileOverlap) => {
+    try {
+      const { fileId, targetId, position } = overlap;
+      
+      // Create a folder with the overlapping files
+      await createFolderFromFiles([fileId, targetId], position);
+      
+      // Clear active overlap
+      setActiveOverlap(null);
+      
+      // Clear any timeout
+      if (dragTimeoutRef.current) {
+        clearTimeout(dragTimeoutRef.current);
+        dragTimeoutRef.current = null;
+      }
+    } catch (error) {
+      console.error('Error creating folder from overlap:', error);
+    }
+  };
+
   // Prevent default browser behavior for drag and drop
   useEffect(() => {
     const preventDefaults = (e: DragEvent) => {
@@ -177,6 +321,15 @@ export default function Desktop() {
     return () => {
       window.removeEventListener('dragover', preventDefaults);
       window.removeEventListener('drop', preventDefaults);
+    };
+  }, []);
+  
+  // Clean up any timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (dragTimeoutRef.current) {
+        clearTimeout(dragTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -224,6 +377,26 @@ export default function Desktop() {
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
+        {/* Folder creation indicator */}
+        {activeOverlap && (
+          <div 
+            className="absolute z-40 pointer-events-none"
+            style={{
+              left: `${activeOverlap.position.x - 25}px`,
+              top: `${activeOverlap.position.y - 25}px`,
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <div className="flex flex-col items-center justify-center">
+              <div className="w-12 h-12 rounded-full bg-primary/30 backdrop-blur-md flex items-center justify-center animate-pulse">
+                <Folder className="w-6 h-6 text-white" />
+              </div>
+              <div className="mt-1 text-white text-xs font-medium bg-black/50 px-2 py-0.5 rounded backdrop-blur-sm">
+                Creating folder...
+              </div>
+            </div>
+          </div>
+        )}
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <Spinner className="animate-spin text-white w-8 h-8" />
@@ -279,7 +452,13 @@ export default function Desktop() {
                   isSearchMatch={isMatch}
                   searchTerm={searchQuery}
                   onSelect={handleSelectFile}
-                  onDragEnd={handleFilePositionUpdate}
+                  onDragEnd={(index, x, y) => {
+                    if (file.id) handleFileDragEnd(file.id, x, y);
+                    handleFilePositionUpdate(index, x, y);
+                  }}
+                  onDragStart={(fileId) => handleFileDragStart(fileId)}
+                  onDragMove={(fileId) => checkFileOverlap(fileId)}
+                  registerRef={registerFileElement}
                   onResize={handleFileResize}
                   onPreview={handlePreviewFile}
                 />
