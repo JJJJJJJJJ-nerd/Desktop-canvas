@@ -565,7 +565,7 @@ export function WindowItem({
       
       return (
         <div className="h-full overflow-auto bg-gradient-to-br from-gray-50 to-gray-100">
-          <div className="flex flex-col items-center p-6">
+          <div className="flex flex-col items-center p-6 w-full h-full">
             {/* Debug toggle */}
             <div className="self-end mb-4">
               <Button 
@@ -591,8 +591,8 @@ export function WindowItem({
             )}
             
             {/* Contact Photo or Avatar */}
-            <div className="mb-6">
-              <Avatar className="h-32 w-32 border-4 border-white shadow-lg">
+            <div className="mb-6 flex-grow">
+              <Avatar className="h-32 w-32 sm:h-40 sm:w-40 md:h-48 md:w-48 border-4 border-white shadow-lg">
                 {vCardData.photo ? (
                   <>
                     <AvatarImage 
@@ -618,17 +618,17 @@ export function WindowItem({
             </div>
             
             {/* Contact Name */}
-            <h2 className="text-2xl font-bold mb-1 text-center">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1 text-center">
               {contactName}
             </h2>
             
             {/* Contact Details Card */}
-            <div className="w-full max-w-md bg-white rounded-xl shadow-md overflow-hidden mt-4">
+            <div className="w-full max-w-[90%] bg-white rounded-xl shadow-md overflow-hidden mt-4">
               {/* Email Section */}
               {hasEmails && (
                 <div className="p-4 border-b border-gray-100">
-                  <h3 className="text-sm uppercase tracking-wide text-gray-500 mb-3 flex items-center">
-                    <Mail className="h-4 w-4 mr-2" />Email
+                  <h3 className="text-sm sm:text-base md:text-lg uppercase tracking-wide text-gray-500 mb-3 flex items-center">
+                    <Mail className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mr-2" />Email
                   </h3>
                   <ul className="space-y-2">
                     {emails.map((email, index) => (
@@ -655,8 +655,8 @@ export function WindowItem({
               {/* Phone Section */}
               {hasPhones && (
                 <div className="p-4">
-                  <h3 className="text-sm uppercase tracking-wide text-gray-500 mb-3 flex items-center">
-                    <PhoneIcon className="h-4 w-4 mr-2" />Phone
+                  <h3 className="text-sm sm:text-base md:text-lg uppercase tracking-wide text-gray-500 mb-3 flex items-center">
+                    <PhoneIcon className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mr-2" />Phone
                   </h3>
                   <ul className="space-y-2">
                     {phones.map((phone, index) => (
@@ -686,13 +686,13 @@ export function WindowItem({
               {hasEmails && (
                 <Button 
                   size="sm" 
-                  className="no-drag flex items-center" 
+                  className="no-drag flex items-center sm:text-base sm:px-4 sm:py-2 md:text-lg" 
                   onClick={(e) => {
                     e.stopPropagation();
                     window.location.href = `mailto:${emails[0].value}`;
                   }}
                 >
-                  <Mail className="h-4 w-4 mr-2" />
+                  <Mail className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mr-2" />
                   Send Email
                 </Button>
               )}
@@ -701,13 +701,13 @@ export function WindowItem({
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="no-drag flex items-center" 
+                  className="no-drag flex items-center sm:text-base sm:px-4 sm:py-2 md:text-lg" 
                   onClick={(e) => {
                     e.stopPropagation();
                     window.location.href = `tel:${phones[0].value}`;
                   }}
                 >
-                  <PhoneIcon className="h-4 w-4 mr-2" />
+                  <PhoneIcon className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mr-2" />
                   Call
                 </Button>
               )}
