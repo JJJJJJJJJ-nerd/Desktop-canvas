@@ -58,6 +58,10 @@ export function WindowItem({
   // Current position reference to avoid jumps during drag
   const currentPosition = useRef({ x: 0, y: 0 });
   
+  // For tracking click vs drag distinction
+  const initialClick = useRef<{x: number, y: number} | null>(null);
+  const isClick = useRef<boolean>(true);
+  
   const isExcel = 
     file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" || 
     file.type === "application/vnd.ms-excel" ||
@@ -166,7 +170,7 @@ export function WindowItem({
     setEditingCell(null);
   };
   
-  // Handle window drag
+  // Handle window drag with improved implementation for immediate dragging
   const handleMouseDown = (e: React.MouseEvent) => {
     // Skip if clicking on elements we don't want to trigger drag
     const target = e.target as HTMLElement;
@@ -179,45 +183,95 @@ export function WindowItem({
       return;
     }
     
+    // Prevent default browser behavior and stop event propagation
+    e.stopPropagation();
     e.preventDefault();
     
+    // Always select the window on mouse down to allow for immediate interaction
     if (!isSelected) {
       onSelect(index);
     }
     
-    // Start dragging
-    setDragging(true);
-    startPosRef.current = { x: e.clientX, y: e.clientY };
-    currentPosition.current = { ...localPosition };
+    // Save the initial click position for later comparison
+    initialClick.current = { x: e.clientX, y: e.clientY };
+    isClick.current = true;
     
-    // Add event listeners for drag and end
+    // Calculate offset between mouse position and element top-left corner
+    startPosRef.current = {
+      x: e.clientX - localPosition.x,
+      y: e.clientY - localPosition.y
+    };
+    
+    // Store current position for reference
+    currentPosition.current = localPosition;
+    
+    // Add document-level event listeners immediately
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
   
-  // Handle mouse move during drag
+  // Handle mouse movement during drag with requestAnimationFrame for better performance
   const handleMouseMove = (e: MouseEvent) => {
-    if (!dragging) return;
+    // Prevent any default browser behavior
+    e.preventDefault();
     
-    const dx = e.clientX - startPosRef.current.x;
-    const dy = e.clientY - startPosRef.current.y;
-    
-    const newX = currentPosition.current.x + dx;
-    const newY = currentPosition.current.y + dy;
-    
-    setLocalPosition({ x: newX, y: newY });
+    // If we moved enough to consider this a drag (not a click)
+    if (initialClick.current) {
+      const moveThreshold = 2; // pixels - reduced threshold for more responsive dragging
+      const deltaX = Math.abs(e.clientX - initialClick.current.x);
+      const deltaY = Math.abs(e.clientY - initialClick.current.y);
+      
+      // If we moved enough, consider this a drag
+      if (deltaX > moveThreshold || deltaY > moveThreshold) {
+        // No longer a click - it's a drag
+        isClick.current = false;
+        
+        // Start dragging immediately upon movement
+        if (!dragging) {
+          setDragging(true);
+        }
+        
+        // Calculate new position - ensure it stays within visible area
+        const newX = Math.max(0, e.clientX - startPosRef.current.x);
+        const newY = Math.max(0, e.clientY - startPosRef.current.y);
+        
+        // Update current position ref first (without causing re-renders)
+        currentPosition.current = { x: newX, y: newY };
+        
+        // Use requestAnimationFrame for smoother dragging
+        window.requestAnimationFrame(() => {
+          setLocalPosition(currentPosition.current);
+        });
+      }
+    }
   };
   
-  // Handle mouse up to end drag
+  // Handle mouse up - end dragging or handle click
   const handleMouseUp = (e: MouseEvent) => {
-    if (!dragging) return;
+    // Prevent default behavior
+    e.preventDefault();
     
-    setDragging(false);
+    // Handle as a click if there was minimal movement
+    if (isClick.current) {
+      // Select on click
+      onSelect(index);
+    } 
+    // Handle as a drag completion
+    else if (dragging) {
+      // Save the final position
+      onDragEnd(index, currentPosition.current.x, currentPosition.current.y);
+      
+      // End dragging state
+      setDragging(false);
+    }
+    
+    // Reset tracking variables
+    initialClick.current = null;
+    isClick.current = true;
+    
+    // Remove event listeners
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
-    
-    // Send the final position to parent
-    onDragEnd(index, localPosition.x, localPosition.y);
   };
   
   // Handle resize starts
