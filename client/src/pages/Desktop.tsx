@@ -238,6 +238,9 @@ export default function Desktop() {
 
   // Handle drop on a folder
   const handleFolderDrop = async (folderId: number) => {
+    // Log all data for debugging
+    console.log(`Handling drop on folder ${folderId}, dragging file: ${draggingFileId}`);
+    
     // Check if we have a file currently being dragged
     if (draggingFileId && draggingFileId !== folderId) {
       try {
@@ -253,6 +256,8 @@ export default function Desktop() {
           throw new Error('Failed to add file to folder');
         }
         
+        console.log(`Successfully added file ${draggingFileId} to folder ${folderId}`);
+        
         // Refresh the files list by invalidating the query cache
         queryClient.invalidateQueries({ queryKey: ['/api/files'] });
         
@@ -262,6 +267,8 @@ export default function Desktop() {
       } catch (error) {
         console.error('Error dropping file into folder:', error);
       }
+    } else {
+      console.warn('No dragging file ID set or trying to drop on itself');
     }
   };
   
@@ -501,37 +508,84 @@ export default function Desktop() {
               // Check if this folder is a drop target
               const isDropTarget = isFolder && folderDropTarget === file.id;
               
-              return (
-                <div 
-                  key={file.id ? `file-container-${file.id}` : `file-container-${index}`}
-                  className="relative"
-                  onDragOver={isFolder ? (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (file.id) handleFolderDragOver(file.id);
-                  } : undefined}
-                  onDragLeave={isFolder ? (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleFolderDragLeave();
-                  } : undefined}
-                  onDrop={isFolder ? (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (file.id) handleFolderDrop(file.id);
-                  } : undefined}
-                >
-                  {/* Drop target indicator */}
-                  {isDropTarget && (
-                    <div className="absolute inset-0 z-10 pointer-events-none">
-                      <div className="absolute inset-0 bg-primary/20 rounded-lg animate-pulse"></div>
-                      <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 flex items-center bg-black/70 px-2 py-1 rounded text-white text-xs whitespace-nowrap">
-                        <MoveDown className="w-3 h-3 mr-1" />
-                        Drop to move here
+              if (isFolder) {
+                // Return a folder that can accept drops
+                return (
+                  <div 
+                    key={file.id ? `file-container-${file.id}` : `file-container-${index}`}
+                    className="relative z-10"
+                    style={{
+                      position: 'absolute',
+                      left: `${file.position.x}px`,
+                      top: `${file.position.y}px`,
+                      width: file.dimensions?.width || 96,
+                      height: file.dimensions?.height || 96,
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (file.id && draggingFileId !== file.id) {
+                        console.log("Dragging over folder:", file.id);
+                        setFolderDropTarget(file.id);
+                      }
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleFolderDragLeave();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      
+                      console.log("Drop event on folder", file.id);
+                      
+                      // Get the file ID from dataTransfer or use current dragging file
+                      const droppedFileId = e.dataTransfer.getData('text/plain');
+                      if (droppedFileId && file.id) {
+                        console.log(`Dropping file ${droppedFileId} into folder ${file.id}`);
+                        // We can either use the ID from dataTransfer or our tracked ID
+                        setDraggingFileId(parseInt(droppedFileId));
+                        handleFolderDrop(file.id);
+                      } else if (draggingFileId && file.id) {
+                        console.log(`Using tracked dragging file ${draggingFileId} into folder ${file.id}`);
+                        handleFolderDrop(file.id);
+                      }
+                    }}
+                  >
+                    {isDropTarget && (
+                      <div className="absolute inset-0 z-20 pointer-events-none">
+                        <div className="absolute inset-0 bg-primary/40 rounded-lg animate-pulse"></div>
+                        <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 flex items-center bg-black/80 px-2 py-1 rounded text-white text-xs whitespace-nowrap shadow-lg">
+                          <MoveDown className="w-3 h-3 mr-1" />
+                          Drop file here
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  
+                    )}
+                    
+                    <FileItem
+                      key={file.id ? `file-${file.id}` : `file-${index}`}
+                      file={file}
+                      index={realIndex !== -1 ? realIndex : index}
+                      isSelected={selectedFile === realIndex}
+                      isSearchMatch={isMatch}
+                      searchTerm={searchQuery}
+                      onSelect={handleSelectFile}
+                      onDragEnd={(index, x, y) => {
+                        if (file.id) handleFileDragEnd(file.id, x, y);
+                        handleFilePositionUpdate(index, x, y);
+                      }}
+                      onDragStart={(fileId) => handleFileDragStart(fileId)}
+                      onDragMove={(fileId) => checkFileOverlap(fileId)}
+                      registerRef={registerFileElement}
+                      onResize={handleFileResize}
+                      onPreview={handlePreviewFile}
+                    />
+                  </div>
+                );
+              } else {
+                // Return a regular file without wrapper
+                return (
                   <FileItem
                     key={file.id ? `file-${file.id}` : `file-${index}`}
                     file={file}
@@ -550,8 +604,8 @@ export default function Desktop() {
                     onResize={handleFileResize}
                     onPreview={handlePreviewFile}
                   />
-                </div>
-              );
+                );
+              }
             })}
             
             {/* Open files in windows */}
