@@ -100,8 +100,12 @@ export function FileItem({
   // Track mouse position during dragging in non-reactive ref
   // to avoid re-renders that might cause jumps
   const currentPosition = useRef({ x: 0, y: 0 });
+  
+  // To track mouse movement for distinguishing between click and drag
+  const initialClick = useRef<{x: number, y: number} | null>(null);
+  const isClick = useRef<boolean>(true);
 
-  // Direct drag implementation - starts dragging immediately on mouse down
+  // Simplified direct drag implementation - separates selection from dragging
   const handleMouseDown = (e: React.MouseEvent) => {
     // Only respond to left mouse button
     if (e.button !== 0) return;
@@ -113,10 +117,9 @@ export function FileItem({
     e.stopPropagation();
     e.preventDefault();
     
-    // Always select on mousedown if not already selected
-    if (!isSelected) {
-      onSelect(index);
-    }
+    // Save the initial click position for later comparison
+    initialClick.current = { x: e.clientX, y: e.clientY };
+    isClick.current = true;
     
     // Calculate offset between mouse position and element top-left corner
     startPosRef.current = {
@@ -127,20 +130,40 @@ export function FileItem({
     // Store current position for reference
     currentPosition.current = localPosition;
     
-    // Set dragging state immediately
-    setDragging(true);
-    
-    // Add document-level event listeners for move and release
+    // Add document-level event listeners immediately
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
 
   // Handle mouse movement during drag with requestAnimationFrame for better performance
   const handleMouseMove = (e: MouseEvent) => {
-    if (!dragging) return;
-    
     // Prevent any default browser behavior
     e.preventDefault();
+    
+    // If we moved enough to consider this a drag (not a click)
+    if (initialClick.current) {
+      const moveThreshold = 3; // pixels
+      const deltaX = Math.abs(e.clientX - initialClick.current.x);
+      const deltaY = Math.abs(e.clientY - initialClick.current.y);
+      
+      // If we moved enough, consider this a drag
+      if (deltaX > moveThreshold || deltaY > moveThreshold) {
+        // No longer a click - it's a drag
+        isClick.current = false;
+        
+        // If dragging hadn't started yet, select the item and start dragging
+        if (!dragging) {
+          // Select on drag start if not already selected
+          if (!isSelected) {
+            onSelect(index);
+          }
+          setDragging(true);
+        }
+      }
+    }
+    
+    // Only process move events when dragging
+    if (!dragging) return;
     
     // Calculate new position - ensure it stays within visible area
     const newX = Math.max(0, e.clientX - startPosRef.current.x);
@@ -155,18 +178,28 @@ export function FileItem({
     });
   };
 
-  // Handle mouse up - end dragging
+  // Handle mouse up - end dragging or handle click
   const handleMouseUp = (e: MouseEvent) => {
-    if (!dragging) return;
-    
     // Prevent default behavior
     e.preventDefault();
     
-    // Save the final position
-    onDragEnd(index, currentPosition.current.x, currentPosition.current.y);
+    // Handle as a click if there was minimal movement
+    if (isClick.current) {
+      // Select on click
+      onSelect(index);
+    } 
+    // Handle as a drag completion
+    else if (dragging) {
+      // Save the final position
+      onDragEnd(index, currentPosition.current.x, currentPosition.current.y);
+      
+      // End dragging state
+      setDragging(false);
+    }
     
-    // End dragging state
-    setDragging(false);
+    // Reset tracking variables
+    initialClick.current = null;
+    isClick.current = true;
     
     // Remove event listeners
     document.removeEventListener('mousemove', handleMouseMove);
