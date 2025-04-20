@@ -56,7 +56,6 @@ export default function Desktop() {
     clearAllFiles,
     selectFile,
     createFolderFromFiles,
-    addFileToFolder,
   } = useDesktopFiles();
   const [previewFile, setPreviewFile] = useState<DesktopFile | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -242,8 +241,17 @@ export default function Desktop() {
     // Check if we have a file currently being dragged
     if (draggingFileId && draggingFileId !== folderId) {
       try {
-        // Add file to folder via the addFileToFolder function that's already available in our props
-        await addFileToFolder(draggingFileId, folderId);
+        // Make a direct API call to add file to folder
+        const response = await fetch(`/api/folders/${folderId}/files/${draggingFileId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to add file to folder');
+        }
         
         // Refresh the files list by invalidating the query cache
         queryClient.invalidateQueries({ queryKey: ['/api/files'] });
