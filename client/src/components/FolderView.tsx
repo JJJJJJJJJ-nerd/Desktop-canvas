@@ -322,21 +322,22 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
   }, [folder.id]);
 
   return (
-    <div className="absolute bg-white/95 backdrop-blur-md rounded-lg shadow-xl overflow-hidden"
+    <div 
+      className="absolute bg-white/95 backdrop-blur-md rounded-lg shadow-xl overflow-hidden"
       style={{
         width: folder.dimensions?.width || 600,
         height: folder.dimensions?.height || 400,
         left: position.x,
         top: position.y,
         zIndex: isDragging ? 100 : 50,
-        cursor: isDragging ? 'grabbing' : 'default'
+        cursor: isDragging ? 'grabbing' : 'move'
       }}
+      onMouseDown={handleHeaderMouseDown}
     >
-      {/* Window header - drag handle */}
+      {/* Window header */}
       <div 
         ref={headerRef}
-        className="bg-primary/90 text-white py-2 px-3 flex items-center justify-between cursor-grab select-none"
-        onMouseDown={handleHeaderMouseDown}>
+        className="bg-primary/90 text-white py-2 px-3 flex items-center justify-between select-none">
         <div className="flex items-center space-x-2">
           <FolderOpen className="w-5 h-5" />
           <h3 className="font-medium text-sm">{folder.name}</h3>
@@ -382,13 +383,14 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
         </div>
       </div>
 
-      {/* Window content */}
+      {/* Window content - prevent mousedown from propagating to parent */}
       <div 
         ref={dropAreaRef}
         className={`p-4 h-[calc(100%-40px)] overflow-auto ${isDraggingOver ? 'bg-primary/10 ring-2 ring-primary/30 ring-inset' : ''}`}
         onDragOver={!isSelectMode ? handleDragOver : undefined}
         onDragLeave={!isSelectMode ? handleDragLeave : undefined}
         onDrop={!isSelectMode ? handleDrop : undefined}
+        onMouseDown={(e) => e.stopPropagation()}
       >
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
