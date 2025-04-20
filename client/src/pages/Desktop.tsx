@@ -55,6 +55,7 @@ export default function Desktop() {
     clearAllFiles,
     selectFile,
     createFolderFromFiles,
+    getFilesInFolder,
   } = useDesktopFiles();
   const [previewFile, setPreviewFile] = useState<DesktopFile | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -153,9 +154,9 @@ export default function Desktop() {
   };
 
   // Handle file preview
-  const handlePreviewFile = (file: DesktopFile) => {
+  const handlePreviewFile = async (file: DesktopFile) => {
     // If it's a folder, we'll handle it separately
-    if (file.isFolder === 'true' && file.id) {
+    if ((file.isFolder === 'true' || file.type === 'application/folder') && file.id) {
       // For folders, toggle between open/closed state
       if (openFolderId === file.id) {
         // If folder is already open, close it
@@ -168,8 +169,15 @@ export default function Desktop() {
         const fileIndex = files.findIndex(f => f.id === file.id);
         selectFile(fileIndex);
         
-        // Fetch the latest data from server
-        queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+        try {
+          // Get files in the folder directly
+          await getFilesInFolder(file.id);
+          
+          // Then update the main file list
+          queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+        } catch (error) {
+          console.error('Error fetching folder contents:', error);
+        }
       }
       return;
     }
