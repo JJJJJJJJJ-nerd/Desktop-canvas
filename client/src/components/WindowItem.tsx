@@ -297,8 +297,11 @@ export function WindowItem({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setEditMode(!editMode)}
-                className="h-8 px-2 flex gap-1 items-center"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditMode(!editMode);
+                }}
+                className="h-8 px-2 flex gap-1 items-center no-drag"
               >
                 {editMode ? <Check className="h-4 w-4" /> : <Edit className="h-4 w-4" />}
                 {editMode ? "Done" : "Edit"}
@@ -308,8 +311,11 @@ export function WindowItem({
                 <Button
                   variant="default"
                   size="sm"
-                  onClick={saveExcelData}
-                  className="h-8 px-2 flex gap-1 items-center"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveExcelData();
+                  }}
+                  className="h-8 px-2 flex gap-1 items-center no-drag"
                 >
                   <Save className="h-4 w-4" />
                   Save
@@ -320,10 +326,15 @@ export function WindowItem({
           
           {/* Tabs for sheets */}
           {workbook && workbook.SheetNames.length > 1 && (
-            <Tabs value={activeSheet} onValueChange={handleTabChange} className="w-full">
+            <Tabs value={activeSheet} onValueChange={handleTabChange} className="w-full no-drag">
               <TabsList className="w-full px-2 overflow-x-auto flex-nowrap">
                 {workbook.SheetNames.map((sheet) => (
-                  <TabsTrigger key={sheet} value={sheet} className="flex-shrink-0">
+                  <TabsTrigger 
+                    key={sheet} 
+                    value={sheet} 
+                    className="flex-shrink-0 no-drag"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {sheet}
                   </TabsTrigger>
                 ))}
@@ -417,7 +428,8 @@ export function WindowItem({
           <a
             href={file.dataUrl}
             download={file.name}
-            className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors"
+            className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors no-drag"
+            onClick={(e) => e.stopPropagation()}
           >
             Download
           </a>
@@ -441,11 +453,16 @@ export function WindowItem({
         height: `${localDimensions.height}px`,
         transition: dragging ? 'none' : 'box-shadow 0.2s ease'
       }}
-      onMouseDown={handleMouseDown}
+      onClick={() => {
+        if (!isSelected) {
+          onSelect(index);
+        }
+      }}
     >
       {/* Window titlebar */}
       <div 
         className="window-titlebar flex items-center justify-between bg-gray-100 px-3 py-2 cursor-move border-b"
+        onMouseDown={handleMouseDown}
       >
         <div className="flex items-center gap-2">
           <div className="file-icon w-4 h-4">
@@ -461,8 +478,11 @@ export function WindowItem({
           <Button 
             variant="ghost" 
             size="icon" 
-            className="h-6 w-6" 
-            onClick={onClose}
+            className="h-6 w-6 no-drag" 
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
           >
             <X className="h-4 w-4" />
           </Button>
@@ -470,7 +490,14 @@ export function WindowItem({
       </div>
       
       {/* Window content */}
-      <div className="window-content h-[calc(100%-40px)]">
+      <div 
+        className="window-content h-[calc(100%-40px)]"
+        onClick={() => {
+          if (!isSelected) {
+            onSelect(index);
+          }
+        }}
+      >
         {renderFileContent()}
       </div>
       
