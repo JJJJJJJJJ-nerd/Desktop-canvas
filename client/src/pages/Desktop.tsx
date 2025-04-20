@@ -555,9 +555,9 @@ export default function Desktop() {
                   >
                     {isDropTarget && (
                       <div className="absolute inset-0 z-20 pointer-events-none">
-                        <div className="absolute inset-0 bg-primary/40 rounded-lg animate-pulse"></div>
-                        <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 flex items-center bg-black/80 px-2 py-1 rounded text-white text-xs whitespace-nowrap shadow-lg">
-                          <MoveDown className="w-3 h-3 mr-1" />
+                        <div className="absolute inset-0 bg-primary/60 rounded-lg animate-pulse shadow-lg ring-4 ring-primary/30"></div>
+                        <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 flex items-center bg-black/80 px-3 py-1.5 rounded-lg text-white text-xs whitespace-nowrap shadow-lg border border-primary/40">
+                          <MoveDown className="w-4 h-4 mr-2 text-primary" />
                           Drop file here
                         </div>
                       </div>

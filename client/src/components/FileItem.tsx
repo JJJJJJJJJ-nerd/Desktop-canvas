@@ -325,7 +325,7 @@ export function FileItem({
       }}
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
-      draggable="true"
+      draggable={true}
       onDragStart={e => {
         if (file.id) {
           // Set the file ID as plain text data
@@ -333,6 +333,14 @@ export function FileItem({
           
           // Set the file type to help identify what's being dragged
           e.dataTransfer.setData('application/x-file-type', file.type);
+          
+          // Check if this file is a folder - don't allow dragging folders into other folders
+          const isFolder = file.isFolder === 'true' || file.type === 'application/folder';
+          if (isFolder) {
+            // Cancel the drag if it's a folder
+            e.preventDefault();
+            return;
+          }
           
           // Set drag effect
           e.dataTransfer.effectAllowed = 'move';
@@ -352,10 +360,19 @@ export function FileItem({
             document.body.removeChild(dragImage);
           }, 0);
           
+          console.log(`Drag start: file ${file.id} (${file.name})`);
+          
           // Notify parent component
           if (onDragStart) {
             onDragStart(file.id);
           }
+        }
+      }}
+      onDragEnd={() => {
+        console.log("Drag ended");
+        // Notify parent that dragging is finished
+        if (file.id && onDragStart) {
+          onDragStart(undefined); // Clear dragging state
         }
       }}
     >
