@@ -206,6 +206,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ message: 'Error saving desktop state' });
     }
   });
+  
+  // Create a new folder
+  app.post('/api/folders', express.json(), async (req, res) => {
+    try {
+      const folderSchema = z.object({
+        name: z.string().min(1),
+        position: z.object({
+          x: z.number(),
+          y: z.number()
+        })
+      });
+      
+      // Validate input
+      const validationResult = folderSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ message: 'Invalid folder data' });
+      }
+      
+      const { name, position } = validationResult.data;
+      const userId = req.user?.id; // Use the authenticated user's ID if available
+      
+      // Create the folder
+      const newFolder = await storage.createFolder(name, position, userId);
+      
+      return res.status(201).json({ folder: newFolder });
+    } catch (error) {
+      console.error('Error creating folder:', error);
+      return res.status(500).json({ message: 'Error creating folder' });
+    }
+  });
+  
+  // Add a file to a folder
+  app.patch('/api/files/:fileId/move-to-folder/:folderId', async (req, res) => {
+    try {
+      const fileId = parseInt(req.params.fileId);
+      const folderId = parseInt(req.params.folderId);
+      
+      // Move the file to the folder
+      const updatedFile = await storage.addFileToFolder(fileId, folderId);
+      
+      if (!updatedFile) {
+        return res.status(404).json({ message: 'File or folder not found' });
+      }
+      
+      return res.status(200).json({ file: updatedFile });
+    } catch (error) {
+      console.error('Error moving file to folder:', error);
+      return res.status(500).json({ message: 'Error moving file to folder' });
+    }
+  });
+  
+  // Get files in a folder
+  app.get('/api/folders/:folderId/files', async (req, res) => {
+    try {
+      const folderId = parseInt(req.params.folderId);
+      
+      // Get the folder to verify it exists
+      const folder = await storage.getFile(folderId);
+      if (!folder || !folder.isFolder) {
+        return res.status(404).json({ message: 'Folder not found' });
+      }
+      
+      // Get files in the folder
+      const files = await storage.getFilesInFolder(folderId);
+      
+      return res.status(200).json({ files });
+    } catch (error) {
+      console.error('Error getting files in folder:', error);
+      return res.status(500).json({ message: 'Error getting files in folder' });
+    }
+  });
 
   const httpServer = createServer(app);
 

@@ -60,6 +60,9 @@ interface FileItemProps {
   onDragEnd: (index: number, x: number, y: number) => void;
   onResize?: (index: number, width: number, height: number) => void;
   onPreview: (file: DesktopFile) => void;
+  startFolderCreation?: (sourceFileId: number, targetFileId: number) => void;
+  cancelFolderCreation?: () => void;
+  filesForFolderCreation?: { source: number, target: number } | null;
 }
 
 export function FileItem({ 
@@ -71,7 +74,10 @@ export function FileItem({
   onSelect, 
   onDragEnd,
   onResize,
-  onPreview
+  onPreview,
+  startFolderCreation,
+  cancelFolderCreation,
+  filesForFolderCreation
 }: FileItemProps) {
   const fileRef = useRef<HTMLDivElement>(null);
   const startPosRef = useRef({ x: 0, y: 0 });
@@ -136,8 +142,15 @@ export function FileItem({
     currentPosition.current = localPosition;
     
     // Add document-level event listeners immediately
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    if (startFolderCreation && cancelFolderCreation) {
+      // Use enhanced handlers for folder creation
+      document.addEventListener('mousemove', handleMouseMoveWithFolderDetection);
+      document.addEventListener('mouseup', handleMouseUpWithFolderDetection);
+    } else {
+      // Use regular handlers
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
   };
 
   // Handle mouse movement during drag with requestAnimationFrame for better performance
@@ -276,6 +289,86 @@ export function FileItem({
     }
   }, [file.dimensions, isImage]);
 
+  // Target element detection for folder creation - find element under the pointer
+  const findElementUnderPointer = (x: number, y: number) => {
+    // Get all file items in the DOM
+    const elements = document.querySelectorAll('.file-item');
+    
+    // Check each element
+    for (const element of Array.from(elements)) {
+      const rect = element.getBoundingClientRect();
+      
+      // Check if point is inside this element
+      if (
+        x >= rect.left && 
+        x <= rect.right && 
+        y >= rect.top && 
+        y <= rect.bottom
+      ) {
+        // Get the file id from the element
+        const fileIdMatch = element.getAttribute('data-file-id');
+        if (fileIdMatch && file.id && fileIdMatch !== file.id.toString()) {
+          return parseInt(fileIdMatch, 10);
+        }
+      }
+    }
+    return null;
+  };
+  
+  // Enhanced mousemove to detect target files
+  const handleMouseMoveWithFolderDetection = (e: MouseEvent) => {
+    // Call the original mouse move handler
+    handleMouseMove(e);
+    
+    // Only check for folder creation if we're actively dragging
+    if (dragging && file.id && startFolderCreation && cancelFolderCreation) {
+      // Try to find element under pointer
+      const targetFileId = findElementUnderPointer(e.clientX, e.clientY);
+      
+      if (targetFileId) {
+        // Check if we're already tracking folder creation for these files
+        if (
+          !filesForFolderCreation || 
+          filesForFolderCreation.source !== file.id || 
+          filesForFolderCreation.target !== targetFileId
+        ) {
+          // Start folder creation timer for these two files
+          startFolderCreation(file.id, targetFileId);
+        }
+      } else if (filesForFolderCreation) {
+        // If we're not over any file, cancel folder creation
+        cancelFolderCreation();
+      }
+    }
+  };
+  
+  // Enhanced mouseup to cancel folder creation
+  const handleMouseUpWithFolderDetection = (e: MouseEvent) => {
+    // Call the original mouse up handler
+    handleMouseUp(e);
+    
+    // Cancel any folder creation in progress
+    if (cancelFolderCreation) {
+      cancelFolderCreation();
+    }
+  };
+  
+  // Override document event listeners if folder creation is enabled
+  useEffect(() => {
+    if (startFolderCreation && cancelFolderCreation) {
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMoveWithFolderDetection);
+        document.removeEventListener('mouseup', handleMouseUpWithFolderDetection);
+      };
+    }
+  }, [startFolderCreation, cancelFolderCreation, dragging]);
+  
+  // Check if this file is part of a folder creation process
+  const isPartOfFolderCreation = 
+    filesForFolderCreation && 
+    file.id && 
+    (filesForFolderCreation.source === file.id || filesForFolderCreation.target === file.id);
+  
   return (
     <div
       ref={fileRef}
@@ -286,7 +379,8 @@ export function FileItem({
         isSelected && "ring-2 ring-primary shadow-lg z-10",
         dragging && "z-50 shadow-xl",
         isSearchMatch && "animate-pulse shadow-xl shadow-primary/20",
-        isSearchMatch && !isSelected && "ring-2 ring-yellow-400 z-10"
+        isSearchMatch && !isSelected && "ring-2 ring-yellow-400 z-10",
+        isPartOfFolderCreation && "ring-4 ring-green-500 z-20 animate-pulse"
       )}
       style={{
         left: `${localPosition.x}px`,
@@ -294,6 +388,7 @@ export function FileItem({
         width: isImage && file.dimensions ? `${file.dimensions.width}px` : 'auto',
         transition: dragging ? 'none' : 'transform 0.1s ease'
       }}
+      data-file-id={file.id}
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
     >
