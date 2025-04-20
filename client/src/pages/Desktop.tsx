@@ -56,6 +56,7 @@ export default function Desktop() {
     clearAllFiles,
     selectFile,
     createFolderFromFiles,
+    addFileToFolder,
   } = useDesktopFiles();
   const [previewFile, setPreviewFile] = useState<DesktopFile | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -214,10 +215,45 @@ export default function Desktop() {
     }
   };
   
+  // State to track folder drop targets
+  const [folderDropTarget, setFolderDropTarget] = useState<number | null>(null);
+
   // Handle file drag start
   const handleFileDragStart = (fileId: number | undefined) => {
     if (fileId) {
       setDraggingFileId(fileId);
+    }
+  };
+
+  // Handle dragging over folder - mark folder as drop target
+  const handleFolderDragOver = (folderId: number) => {
+    if (draggingFileId && draggingFileId !== folderId) {
+      setFolderDropTarget(folderId);
+    }
+  };
+
+  // Handle dragging away from folder
+  const handleFolderDragLeave = () => {
+    setFolderDropTarget(null);
+  };
+
+  // Handle drop on a folder
+  const handleFolderDrop = async (folderId: number) => {
+    // Check if we have a file currently being dragged
+    if (draggingFileId && draggingFileId !== folderId) {
+      try {
+        // Add file to folder via the addFileToFolder function that's already available in our props
+        await addFileToFolder(draggingFileId, folderId);
+        
+        // Refresh the files list by invalidating the query cache
+        queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+        
+        // Clear states
+        setDraggingFileId(null);
+        setFolderDropTarget(null);
+      } catch (error) {
+        console.error('Error dropping file into folder:', error);
+      }
     }
   };
   
@@ -227,6 +263,9 @@ export default function Desktop() {
     
     // Clear dragging state
     setDraggingFileId(null);
+    
+    // Also clear folder drop target
+    setFolderDropTarget(null);
     
     // Clear any active overlap timeout
     if (dragTimeoutRef.current) {
@@ -448,25 +487,62 @@ export default function Desktop() {
                 return null;
               }
               
+              // Check if this file is a folder
+              const isFolder = file.isFolder === 'true' || file.type === 'application/folder';
+              
+              // Check if this folder is a drop target
+              const isDropTarget = isFolder && folderDropTarget === file.id;
+              
               return (
-                <FileItem
-                  key={file.id ? `file-${file.id}` : `file-${index}`}
-                  file={file}
-                  index={realIndex !== -1 ? realIndex : index}
-                  isSelected={selectedFile === realIndex}
-                  isSearchMatch={isMatch}
-                  searchTerm={searchQuery}
-                  onSelect={handleSelectFile}
-                  onDragEnd={(index, x, y) => {
-                    if (file.id) handleFileDragEnd(file.id, x, y);
-                    handleFilePositionUpdate(index, x, y);
-                  }}
-                  onDragStart={(fileId) => handleFileDragStart(fileId)}
-                  onDragMove={(fileId) => checkFileOverlap(fileId)}
-                  registerRef={registerFileElement}
-                  onResize={handleFileResize}
-                  onPreview={handlePreviewFile}
-                />
+                <div 
+                  key={file.id ? `file-container-${file.id}` : `file-container-${index}`}
+                  className="relative"
+                  onDragOver={isFolder ? (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (file.id) handleFolderDragOver(file.id);
+                  } : undefined}
+                  onDragLeave={isFolder ? (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleFolderDragLeave();
+                  } : undefined}
+                  onDrop={isFolder ? (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (file.id) handleFolderDrop(file.id);
+                  } : undefined}
+                >
+                  {/* Drop target indicator */}
+                  {isDropTarget && (
+                    <div className="absolute inset-0 z-10 pointer-events-none">
+                      <div className="absolute inset-0 bg-primary/20 rounded-lg animate-pulse"></div>
+                      <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 flex items-center bg-black/70 px-2 py-1 rounded text-white text-xs whitespace-nowrap">
+                        <MoveDown className="w-3 h-3 mr-1" />
+                        Drop to move here
+                      </div>
+                    </div>
+                  )}
+                  
+                  <FileItem
+                    key={file.id ? `file-${file.id}` : `file-${index}`}
+                    file={file}
+                    index={realIndex !== -1 ? realIndex : index}
+                    isSelected={selectedFile === realIndex}
+                    isSearchMatch={isMatch}
+                    searchTerm={searchQuery}
+                    onSelect={handleSelectFile}
+                    onDragEnd={(index, x, y) => {
+                      if (file.id) handleFileDragEnd(file.id, x, y);
+                      handleFilePositionUpdate(index, x, y);
+                    }}
+                    onDragStart={(fileId) => handleFileDragStart(fileId)}
+                    onDragMove={(fileId) => checkFileOverlap(fileId)}
+                    registerRef={registerFileElement}
+                    onResize={handleFileResize}
+                    onPreview={handlePreviewFile}
+                  />
+                </div>
               );
             })}
             

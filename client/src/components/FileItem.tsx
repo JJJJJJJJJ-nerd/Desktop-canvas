@@ -328,8 +328,31 @@ export function FileItem({
       draggable="true"
       onDragStart={e => {
         if (file.id) {
+          // Set the file ID as plain text data
           e.dataTransfer.setData('text/plain', file.id.toString());
+          
+          // Set the file type to help identify what's being dragged
+          e.dataTransfer.setData('application/x-file-type', file.type);
+          
+          // Set drag effect
           e.dataTransfer.effectAllowed = 'move';
+          
+          // Create a custom drag image for better feedback
+          const dragImage = document.createElement('div');
+          dragImage.className = 'bg-white/95 p-2 rounded shadow-lg flex items-center';
+          dragImage.innerHTML = `
+            <div class="mr-2">${fileIcon.icon.props.className ? `<svg class="${fileIcon.icon.props.className}"></svg>` : ''}</div>
+            <div class="text-xs font-medium">${file.name}</div>
+          `;
+          document.body.appendChild(dragImage);
+          e.dataTransfer.setDragImage(dragImage, 20, 20);
+          
+          // Remove after drag operation
+          setTimeout(() => {
+            document.body.removeChild(dragImage);
+          }, 0);
+          
+          // Notify parent component
           if (onDragStart) {
             onDragStart(file.id);
           }
