@@ -276,8 +276,8 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
               </>
             ) : (
               <>
-                <Upload className="w-3 h-3 mr-1" />
-                Upload Files
+                <MoveRight className="w-3 h-3 mr-1" />
+                Move Files
               </>
             )}
           </Button>
@@ -320,15 +320,28 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
             {externalFiles.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-gray-500">
                 <div className="flex flex-col items-center justify-center h-full text-gray-500">
-                  <FileX className="w-12 h-12 mb-2 opacity-30" />
+                  <div className="flex items-center mb-2 text-gray-400">
+                    <MoveRight className="w-8 h-8 mr-1 opacity-30" />
+                    <FileX className="w-12 h-12 opacity-30" />
+                  </div>
                   <p>No files available to move</p>
                   <p className="text-xs mt-2 text-gray-400">All files are already in this folder or there are no files on the desktop</p>
+                  <button 
+                    onClick={() => setIsSelectMode(false)}
+                    className="mt-4 px-3 py-1 border border-gray-300 rounded hover:bg-gray-100 text-gray-600 text-sm flex items-center"
+                  >
+                    <X className="w-3 h-3 mr-1" />
+                    Cancel selection
+                  </button>
                 </div>
               </div>
             ) : (
               <>
                 <div className="mb-3 bg-blue-50 p-3 rounded-md text-sm">
-                  <p className="text-blue-800">Select files to move to this folder. Files will blink until selected.</p>
+                  <p className="text-blue-800 flex items-center">
+                    <MoveRight className="w-4 h-4 mr-1" />
+                    Select files to move to this folder. Files will blink until selected.
+                  </p>
                 </div>
                 <div className="grid grid-cols-4 gap-4">
                   {externalFiles.map((file) => (
@@ -360,9 +373,14 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
           <div className="flex flex-col items-center justify-center h-full text-gray-500">
             <FolderOpen className="w-12 h-12 mb-2 opacity-30" />
             <p>This folder is empty</p>
-            <p className="text-xs mt-2 text-gray-400">Drag and drop files here</p>
-            <div className="mt-4 p-2 border-2 border-dashed border-gray-300 rounded-lg">
-              <Upload className="w-6 h-6 text-gray-400" />
+            <p className="text-xs mt-2 text-gray-400">Drag and drop files here or use the Move Files button</p>
+            <div className="flex gap-2 mt-4">
+              <div className="p-2 border-2 border-dashed border-gray-300 rounded-lg">
+                <MoveRight className="w-6 h-6 text-gray-400" />
+              </div>
+              <div className="p-2 border-2 border-dashed border-gray-300 rounded-lg">
+                <Upload className="w-6 h-6 text-gray-400" />
+              </div>
             </div>
           </div>
         ) : (
@@ -385,8 +403,11 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
         {isDraggingOver && !isSelectMode && (
           <div className="absolute inset-0 bg-primary/20 backdrop-blur-sm flex items-center justify-center pointer-events-none">
             <div className="bg-white p-4 rounded-lg shadow-lg text-center">
-              <Upload className="w-10 h-10 mx-auto text-primary mb-2" />
-              <p className="text-sm font-medium text-gray-700">Drop files to add them to this folder</p>
+              <div className="flex gap-2 justify-center mb-2">
+                <MoveRight className="w-10 h-10 text-primary" />
+                <Upload className="w-10 h-10 text-primary" />
+              </div>
+              <p className="text-sm font-medium text-gray-700">Drop files to move them into this folder</p>
             </div>
           </div>
         )}
