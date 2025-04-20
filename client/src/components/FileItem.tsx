@@ -330,12 +330,11 @@ export function FileItem({
           // Set the file type to help identify what's being dragged
           e.dataTransfer.setData('application/x-file-type', file.type);
           
-          // Check if this file is a folder - don't allow dragging folders into other folders
+          // Allow dragging of both files and folders
           const isFolder = file.isFolder === 'true' || file.type === 'application/folder';
           if (isFolder) {
-            // Cancel the drag if it's a folder
-            e.preventDefault();
-            return;
+            // Set data attribute to identify this as a folder drag
+            e.dataTransfer.setData('application/x-is-folder', 'true');
           }
           
           // Set drag effect
