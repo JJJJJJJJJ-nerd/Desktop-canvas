@@ -138,15 +138,43 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
       }
       const data = await response.json();
       
+      console.log('All files from API:', data.files);
+      console.log('Current folder ID:', folder.id);
+      
       // Filter to include only files that:
       // 1. Aren't in this folder already
       // 2. Aren't folders themselves
-      const externalFilesOnly = data.files.filter((file: DesktopFile) => 
-        file.id && 
-        !file.isFolder && 
-        (!file.parentId || file.parentId !== folder.id)
-      );
+      const externalFilesOnly = data.files.filter((file: DesktopFile) => {
+        // Make sure file has an ID
+        if (!file.id) {
+          console.log('Skipping file with no ID:', file);
+          return false;
+        }
+        
+        // Skip folders by checking type or name
+        const isFolder = (
+          String(file.isFolder) === 'true' || 
+          file.type === 'application/folder' ||
+          file.name.endsWith('.folder')
+        );
+        
+        if (isFolder) {
+          console.log('Skipping folder:', file.name, file);
+          return false;
+        }
+        
+        // Skip files that are already in this folder
+        if (file.parentId === folder.id) {
+          console.log('Skipping file already in folder:', file.name, file);
+          return false;
+        }
+        
+        console.log('Including file:', file.name, file);
+        // Include all other files
+        return true;
+      });
       
+      console.log('Filtered external files:', externalFilesOnly);
       setExternalFiles(externalFilesOnly);
     } catch (error) {
       console.error('Error fetching external files:', error);
