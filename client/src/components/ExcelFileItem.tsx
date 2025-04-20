@@ -340,6 +340,37 @@ export function ExcelFileItem({
     document.removeEventListener('mouseup', handleResizeEnd);
   };
 
+  // Handle mouse down on the entire component
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // Only respond to left mouse button
+    if (e.button !== 0) return;
+    
+    // Prevent default browser behavior and stop event propagation
+    e.stopPropagation();
+    e.preventDefault();
+    
+    // Always select on mousedown if not already selected
+    if (!isSelected) {
+      onSelect(index);
+    }
+    
+    // Calculate offset between mouse position and element top-left corner
+    startPosRef.current = {
+      x: e.clientX - localPosition.x,
+      y: e.clientY - localPosition.y
+    };
+    
+    // Store current position for reference
+    currentPosition.current = localPosition;
+    
+    // Set dragging state
+    setDragging(true);
+    
+    // Add document-level event listeners for move and release
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
   return (
     <div
       ref={fileRef}
@@ -359,7 +390,7 @@ export function ExcelFileItem({
         minWidth: '400px',
         minHeight: '300px'
       }}
-      onClick={() => onSelect(index)}
+      onMouseDown={handleMouseDown}
     >
       <ResizablePanelGroup
         direction="vertical"
@@ -370,7 +401,8 @@ export function ExcelFileItem({
         <ResizablePanel defaultSize={10} minSize={5} maxSize={10}>
           <div 
             className="flex justify-between items-center px-3 py-2 bg-gray-100 border-b cursor-move"
-            onMouseDown={handleHeaderMouseDown}
+            // Handle header explicitly to improve UX
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2 truncate">
               <FileSpreadsheet className="h-4 w-4 text-green-600" />
@@ -386,7 +418,11 @@ export function ExcelFileItem({
                 variant="ghost" 
                 size="icon" 
                 className="h-6 w-6 rounded-full hover:bg-gray-200"
-                onClick={onClose}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onClose();
+                }}
               >
                 <X className="h-3.5 w-3.5" />
               </Button>
@@ -405,7 +441,11 @@ export function ExcelFileItem({
                 <Button 
                   variant={editMode ? "default" : "outline"} 
                   size="sm" 
-                  onClick={toggleEditMode}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    toggleEditMode();
+                  }}
                   className="text-xs flex items-center gap-1"
                 >
                   {editMode ? <><Check className="h-3.5 w-3.5" /> Editing Active</> : <><Edit className="h-3.5 w-3.5" /> Edit Mode</>}
