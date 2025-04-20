@@ -325,14 +325,14 @@ export function FileItem({
       }}
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
-      draggable="true"
+      draggable={false} // Disable native HTML5 drag to use our custom implementation
       onDragStart={e => {
-        if (file.id) {
-          e.dataTransfer.setData('text/plain', file.id.toString());
-          e.dataTransfer.effectAllowed = 'move';
-          if (onDragStart) {
-            onDragStart(file.id);
-          }
+        // Prevent default to avoid conflicts with our custom drag implementation
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (file.id && onDragStart) {
+          onDragStart(file.id);
         }
       }}
     >
