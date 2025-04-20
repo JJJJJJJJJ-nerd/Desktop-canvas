@@ -165,6 +165,7 @@ export function FileItem({
         // Start dragging immediately upon movement
         if (!dragging) {
           setDragging(true);
+          
           // Notify parent that we started dragging this file
           if (onDragStart && file.id) {
             onDragStart(file.id);
@@ -324,6 +325,16 @@ export function FileItem({
       }}
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
+      draggable="true"
+      onDragStart={e => {
+        if (file.id) {
+          e.dataTransfer.setData('text/plain', file.id.toString());
+          e.dataTransfer.effectAllowed = 'move';
+          if (onDragStart) {
+            onDragStart(file.id);
+          }
+        }
+      }}
     >
       {isImage ? (
         <div className="flex flex-col">

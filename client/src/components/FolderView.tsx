@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FileItem } from './FileItem';
 import { DesktopFile } from '@/types';
-import { X, FolderOpen, ArrowLeft } from 'lucide-react';
+import { X, FolderOpen, ArrowLeft, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { queryClient } from '@/lib/queryClient';
 
 interface FolderViewProps {
   folder: DesktopFile;
@@ -14,26 +15,118 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
   const [files, setFiles] = useState<DesktopFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  
+  const dropAreaRef = useRef<HTMLDivElement>(null);
+
+  // Handle drag over events
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(true);
+  };
+
+  // Handle drag leave events
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+  };
+
+  // Handle drop events
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+    
+    // Check if files were dropped
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      // Handle dropped files (upload)
+      const formData = new FormData();
+      Array.from(e.dataTransfer.files).forEach((file) => {
+        formData.append('files', file);
+      });
+      
+      try {
+        const response = await fetch('/api/files/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to upload files');
+        }
+        
+        const data = await response.json();
+        
+        // Move newly uploaded files to this folder
+        if (data.files && data.files.length > 0) {
+          for (const file of data.files) {
+            if (file.id && folder.id) {
+              await addFileToFolder(file.id, folder.id);
+            }
+          }
+          
+          // Refresh folder contents
+          fetchFiles();
+        }
+      } catch (error) {
+        console.error('Error uploading files:', error);
+      }
+    } else if (e.dataTransfer.getData('text/plain')) {
+      // This might be a file ID dragged from desktop
+      try {
+        const fileId = parseInt(e.dataTransfer.getData('text/plain'));
+        if (!isNaN(fileId) && folder.id) {
+          await addFileToFolder(fileId, folder.id);
+          // Refresh folder contents and desktop files
+          fetchFiles();
+          queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+        }
+      } catch (error) {
+        console.error('Error adding file to folder:', error);
+      }
+    }
+  };
+  
+  // Add file to folder
+  const addFileToFolder = async (fileId: number, folderId: number) => {
+    try {
+      const response = await fetch(`/api/folders/${folderId}/files/${fileId}`, {
+        method: 'POST',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to add file to folder');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error adding file to folder:', error);
+      throw error;
+    }
+  };
 
   // Fetch files in the folder
-  useEffect(() => {
-    const fetchFiles = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`/api/folders/${folder.id}/files`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch folder contents');
-        }
-        const data = await response.json();
-        setFiles(data.files || []);
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error('Unknown error'));
-        console.error('Error fetching folder contents:', err);
-      } finally {
-        setIsLoading(false);
+  const fetchFiles = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`/api/folders/${folder.id}/files`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch folder contents');
       }
-    };
+      const data = await response.json();
+      setFiles(data.files || []);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Unknown error'));
+      console.error('Error fetching folder contents:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  // Initial fetch of files
+  useEffect(() => {
     if (folder.id) {
       fetchFiles();
     }
@@ -64,7 +157,13 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
       </div>
 
       {/* Window content */}
-      <div className="p-4 h-[calc(100%-40px)] overflow-auto">
+      <div 
+        ref={dropAreaRef}
+        className={`p-4 h-[calc(100%-40px)] overflow-auto ${isDraggingOver ? 'bg-primary/10 ring-2 ring-primary/30 ring-inset' : ''}`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin border-2 border-primary/20 border-t-primary rounded-full w-6 h-6"></div>
@@ -84,6 +183,10 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
           <div className="flex flex-col items-center justify-center h-full text-gray-500">
             <FolderOpen className="w-12 h-12 mb-2 opacity-30" />
             <p>This folder is empty</p>
+            <p className="text-xs mt-2 text-gray-400">Drag and drop files here</p>
+            <div className="mt-4 p-2 border-2 border-dashed border-gray-300 rounded-lg">
+              <Upload className="w-6 h-6 text-gray-400" />
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-4 gap-4">
@@ -97,6 +200,16 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
                 <p className="text-xs font-medium mt-1 text-center truncate w-full">{file.name}</p>
               </div>
             ))}
+          </div>
+        )}
+        
+        {/* Drag overlay */}
+        {isDraggingOver && (
+          <div className="absolute inset-0 bg-primary/20 backdrop-blur-sm flex items-center justify-center pointer-events-none">
+            <div className="bg-white p-4 rounded-lg shadow-lg text-center">
+              <Upload className="w-10 h-10 mx-auto text-primary mb-2" />
+              <p className="text-sm font-medium text-gray-700">Drop files to add them to this folder</p>
+            </div>
           </div>
         )}
       </div>
