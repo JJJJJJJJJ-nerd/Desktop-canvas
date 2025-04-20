@@ -187,17 +187,25 @@ export function useDesktopFiles() {
     }
   };
 
+  // Clear all files mutation
+  const clearAllFilesMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/files', {
+        method: 'DELETE',
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+      setSelectedFile(null);
+    },
+  });
+
   // Clear all files
   const clearAllFiles = async () => {
     if (window.confirm('Are you sure you want to clear all files from the desktop?')) {
       try {
-        // Delete each file one by one
-        for (const file of files) {
-          if (file.id) {
-            await deleteFileMutation.mutateAsync(file.id);
-          }
-        }
-        setSelectedFile(null);
+        await clearAllFilesMutation.mutateAsync();
       } catch (error) {
         console.error('Error clearing files:', error);
       }

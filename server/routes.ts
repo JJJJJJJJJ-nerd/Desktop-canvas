@@ -167,6 +167,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ message: 'Error deleting file' });
     }
   });
+  
+  // Clear all files endpoint
+  app.delete('/api/files', async (req, res) => {
+    try {
+      await storage.deleteAllFiles();
+      return res.status(200).json({ message: 'All files deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting all files:', error);
+      return res.status(500).json({ message: 'Error deleting all files' });
+    }
+  });
 
   // Save desktop state endpoint
   app.post('/api/desktop/save', express.json({ limit: '50mb' }), async (req, res) => {

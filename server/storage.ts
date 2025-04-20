@@ -23,6 +23,7 @@ export interface IStorage {
   updateFile(id: number, position: { x: number, y: number }): Promise<DesktopFileDB | undefined>;
   updateFileDimensions(id: number, dimensions: { width: number, height: number }): Promise<DesktopFileDB | undefined>;
   deleteFile(id: number): Promise<void>;
+  deleteAllFiles(): Promise<void>;
   
   // Folder operations
   createFolder(name: string, position: { x: number, y: number }, userId?: number): Promise<DesktopFileDB>;
@@ -116,7 +117,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteFile(id: number): Promise<void> {
+    // First, check if this is a folder
+    const file = await this.getFile(id);
+    if (file && file.isFolder) {
+      // If it's a folder, first delete all files inside it
+      const filesInFolder = await this.getFilesInFolder(id);
+      for (const childFile of filesInFolder) {
+        await this.deleteFile(childFile.id);
+      }
+    }
+    
+    // Then delete the file or empty folder
     await db.delete(desktopFiles).where(eq(desktopFiles.id, id));
+  }
+  
+  async deleteAllFiles(): Promise<void> {
+    // Delete all files from the database - this handles cascade deletion
+    await db.delete(desktopFiles);
   }
   
   // Folder operations
