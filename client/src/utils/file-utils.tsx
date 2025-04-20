@@ -4,12 +4,20 @@ import {
   FileText,
   Image,
   UserRound,
-  Contact
+  Contact,
+  FolderOpen
 } from "lucide-react";
 
-export const getFileIcon = (fileType: string, fileName?: string): FileIconInfo => {
+export const getFileIcon = (fileType: string, fileName?: string, isFolder?: boolean): FileIconInfo => {
   let iconClass = '';
   let icon;
+  
+  // Check if the file is a folder
+  if (isFolder || fileType === 'application/folder') {
+    iconClass = 'folder';
+    icon = <FolderOpen className="h-6 w-6 text-yellow-500" />;
+    return { class: iconClass, icon };
+  }
   
   // Check if file is a VCF/vCard contact file
   const isVCF = fileType === 'text/vcard' || (fileName && fileName.toLowerCase().endsWith('.vcf'));
