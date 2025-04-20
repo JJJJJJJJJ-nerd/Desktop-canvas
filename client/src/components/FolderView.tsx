@@ -231,7 +231,7 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
     }
   };
 
-  // Mouse event handlers for dragging the folder
+  // Completely reworked mouse handling for immediate drag behavior - same as FileItem implementation
   const handleHeaderMouseDown = (e: React.MouseEvent) => {
     // Only handle left mouse button
     if (e.button !== 0) return;
@@ -245,7 +245,7 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
       y: e.clientY - position.y
     };
     
-    // Immediately start dragging - no delay needed
+    // IMMEDIATELY start dragging without any threshold
     setIsDragging(true);
     
     // Add document-level event listeners for dragging
@@ -253,24 +253,19 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
     document.addEventListener('mouseup', handleMouseUp);
   };
   
+  // Simplified mouse movement handler for immediate dragging
   const handleMouseMove = (e: MouseEvent) => {
-    // Only proceed if we're in dragging mode
-    if (!isDragging) return;
-    
     e.preventDefault();
     
-    // Calculate new position - ensure we stay within boundaries
+    // Always calculate and update position immediately, regardless of any threshold
     const newX = Math.max(0, e.clientX - startPosRef.current.x);
     const newY = Math.max(0, e.clientY - startPosRef.current.y);
     
-    // Update position immediately
+    // Update position immediately with each mouse movement
     setPosition({ x: newX, y: newY });
   };
   
   const handleMouseUp = async (e: MouseEvent) => {
-    // Only proceed if we were dragging
-    if (!isDragging) return;
-    
     e.preventDefault();
     
     // Stop dragging state
