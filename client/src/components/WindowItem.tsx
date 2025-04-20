@@ -403,9 +403,9 @@ export function WindowItem({
     let optimalHeight = 450; // Default height
     
     if (isVCF) {
-      // VCF contact cards look best at these dimensions
-      optimalWidth = 480;
-      optimalHeight = 680;
+      // VCF contact cards need more height to display all content
+      optimalWidth = 520;
+      optimalHeight = 820;
     } else if (isExcel) {
       // Excel files need more space to display tables
       optimalWidth = 800;
