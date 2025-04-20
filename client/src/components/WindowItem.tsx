@@ -142,26 +142,59 @@ export function WindowItem({
     // Extract photo if present
     let photo = undefined;
     
-    // Check for different vCard photo formats
-    // Format 1: PHOTO;ENCODING=b;TYPE=JPEG:base64data
-    const photoRegex1 = /PHOTO;(?:[^:]*?ENCODING=b[^:]*?):(.+?)(?:\r?\n|$)/i;
-    const photoMatch1 = vcfContent.match(photoRegex1);
+    console.log("Parsing VCF photo data");
     
-    // Format 2: PHOTO;JPEG;ENCODING=BASE64:base64data
-    const photoRegex2 = /PHOTO;(?:[^:]*?BASE64[^:]*?):(.+?)(?:\r?\n|$)/i;
-    const photoMatch2 = vcfContent.match(photoRegex2);
+    // Extract multi-line photo data (handles line folding in vCard format)
+    let photoData = '';
     
-    // Format 3: PHOTO:base64data
-    const photoRegex3 = /PHOTO:(.+?)(?:\r?\n|$)/i;
-    const photoMatch3 = vcfContent.match(photoRegex3);
-    
-    // Choose the first match found
-    const photoMatch = photoMatch1 || photoMatch2 || photoMatch3;
-    
-    if (photoMatch && photoMatch[1]) {
-      // Photo is in base64 format, clean up any whitespace
-      const photoData = photoMatch[1].replace(/\s/g, '');
-      photo = `data:image/jpeg;base64,${photoData}`;
+    // Common patterns for vCard photos
+    if (vcfContent.includes('PHOTO')) {
+      console.log("Found PHOTO field in vCard");
+      
+      // Find the start of the photo data
+      const photoStartMatch = vcfContent.match(/PHOTO(;[^:]*)?:/i);
+      
+      if (photoStartMatch) {
+        const photoStartIndex = vcfContent.indexOf(photoStartMatch[0]) + photoStartMatch[0].length;
+        let photoEndIndex = vcfContent.indexOf("\n", photoStartIndex);
+        
+        if (photoEndIndex === -1) {
+          photoEndIndex = vcfContent.length;
+        }
+        
+        // Extract the initial line of photo data
+        photoData = vcfContent.substring(photoStartIndex, photoEndIndex).trim();
+        
+        // Check for folded lines (vCard can split long content with line breaks)
+        let nextLineStart = photoEndIndex + 1;
+        while (nextLineStart < vcfContent.length) {
+          // In vCard format, folded lines start with a space or tab
+          if (vcfContent.charAt(nextLineStart) === ' ' || vcfContent.charAt(nextLineStart) === '\t') {
+            const nextLineEnd = vcfContent.indexOf("\n", nextLineStart);
+            const lineContent = vcfContent.substring(nextLineStart + 1, nextLineEnd === -1 ? vcfContent.length : nextLineEnd).trim();
+            photoData += lineContent;
+            nextLineStart = nextLineEnd + 1;
+          } else {
+            break; // No more folded lines
+          }
+        }
+        
+        console.log("Extracted photo data length:", photoData.length);
+        
+        // Determine the image format
+        let imageFormat = 'jpeg'; // Default
+        const formatMatch = photoStartMatch[0].match(/TYPE=([^;:]*)/i);
+        if (formatMatch) {
+          imageFormat = formatMatch[1].toLowerCase();
+        }
+        
+        // Create the data URL with the correct MIME type
+        if (photoData) {
+          photoData = photoData.replace(/\s/g, ''); // Remove any whitespace
+          photo = `data:image/${imageFormat};base64,${photoData}`;
+          console.log("Created photo data URL:", photo.substring(0, 50) + "...");
+        }
+      }
     }
     
     return {
@@ -199,14 +232,17 @@ export function WindowItem({
           
         } else if (isVCF) {
           // Load and parse vCard data
+          console.log("Loading VCF file:", file.name);
           const response = await fetch(file.dataUrl);
           const vcfText = await response.text();
           
           // Store text content for reference
           setTextContent(vcfText);
+          console.log("VCF raw content (first 100 chars):", vcfText.substring(0, 100));
           
           // Parse VCF data for display
           const parsedData = parseVCardData(vcfText);
+          console.log("Parsed VCF data:", parsedData);
           setVCardData(parsedData);
           
         } else if (isText) {
@@ -462,7 +498,20 @@ export function WindowItem({
             <div className="mb-6">
               <Avatar className="h-32 w-32 border-4 border-white shadow-lg">
                 {vCardData.photo ? (
-                  <AvatarImage src={vCardData.photo} alt={contactName} />
+                  <>
+                    <AvatarImage 
+                      src={vCardData.photo} 
+                      alt={contactName} 
+                      onError={(e) => {
+                        console.error("Failed to load contact photo:", e);
+                        // Force display of fallback by setting src to empty
+                        (e.target as HTMLImageElement).src = "";
+                      }} 
+                    />
+                    <AvatarFallback className="text-3xl bg-primary/10 text-primary">
+                      {vCardData.name ? vCardData.name.charAt(0).toUpperCase() : <User size={48} />}
+                    </AvatarFallback>
+                  </>
                 ) : (
                   <AvatarFallback className="text-3xl bg-primary/10 text-primary">
                     {vCardData.name ? vCardData.name.charAt(0).toUpperCase() : <User size={48} />}
