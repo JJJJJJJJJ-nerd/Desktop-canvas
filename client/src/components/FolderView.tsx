@@ -20,8 +20,12 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedFileIds, setSelectedFileIds] = useState<number[]>([]);
   const [externalFiles, setExternalFiles] = useState<DesktopFile[]>([]);
+  const [position, setPosition] = useState({ x: folder.position.x, y: folder.position.y });
+  const [isDragging, setIsDragging] = useState(false);
   
   const dropAreaRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const startPosRef = useRef({ x: 0, y: 0 });
 
   // Handle drag over events
   const handleDragOver = (e: React.DragEvent) => {
@@ -227,11 +231,85 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
     }
   };
 
-  // Initial fetch of files
+  // Mouse event handlers for dragging the folder
+  const handleHeaderMouseDown = (e: React.MouseEvent) => {
+    // Only handle left mouse button
+    if (e.button !== 0) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Calculate offset between mouse position and window top-left corner
+    startPosRef.current = {
+      x: e.clientX - position.x,
+      y: e.clientY - position.y
+    };
+    
+    // Start dragging
+    setIsDragging(true);
+    
+    // Add document-level event listeners
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+  
+  const handleMouseMove = (e: MouseEvent) => {
+    if (isDragging) {
+      e.preventDefault();
+      
+      // Calculate new position
+      const newX = Math.max(0, e.clientX - startPosRef.current.x);
+      const newY = Math.max(0, e.clientY - startPosRef.current.y);
+      
+      // Update position
+      setPosition({ x: newX, y: newY });
+    }
+  };
+  
+  const handleMouseUp = async (e: MouseEvent) => {
+    if (isDragging) {
+      e.preventDefault();
+      
+      // Stop dragging
+      setIsDragging(false);
+      
+      // Save the new position to the server
+      if (folder.id) {
+        try {
+          // Update file position in database
+          const response = await fetch(`/api/files/${folder.id}/position`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ x: position.x, y: position.y }),
+          });
+          
+          if (!response.ok) {
+            console.error('Failed to save folder position');
+          }
+        } catch (error) {
+          console.error('Error saving folder position:', error);
+        }
+      }
+    }
+    
+    // Clean up event listeners
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+  };
+  
+  // Initial fetch of files and cleanup event listeners
   useEffect(() => {
     if (folder.id) {
       fetchFiles();
     }
+    
+    // Cleanup function to remove event listeners
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
   }, [folder.id]);
 
   return (
@@ -239,13 +317,17 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
       style={{
         width: folder.dimensions?.width || 600,
         height: folder.dimensions?.height || 400,
-        left: folder.position.x,
-        top: folder.position.y,
-        zIndex: 50
+        left: position.x,
+        top: position.y,
+        zIndex: isDragging ? 100 : 50,
+        cursor: isDragging ? 'grabbing' : 'default'
       }}
     >
-      {/* Window header */}
-      <div className="bg-primary/90 text-white py-2 px-3 flex items-center justify-between">
+      {/* Window header - drag handle */}
+      <div 
+        ref={headerRef}
+        className="bg-primary/90 text-white py-2 px-3 flex items-center justify-between cursor-grab select-none"
+        onMouseDown={handleHeaderMouseDown}>
         <div className="flex items-center space-x-2">
           <FolderOpen className="w-5 h-5" />
           <h3 className="font-medium text-sm">{folder.name}</h3>
