@@ -86,8 +86,7 @@ export function FileItem({
   const resizeStartPos = useRef<{ x: number, y: number, width: number, height: number } | null>(null);
   const [isResizing, setIsResizing] = useState(false);
 
-  const isFolder = file.isFolder === 'true' || file.type === 'application/folder';
-  const fileIcon = getFileIcon(file.type, file.name, false);
+  const fileIcon = getFileIcon(file.type);
   const isImage = file.type.startsWith('image/');
   
   // Set initial dimensions from file or defaults

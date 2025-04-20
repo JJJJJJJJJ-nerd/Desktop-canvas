@@ -128,19 +128,6 @@ export function useDesktopFiles() {
     },
   });
   
-  // Get files in folder mutation
-  const getFilesInFolderMutation = useMutation({
-    mutationFn: async (folderId: number) => {
-      const response = await fetch(`/api/folders/${folderId}/files`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      return response.json();
-    },
-  });
-  
   // Remove file from folder mutation
   const removeFileFromFolderMutation = useMutation({
     mutationFn: async (fileId: number) => {
@@ -273,17 +260,6 @@ export function useDesktopFiles() {
     }
   };
   
-  // Get files in a folder
-  const getFilesInFolder = async (folderId: number) => {
-    try {
-      const result = await getFilesInFolderMutation.mutateAsync(folderId);
-      return result.files;
-    } catch (error) {
-      console.error('Error getting files in folder:', error);
-      return [];
-    }
-  };
-  
   // Create a folder from files that were dragged on top of each other
   const createFolderFromFiles = async (fileIds: number[], position: { x: number; y: number }) => {
     if (fileIds.length < 2) return;
@@ -323,7 +299,6 @@ export function useDesktopFiles() {
     createFolder,
     addFileToFolder,
     removeFileFromFolder,
-    getFilesInFolder,
     createFolderFromFiles
   };
 }
