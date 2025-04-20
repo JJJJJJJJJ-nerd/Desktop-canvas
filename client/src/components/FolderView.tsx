@@ -20,12 +20,8 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedFileIds, setSelectedFileIds] = useState<number[]>([]);
   const [externalFiles, setExternalFiles] = useState<DesktopFile[]>([]);
-  const [position, setPosition] = useState({ x: folder.position.x, y: folder.position.y });
-  const [isDragging, setIsDragging] = useState(false);
   
   const dropAreaRef = useRef<HTMLDivElement>(null);
-  const headerRef = useRef<HTMLDivElement>(null);
-  const startPosRef = useRef({ x: 0, y: 0 });
 
   // Handle drag over events
   const handleDragOver = (e: React.DragEvent) => {
@@ -231,114 +227,25 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
     }
   };
 
-  // Completely reworked mouse handling for immediate drag behavior - same as FileItem implementation
-  const handleHeaderMouseDown = (e: React.MouseEvent) => {
-    // Only handle left mouse button
-    if (e.button !== 0) return;
-    
-    e.preventDefault();
-    e.stopPropagation();
-    
-    // Calculate offset between mouse position and window top-left corner
-    startPosRef.current = {
-      x: e.clientX - position.x,
-      y: e.clientY - position.y
-    };
-    
-    // IMMEDIATELY start dragging without any threshold
-    setIsDragging(true);
-    
-    // Add document-level event listeners for dragging
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  };
-  
-  // Simplified mouse movement handler for immediate dragging
-  const handleMouseMove = (e: MouseEvent) => {
-    e.preventDefault();
-    
-    // Always calculate and update position immediately, regardless of any threshold
-    const newX = Math.max(0, e.clientX - startPosRef.current.x);
-    const newY = Math.max(0, e.clientY - startPosRef.current.y);
-    
-    // Update position immediately with each mouse movement
-    setPosition({ x: newX, y: newY });
-  };
-  
-  const handleMouseUp = async (e: MouseEvent) => {
-    e.preventDefault();
-    
-    // Stop dragging state
-    setIsDragging(false);
-    
-    // Save the new position to the server
-    if (folder.id) {
-      try {
-        // Use integer values to prevent serialization issues
-        const posX = Math.round(position.x);
-        const posY = Math.round(position.y);
-        
-        console.log(`Saving folder position: ${posX}, ${posY}`);
-        
-        // Send position data directly in the format the backend expects
-        const response = await fetch(`/api/files/${folder.id}/position`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            x: posX, 
-            y: posY 
-          }),
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error('Failed to save folder position:', errorData);
-        } else {
-          console.log('Successfully saved folder position');
-        }
-      } catch (error) {
-        console.error('Error saving folder position:', error);
-      }
-    }
-    
-    // Clean up event listeners
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
-  };
-  
-  // Initial fetch of files and cleanup event listeners
+  // Initial fetch of files
   useEffect(() => {
     if (folder.id) {
       fetchFiles();
     }
-    
-    // Cleanup function to remove event listeners
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
   }, [folder.id]);
 
   return (
-    <div 
-      className="absolute bg-white/95 backdrop-blur-md rounded-lg shadow-xl overflow-hidden border-2 border-transparent"
+    <div className="absolute bg-white/95 backdrop-blur-md rounded-lg shadow-xl overflow-hidden"
       style={{
         width: folder.dimensions?.width || 600,
         height: folder.dimensions?.height || 400,
-        left: position.x,
-        top: position.y,
-        zIndex: isDragging ? 100 : 50,
-        cursor: isDragging ? 'grabbing' : 'move'
+        left: folder.position.x,
+        top: folder.position.y,
+        zIndex: 50
       }}
-      onMouseDown={handleHeaderMouseDown}
     >
       {/* Window header */}
-      <div 
-        ref={headerRef}
-        className="bg-primary/90 text-white py-2 px-3 flex items-center justify-between select-none"
-      >
+      <div className="bg-primary/90 text-white py-2 px-3 flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <FolderOpen className="w-5 h-5" />
           <h3 className="font-medium text-sm">{folder.name}</h3>
@@ -384,14 +291,13 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
         </div>
       </div>
 
-      {/* Window content area - prevent mousedown events from affecting parent */}
+      {/* Window content */}
       <div 
         ref={dropAreaRef}
         className={`p-4 h-[calc(100%-40px)] overflow-auto ${isDraggingOver ? 'bg-primary/10 ring-2 ring-primary/30 ring-inset' : ''}`}
         onDragOver={!isSelectMode ? handleDragOver : undefined}
         onDragLeave={!isSelectMode ? handleDragLeave : undefined}
         onDrop={!isSelectMode ? handleDrop : undefined}
-        onMouseDown={(e) => e.stopPropagation()}
       >
         {isLoading ? (
           <div className="flex items-center justify-center h-full">

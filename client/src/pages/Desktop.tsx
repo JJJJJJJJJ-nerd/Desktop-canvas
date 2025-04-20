@@ -8,7 +8,7 @@ import { FolderView } from "@/components/FolderView";
 import { EmptyState } from "@/components/EmptyState";
 import { useDesktopFiles } from "@/hooks/use-desktop-files";
 import { DesktopFile } from "@/types";
-import { Loader2 as Spinner, Search, X, FileText, FolderSearch, Folder, FolderOpen, MoveDown } from "lucide-react";
+import { Loader2 as Spinner, Search, X, FileText, FolderSearch, Folder, FolderOpen } from "lucide-react";
 import Fuse from 'fuse.js';
 
 // Interface for tracking overlapping files
@@ -214,61 +214,10 @@ export default function Desktop() {
     }
   };
   
-  // State to track folder drop targets
-  const [folderDropTarget, setFolderDropTarget] = useState<number | null>(null);
-
   // Handle file drag start
   const handleFileDragStart = (fileId: number | undefined) => {
     if (fileId) {
       setDraggingFileId(fileId);
-    }
-  };
-
-  // Handle dragging over folder - mark folder as drop target
-  const handleFolderDragOver = (folderId: number) => {
-    if (draggingFileId && draggingFileId !== folderId) {
-      setFolderDropTarget(folderId);
-    }
-  };
-
-  // Handle dragging away from folder
-  const handleFolderDragLeave = () => {
-    setFolderDropTarget(null);
-  };
-
-  // Handle drop on a folder
-  const handleFolderDrop = async (folderId: number) => {
-    // Log all data for debugging
-    console.log(`Handling drop on folder ${folderId}, dragging file: ${draggingFileId}`);
-    
-    // Check if we have a file currently being dragged
-    if (draggingFileId && draggingFileId !== folderId) {
-      try {
-        // Make a direct API call to add file to folder
-        const response = await fetch(`/api/folders/${folderId}/files/${draggingFileId}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to add file to folder');
-        }
-        
-        console.log(`Successfully added file ${draggingFileId} to folder ${folderId}`);
-        
-        // Refresh the files list by invalidating the query cache
-        queryClient.invalidateQueries({ queryKey: ['/api/files'] });
-        
-        // Clear states
-        setDraggingFileId(null);
-        setFolderDropTarget(null);
-      } catch (error) {
-        console.error('Error dropping file into folder:', error);
-      }
-    } else {
-      console.warn('No dragging file ID set or trying to drop on itself');
     }
   };
   
@@ -278,9 +227,6 @@ export default function Desktop() {
     
     // Clear dragging state
     setDraggingFileId(null);
-    
-    // Also clear folder drop target
-    setFolderDropTarget(null);
     
     // Clear any active overlap timeout
     if (dragTimeoutRef.current) {
@@ -502,110 +448,26 @@ export default function Desktop() {
                 return null;
               }
               
-              // Check if this file is a folder
-              const isFolder = file.isFolder === 'true' || file.type === 'application/folder';
-              
-              // Check if this folder is a drop target
-              const isDropTarget = isFolder && folderDropTarget === file.id;
-              
-              if (isFolder) {
-                // Return a folder that can accept drops
-                return (
-                  <div 
-                    key={file.id ? `file-container-${file.id}` : `file-container-${index}`}
-                    className="relative z-10"
-                    style={{
-                      position: 'absolute',
-                      left: `${file.position.x}px`,
-                      top: `${file.position.y}px`,
-                      width: file.dimensions?.width || 96,
-                      height: file.dimensions?.height || 96,
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      if (file.id && draggingFileId !== file.id) {
-                        console.log("Dragging over folder:", file.id);
-                        setFolderDropTarget(file.id);
-                      }
-                    }}
-                    onDragLeave={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleFolderDragLeave();
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      
-                      console.log("Drop event on folder", file.id);
-                      
-                      // Get the file ID from dataTransfer or use current dragging file
-                      const droppedFileId = e.dataTransfer.getData('text/plain');
-                      if (droppedFileId && file.id) {
-                        console.log(`Dropping file ${droppedFileId} into folder ${file.id}`);
-                        // We can either use the ID from dataTransfer or our tracked ID
-                        setDraggingFileId(parseInt(droppedFileId));
-                        handleFolderDrop(file.id);
-                      } else if (draggingFileId && file.id) {
-                        console.log(`Using tracked dragging file ${draggingFileId} into folder ${file.id}`);
-                        handleFolderDrop(file.id);
-                      }
-                    }}
-                  >
-                    {isDropTarget && (
-                      <div className="absolute inset-0 z-20 pointer-events-none">
-                        <div className="absolute inset-0 bg-primary/60 rounded-lg animate-pulse shadow-lg ring-4 ring-primary/30"></div>
-                        <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 flex items-center bg-black/80 px-3 py-1.5 rounded-lg text-white text-xs whitespace-nowrap shadow-lg border border-primary/40">
-                          <MoveDown className="w-4 h-4 mr-2 text-primary" />
-                          Drop file here
-                        </div>
-                      </div>
-                    )}
-                    
-                    <FileItem
-                      key={file.id ? `file-${file.id}` : `file-${index}`}
-                      file={file}
-                      index={realIndex !== -1 ? realIndex : index}
-                      isSelected={selectedFile === realIndex}
-                      isSearchMatch={isMatch}
-                      searchTerm={searchQuery}
-                      onSelect={handleSelectFile}
-                      onDragEnd={(index, x, y) => {
-                        if (file.id) handleFileDragEnd(file.id, x, y);
-                        handleFilePositionUpdate(index, x, y);
-                      }}
-                      onDragStart={(fileId) => handleFileDragStart(fileId)}
-                      onDragMove={(fileId) => checkFileOverlap(fileId)}
-                      registerRef={registerFileElement}
-                      onResize={handleFileResize}
-                      onPreview={handlePreviewFile}
-                    />
-                  </div>
-                );
-              } else {
-                // Return a regular file without wrapper
-                return (
-                  <FileItem
-                    key={file.id ? `file-${file.id}` : `file-${index}`}
-                    file={file}
-                    index={realIndex !== -1 ? realIndex : index}
-                    isSelected={selectedFile === realIndex}
-                    isSearchMatch={isMatch}
-                    searchTerm={searchQuery}
-                    onSelect={handleSelectFile}
-                    onDragEnd={(index, x, y) => {
-                      if (file.id) handleFileDragEnd(file.id, x, y);
-                      handleFilePositionUpdate(index, x, y);
-                    }}
-                    onDragStart={(fileId) => handleFileDragStart(fileId)}
-                    onDragMove={(fileId) => checkFileOverlap(fileId)}
-                    registerRef={registerFileElement}
-                    onResize={handleFileResize}
-                    onPreview={handlePreviewFile}
-                  />
-                );
-              }
+              return (
+                <FileItem
+                  key={file.id ? `file-${file.id}` : `file-${index}`}
+                  file={file}
+                  index={realIndex !== -1 ? realIndex : index}
+                  isSelected={selectedFile === realIndex}
+                  isSearchMatch={isMatch}
+                  searchTerm={searchQuery}
+                  onSelect={handleSelectFile}
+                  onDragEnd={(index, x, y) => {
+                    if (file.id) handleFileDragEnd(file.id, x, y);
+                    handleFilePositionUpdate(index, x, y);
+                  }}
+                  onDragStart={(fileId) => handleFileDragStart(fileId)}
+                  onDragMove={(fileId) => checkFileOverlap(fileId)}
+                  registerRef={registerFileElement}
+                  onResize={handleFileResize}
+                  onPreview={handlePreviewFile}
+                />
+              );
             })}
             
             {/* Open files in windows */}
