@@ -94,6 +94,52 @@ export function useDesktopFiles() {
       return response.json();
     },
   });
+  
+  // Create folder mutation
+  const createFolderMutation = useMutation({
+    mutationFn: async ({ name, position }: { name: string; position: { x: number; y: number } }) => {
+      const response = await fetch('/api/folders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name, position }),
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+    },
+  });
+  
+  // Add file to folder mutation
+  const addFileToFolderMutation = useMutation({
+    mutationFn: async ({ fileId, folderId }: { fileId: number; folderId: number }) => {
+      const response = await fetch(`/api/folders/${folderId}/files/${fileId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+    },
+  });
+  
+  // Remove file from folder mutation
+  const removeFileFromFolderMutation = useMutation({
+    mutationFn: async (fileId: number) => {
+      const response = await fetch(`/api/folders/files/${fileId}`, {
+        method: 'DELETE',
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+    },
+  });
 
   // Add uploaded files
   const addFiles = async (fileList: FileList) => {
@@ -186,6 +232,59 @@ export function useDesktopFiles() {
   const selectFile = (index: number | null) => {
     setSelectedFile(index);
   };
+  
+  // Create a new folder
+  const createFolder = async (name: string, position: { x: number; y: number }) => {
+    try {
+      return await createFolderMutation.mutateAsync({ name, position });
+    } catch (error) {
+      console.error('Error creating folder:', error);
+    }
+  };
+  
+  // Add a file to a folder
+  const addFileToFolder = async (fileId: number, folderId: number) => {
+    try {
+      return await addFileToFolderMutation.mutateAsync({ fileId, folderId });
+    } catch (error) {
+      console.error('Error adding file to folder:', error);
+    }
+  };
+  
+  // Remove a file from a folder
+  const removeFileFromFolder = async (fileId: number) => {
+    try {
+      return await removeFileFromFolderMutation.mutateAsync(fileId);
+    } catch (error) {
+      console.error('Error removing file from folder:', error);
+    }
+  };
+  
+  // Create a folder from files that were dragged on top of each other
+  const createFolderFromFiles = async (fileIds: number[], position: { x: number; y: number }) => {
+    if (fileIds.length < 2) return;
+    
+    try {
+      // Create a new folder
+      const folderName = "New Folder";
+      const result = await createFolderMutation.mutateAsync({ name: folderName, position });
+      
+      const folderId = result.folder.id;
+      if (!folderId) {
+        console.error('Failed to get folder ID after creation');
+        return;
+      }
+      
+      // Add all files to the folder
+      for (const fileId of fileIds) {
+        await addFileToFolderMutation.mutateAsync({ fileId, folderId });
+      }
+      
+      return result.folder;
+    } catch (error) {
+      console.error('Error creating folder from files:', error);
+    }
+  };
 
   return {
     files,
@@ -196,6 +295,10 @@ export function useDesktopFiles() {
     updateFilePosition,
     updateFileDimensions,
     clearAllFiles,
-    selectFile
+    selectFile,
+    createFolder,
+    addFileToFolder,
+    removeFileFromFolder,
+    createFolderFromFiles
   };
 }

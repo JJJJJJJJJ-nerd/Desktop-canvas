@@ -206,6 +206,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ message: 'Error saving desktop state' });
     }
   });
+  
+  // Create a new folder
+  app.post('/api/folders', express.json(), async (req, res) => {
+    try {
+      const { name, position } = req.body;
+      
+      if (!name || !position) {
+        return res.status(400).json({ message: 'Name and position are required' });
+      }
+      
+      const userId = req.user?.id;
+      const folder = await storage.createFolder(name, position, userId);
+      
+      return res.status(201).json({ folder });
+    } catch (error) {
+      console.error('Error creating folder:', error);
+      return res.status(500).json({ message: 'Error creating folder' });
+    }
+  });
+  
+  // Add a file to a folder
+  app.post('/api/folders/:folderId/files/:fileId', async (req, res) => {
+    try {
+      const folderId = parseInt(req.params.folderId);
+      const fileId = parseInt(req.params.fileId);
+      
+      const updatedFile = await storage.addFileToFolder(fileId, folderId);
+      
+      if (!updatedFile) {
+        return res.status(404).json({ message: 'File not found' });
+      }
+      
+      return res.status(200).json({ file: updatedFile });
+    } catch (error) {
+      console.error('Error adding file to folder:', error);
+      return res.status(500).json({ message: 'Error adding file to folder' });
+    }
+  });
+  
+  // Get files in a folder
+  app.get('/api/folders/:folderId/files', async (req, res) => {
+    try {
+      const folderId = parseInt(req.params.folderId);
+      const files = await storage.getFilesInFolder(folderId);
+      
+      return res.status(200).json({ files });
+    } catch (error) {
+      console.error('Error getting files from folder:', error);
+      return res.status(500).json({ message: 'Error getting files from folder' });
+    }
+  });
+  
+  // Remove a file from a folder
+  app.delete('/api/folders/files/:fileId', async (req, res) => {
+    try {
+      const fileId = parseInt(req.params.fileId);
+      const updatedFile = await storage.removeFileFromFolder(fileId);
+      
+      if (!updatedFile) {
+        return res.status(404).json({ message: 'File not found' });
+      }
+      
+      return res.status(200).json({ file: updatedFile });
+    } catch (error) {
+      console.error('Error removing file from folder:', error);
+      return res.status(500).json({ message: 'Error removing file from folder' });
+    }
+  });
 
   const httpServer = createServer(app);
 

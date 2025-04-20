@@ -60,6 +60,8 @@ export const insertDesktopFileSchema = createInsertSchema(desktopFiles).pick({
   position: true,
   dimensions: true,
   userId: true,
+  parentId: true,
+  isFolder: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -83,4 +85,7 @@ export type DesktopFile = {
     width: number;
     height: number;
   };
+  parentId?: number;
+  isFolder?: string;
+  children?: DesktopFile[];
 };
