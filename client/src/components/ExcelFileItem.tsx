@@ -144,7 +144,7 @@ export function ExcelFileItem({
     
     // If we moved enough to consider this a drag (not a click)
     if (initialClick.current) {
-      const moveThreshold = 3; // pixels
+      const moveThreshold = 2; // pixels - reduced threshold for more responsive dragging
       const deltaX = Math.abs(e.clientX - initialClick.current.x);
       const deltaY = Math.abs(e.clientY - initialClick.current.y);
       
@@ -153,32 +153,24 @@ export function ExcelFileItem({
         // No longer a click - it's a drag
         isClick.current = false;
         
-        // If dragging hadn't started yet, select the item and start dragging
+        // Start dragging immediately upon movement
         if (!dragging) {
-          // Select on drag start if not already selected
-          if (!isSelected) {
-            onSelect(index);
-          }
           setDragging(true);
         }
+        
+        // Calculate new position - ensure it stays within visible area
+        const newX = Math.max(0, e.clientX - startPosRef.current.x);
+        const newY = Math.max(0, e.clientY - startPosRef.current.y);
+        
+        // Update current position ref first (without causing re-renders)
+        currentPosition.current = { x: newX, y: newY };
+        
+        // Use requestAnimationFrame for smoother dragging
+        window.requestAnimationFrame(() => {
+          setLocalPosition(currentPosition.current);
+        });
       }
     }
-    
-    // Only process move events when dragging
-    if (!dragging) return;
-    
-    // Calculate new position - ensure it stays within visible area
-    const newX = Math.max(0, e.clientX - startPosRef.current.x);
-    const newY = Math.max(0, e.clientY - startPosRef.current.y);
-    
-    // Update current position ref first (without causing re-renders)
-    currentPosition.current = { x: newX, y: newY };
-    
-    // Then update state (causing re-render)
-    // Use requestAnimationFrame for smoother dragging performance
-    window.requestAnimationFrame(() => {
-      setLocalPosition(currentPosition.current);
-    });
   };
 
   // Handle mouse up - end dragging or handle click
@@ -390,6 +382,11 @@ export function ExcelFileItem({
     // Stop the event to prevent interference from parent elements
     e.stopPropagation();
     e.preventDefault();
+    
+    // Always select the Excel window on mouse down to allow for immediate interaction
+    if (!isSelected) {
+      onSelect(index);
+    }
     
     // Save the initial click position for later comparison
     initialClick.current = { x: e.clientX, y: e.clientY };
