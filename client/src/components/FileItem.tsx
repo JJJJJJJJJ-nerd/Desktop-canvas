@@ -148,12 +148,12 @@ export function FileItem({
 
   // Handle mouse movement during drag with requestAnimationFrame for better performance
   const handleMouseMove = (e: MouseEvent) => {
-    // Prevent any default browser behavior
+    // Prevent any default browser behavior to avoid conflicts with HTML5 drag-and-drop
     e.preventDefault();
     
     // If we moved enough to consider this a drag (not a click)
     if (initialClick.current) {
-      const moveThreshold = 2; // pixels - reduced threshold for more responsive dragging
+      const moveThreshold = 2; // pixels - zeer lage threshold voor responsievere drag-and-drop
       const deltaX = Math.abs(e.clientX - initialClick.current.x);
       const deltaY = Math.abs(e.clientY - initialClick.current.y);
       
@@ -325,14 +325,15 @@ export function FileItem({
       }}
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
-      draggable={false} // Disable native HTML5 drag to use our custom implementation
+      draggable="true"
       onDragStart={e => {
-        // Prevent default to avoid conflicts with our custom drag implementation
-        e.preventDefault();
-        e.stopPropagation();
-        
-        if (file.id && onDragStart) {
-          onDragStart(file.id);
+        // Zorg dat HTML5 drag-and-drop werkt, maar met onze eigen handlers
+        if (file.id) {
+          e.dataTransfer.setData('text/plain', file.id.toString());
+          e.dataTransfer.effectAllowed = 'move';
+          if (onDragStart) {
+            onDragStart(file.id);
+          }
         }
       }}
     >
