@@ -440,7 +440,7 @@ export function WindowItem({
     if (error) {
       return (
         <div className="text-center text-red-500 p-4 flex flex-col items-center">
-          {getFileIcon(file.type).icon}
+          {getFileIcon(file.type, file.name).icon}
           <h3 className="text-lg font-semibold mb-2">Error Loading File</h3>
           <p>{error}</p>
         </div>
@@ -448,7 +448,13 @@ export function WindowItem({
     }
     
     if (isVCF && vCardData) {
-      // VCF Contact Card display
+      // VCF Contact Card display - safe to access vCardData properties here
+      const contactName = vCardData.name || vCardData.fullName || 'Unnamed Contact';
+      const emails = vCardData.emails || [];
+      const phones = vCardData.phones || [];
+      const hasEmails = emails.length > 0;
+      const hasPhones = phones.length > 0;
+      
       return (
         <div className="h-full overflow-auto bg-gradient-to-br from-gray-50 to-gray-100">
           <div className="flex flex-col items-center p-6">
@@ -456,7 +462,7 @@ export function WindowItem({
             <div className="mb-6">
               <Avatar className="h-32 w-32 border-4 border-white shadow-lg">
                 {vCardData.photo ? (
-                  <AvatarImage src={vCardData.photo} alt={vCardData.name || 'Contact'} />
+                  <AvatarImage src={vCardData.photo} alt={contactName} />
                 ) : (
                   <AvatarFallback className="text-3xl bg-primary/10 text-primary">
                     {vCardData.name ? vCardData.name.charAt(0).toUpperCase() : <User size={48} />}
@@ -467,19 +473,19 @@ export function WindowItem({
             
             {/* Contact Name */}
             <h2 className="text-2xl font-bold mb-1 text-center">
-              {vCardData.name || vCardData.fullName || 'Unnamed Contact'}
+              {contactName}
             </h2>
             
             {/* Contact Details Card */}
             <div className="w-full max-w-md bg-white rounded-xl shadow-md overflow-hidden mt-4">
               {/* Email Section */}
-              {vCardData.emails && vCardData.emails.length > 0 && (
+              {hasEmails && (
                 <div className="p-4 border-b border-gray-100">
                   <h3 className="text-sm uppercase tracking-wide text-gray-500 mb-3 flex items-center">
                     <Mail className="h-4 w-4 mr-2" />Email
                   </h3>
                   <ul className="space-y-2">
-                    {vCardData.emails.map((email, index) => (
+                    {emails.map((email, index) => (
                       <li key={`email-${index}`} className="flex items-start">
                         <Badge 
                           variant="outline" 
@@ -501,13 +507,13 @@ export function WindowItem({
               )}
               
               {/* Phone Section */}
-              {vCardData.phones && vCardData.phones.length > 0 && (
+              {hasPhones && (
                 <div className="p-4">
                   <h3 className="text-sm uppercase tracking-wide text-gray-500 mb-3 flex items-center">
                     <PhoneIcon className="h-4 w-4 mr-2" />Phone
                   </h3>
                   <ul className="space-y-2">
-                    {vCardData.phones.map((phone, index) => (
+                    {phones.map((phone, index) => (
                       <li key={`phone-${index}`} className="flex items-start">
                         <Badge 
                           variant="outline" 
@@ -531,15 +537,13 @@ export function WindowItem({
             
             {/* Actions */}
             <div className="flex gap-3 mt-6">
-              {vCardData.emails && vCardData.emails.length > 0 && (
+              {hasEmails && (
                 <Button 
                   size="sm" 
                   className="no-drag flex items-center" 
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (vCardData.emails && vCardData.emails.length > 0) {
-                      window.location.href = `mailto:${vCardData.emails[0].value}`;
-                    }
+                    window.location.href = `mailto:${emails[0].value}`;
                   }}
                 >
                   <Mail className="h-4 w-4 mr-2" />
@@ -547,16 +551,14 @@ export function WindowItem({
                 </Button>
               )}
               
-              {vCardData.phones && vCardData.phones.length > 0 && (
+              {hasPhones && (
                 <Button 
                   variant="outline" 
                   size="sm" 
                   className="no-drag flex items-center" 
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (vCardData.phones && vCardData.phones.length > 0) {
-                      window.location.href = `tel:${vCardData.phones[0].value}`;
-                    }
+                    window.location.href = `tel:${phones[0].value}`;
                   }}
                 >
                   <PhoneIcon className="h-4 w-4 mr-2" />
@@ -701,7 +703,7 @@ export function WindowItem({
       return (
         <div className="h-full flex flex-col items-center justify-center p-6 text-center">
           <div className="mb-4 text-gray-500">
-            {getFileIcon(file.type).icon}
+            {getFileIcon(file.type, file.name).icon}
           </div>
           <h3 className="font-medium text-lg mb-2">Preview not available</h3>
           <p className="text-sm text-gray-500 mb-4">
@@ -748,7 +750,7 @@ export function WindowItem({
       >
         <div className="flex items-center gap-2">
           <div className="file-icon w-4 h-4">
-            {getFileIcon(file.type).icon}
+            {getFileIcon(file.type, file.name).icon}
           </div>
           <h3 className="text-sm font-medium truncate max-w-[200px]">
             {file.name}

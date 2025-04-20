@@ -2,14 +2,22 @@ import { FileIconInfo } from "@/types";
 import { 
   File as FileIcon,
   FileText,
-  Image
+  Image,
+  UserRound,
+  Contact
 } from "lucide-react";
 
-export const getFileIcon = (fileType: string): FileIconInfo => {
+export const getFileIcon = (fileType: string, fileName?: string): FileIconInfo => {
   let iconClass = '';
   let icon;
   
-  if (fileType.startsWith('image/')) {
+  // Check if file is a VCF/vCard contact file
+  const isVCF = fileType === 'text/vcard' || (fileName && fileName.toLowerCase().endsWith('.vcf'));
+  
+  if (isVCF) {
+    iconClass = 'contact';
+    icon = <Contact className="h-6 w-6" />;
+  } else if (fileType.startsWith('image/')) {
     iconClass = 'image';
     icon = <Image className="h-6 w-6" />;
   } else if (fileType === 'application/pdf') {
