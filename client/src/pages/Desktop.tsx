@@ -6,7 +6,7 @@ import { WindowItem } from "@/components/WindowItem";
 import { EmptyState } from "@/components/EmptyState";
 import { useDesktopFiles } from "@/hooks/use-desktop-files";
 import { DesktopFile } from "@/types";
-import { Loader2 as Spinner, Search, X, FileText, FolderSearch } from "lucide-react";
+import { Loader2 as Spinner, Search, X, FileText, FolderSearch, Folder, FolderOpen } from "lucide-react";
 import Fuse from 'fuse.js';
 
 // Interface for tracking overlapping files
