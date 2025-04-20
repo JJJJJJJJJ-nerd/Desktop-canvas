@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, jsonb, timestamp, boolean } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -18,6 +18,8 @@ export const desktopFiles = pgTable("desktop_files", {
   dataUrl: text("data_url").notNull(),
   position: jsonb("position").notNull().$type<{ x: number; y: number }>(),
   dimensions: jsonb("dimensions").$type<{ width: number; height: number }>(), // UI dimensions
+  isFolder: boolean("is_folder").default(false), // Flag to identify folders
+  parentId: integer("parent_id").references(() => desktopFiles.id, { onDelete: 'cascade' }), // Parent folder ID
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }),
@@ -28,11 +30,16 @@ export const usersRelations = relations(users, ({ many }) => ({
   files: many(desktopFiles),
 }));
 
-export const desktopFilesRelations = relations(desktopFiles, ({ one }) => ({
+export const desktopFilesRelations = relations(desktopFiles, ({ one, many }) => ({
   user: one(users, {
     fields: [desktopFiles.userId],
     references: [users.id],
   }),
+  parent: one(desktopFiles, {
+    fields: [desktopFiles.parentId],
+    references: [desktopFiles.id],
+  }),
+  children: many(desktopFiles, { relationName: 'parent_child' }),
 }));
 
 // Create insert schemas with zod
@@ -48,6 +55,8 @@ export const insertDesktopFileSchema = createInsertSchema(desktopFiles).pick({
   dataUrl: true,
   position: true,
   dimensions: true,
+  isFolder: true,
+  parentId: true,
   userId: true,
 });
 
@@ -72,4 +81,7 @@ export type DesktopFile = {
     width: number;
     height: number;
   };
+  isFolder?: boolean;
+  parentId?: number;
+  children?: DesktopFile[];
 };
