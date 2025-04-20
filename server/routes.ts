@@ -109,13 +109,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         y: z.number()
       });
 
-      // Validate input
-      const validationResult = positionSchema.safeParse(req.body.position);
+      // Validate input - position can be directly in body or in body.position
+      let positionData = req.body;
+      
+      // Check if position is nested in req.body.position
+      if (req.body.position && typeof req.body.position === 'object') {
+        positionData = req.body.position;
+      }
+      
+      // Log what we're validating to help with debugging
+      console.log('Validating position data:', positionData);
+      
+      // Validate the extracted position data
+      const validationResult = positionSchema.safeParse(positionData);
       if (!validationResult.success) {
-        return res.status(400).json({ message: 'Invalid position data' });
+        return res.status(400).json({ 
+          message: 'Invalid position data',
+          errors: validationResult.error.format()
+        });
       }
 
-      const updatedFile = await storage.updateFile(id, req.body.position);
+      // Use the validated data
+      const position = validationResult.data;
+      const updatedFile = await storage.updateFile(id, position);
       
       if (!updatedFile) {
         return res.status(404).json({ message: 'File not found' });

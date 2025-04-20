@@ -285,7 +285,7 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
         
         console.log(`Saving folder position: ${posX}, ${posY}`);
         
-        // Update file position in database
+        // Send position data directly in the format the backend expects
         const response = await fetch(`/api/files/${folder.id}/position`, {
           method: 'PATCH',
           headers: {

@@ -111,7 +111,7 @@ export function FileItem({
   const initialClick = useRef<{x: number, y: number} | null>(null);
   const isClick = useRef<boolean>(true);
 
-  // Improved direct drag implementation - allows immediate dragging
+  // Completely reworked mouse handling for immediate drag behavior
   const handleMouseDown = (e: React.MouseEvent) => {
     // Only respond to left mouse button
     if (e.button !== 0) return;
@@ -123,7 +123,7 @@ export function FileItem({
     e.stopPropagation();
     e.preventDefault();
     
-    // Always select the file on mouse down to allow for immediate interaction
+    // Always select the file on mouse down
     if (!isSelected) {
       onSelect(index);
     }
@@ -141,55 +141,51 @@ export function FileItem({
     // Store current position for reference
     currentPosition.current = localPosition;
     
+    // IMMEDIATELY start dragging without waiting for movement threshold
+    setDragging(true);
+    
+    // Immediately notify parent that we started dragging
+    if (onDragStart && file.id) {
+      onDragStart(file.id);
+    }
+    
     // Add document-level event listeners immediately
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
 
-  // Handle mouse movement during drag with requestAnimationFrame for better performance
+  // Simplified mouse movement handler for immediate dragging
   const handleMouseMove = (e: MouseEvent) => {
     // Prevent any default browser behavior
     e.preventDefault();
     
-    // If we moved enough to consider this a drag (not a click)
+    // Very minimal movement check - just to distinguish from a click
     if (initialClick.current) {
-      const moveThreshold = 2; // pixels - reduced threshold for more responsive dragging
       const deltaX = Math.abs(e.clientX - initialClick.current.x);
       const deltaY = Math.abs(e.clientY - initialClick.current.y);
       
-      // If we moved enough, consider this a drag
-      if (deltaX > moveThreshold || deltaY > moveThreshold) {
-        // No longer a click - it's a drag
+      // Any movement over 1px means this is not a click
+      if (deltaX > 0 || deltaY > 0) {
         isClick.current = false;
-        
-        // Start dragging immediately upon movement
-        if (!dragging) {
-          setDragging(true);
-          
-          // Notify parent that we started dragging this file
-          if (onDragStart && file.id) {
-            onDragStart(file.id);
-          }
-        }
-        
-        // Calculate new position - ensure it stays within visible area
-        const newX = Math.max(0, e.clientX - startPosRef.current.x);
-        const newY = Math.max(0, e.clientY - startPosRef.current.y);
-        
-        // Update current position ref first (without causing re-renders)
-        currentPosition.current = { x: newX, y: newY };
-        
-        // Notify parent that we've moved (for overlap detection)
-        if (onDragMove && file.id) {
-          onDragMove(file.id);
-        }
-        
-        // Use requestAnimationFrame for smoother dragging
-        window.requestAnimationFrame(() => {
-          setLocalPosition(currentPosition.current);
-        });
       }
     }
+    
+    // Always calculate new position, regardless of threshold
+    const newX = Math.max(0, e.clientX - startPosRef.current.x);
+    const newY = Math.max(0, e.clientY - startPosRef.current.y);
+    
+    // Update current position ref first (without causing re-renders)
+    currentPosition.current = { x: newX, y: newY };
+    
+    // Notify parent that we've moved (for overlap detection)
+    if (onDragMove && file.id) {
+      onDragMove(file.id);
+    }
+    
+    // Use requestAnimationFrame for smoother dragging
+    window.requestAnimationFrame(() => {
+      setLocalPosition(currentPosition.current);
+    });
   };
 
   // Handle mouse up - end dragging or handle click
