@@ -13,7 +13,7 @@ export function useDesktopFiles() {
   const [selectedFile, setSelectedFile] = useState<number | null>(null);
   const [folderCreationTimeout, setFolderCreationTimeout] = useState<NodeJS.Timeout | null>(null);
   const [filesForFolderCreation, setFilesForFolderCreation] = useState<{ source: number, target: number } | null>(null);
-  const folderCreationDelay = 1500; // 1.5 seconds delay for folder creation
+  const folderCreationDelay = 1000; // 1 second delay for folder creation - reduced for better responsiveness
   const queryClient = useQueryClient();
   
   // Fetch files from API

@@ -433,6 +433,33 @@ export function FileItem({
     filesForFolderCreation && 
     file.id && 
     (filesForFolderCreation.source === file.id || filesForFolderCreation.target === file.id);
+    
+  // Add a timer animation effect when folder creation is in progress
+  const [timerProgress, setTimerProgress] = useState(0);
+  
+  // Update timer progress while folder creation is active
+  useEffect(() => {
+    if (isPartOfFolderCreation) {
+      setTimerProgress(0);
+      const animationFrames = 50; // Number of animation frames
+      const frameInterval = 1000 / animationFrames; // Frame interval in ms (for 1 second total)
+      
+      let frame = 0;
+      const progressInterval = setInterval(() => {
+        frame++;
+        setTimerProgress(frame / animationFrames);
+        
+        if (frame >= animationFrames) {
+          clearInterval(progressInterval);
+        }
+      }, frameInterval);
+      
+      return () => {
+        clearInterval(progressInterval);
+        setTimerProgress(0);
+      };
+    }
+  }, [isPartOfFolderCreation]);
   
   return (
     <div
@@ -445,7 +472,7 @@ export function FileItem({
         dragging && "z-50 shadow-xl",
         isSearchMatch && "animate-pulse shadow-xl shadow-primary/20",
         isSearchMatch && !isSelected && "ring-2 ring-yellow-400 z-10",
-        isPartOfFolderCreation && "ring-4 ring-green-500 z-20 animate-pulse"
+        isPartOfFolderCreation && "ring-4 ring-green-500 z-20 animate-pulse shadow-lg shadow-green-500/50 scale-105"
       )}
       style={{
         left: `${localPosition.x}px`,
@@ -513,6 +540,16 @@ export function FileItem({
           onMouseDown={handleResizeStart}
         >
           <Maximize2 className="w-3 h-3 text-white" />
+        </div>
+      )}
+      
+      {/* Folder creation timer progress indicator */}
+      {isPartOfFolderCreation && (
+        <div className="absolute -bottom-1 left-0 right-0 h-1 bg-green-200 rounded-full overflow-hidden z-30">
+          <div 
+            className="h-full bg-green-500 transition-all duration-100 ease-linear"
+            style={{ width: `${timerProgress * 100}%` }}
+          />
         </div>
       )}
     </div>
