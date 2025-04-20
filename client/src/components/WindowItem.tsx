@@ -623,10 +623,10 @@ export function WindowItem({
             </h2>
             
             {/* Contact Details Card */}
-            <div className="w-full max-w-[90%] bg-white rounded-xl shadow-md overflow-hidden mt-4">
+            <div className="w-full max-w-[90%] bg-white rounded-xl shadow-md overflow-hidden mt-4 sm:mt-6 md:mt-8">
               {/* Email Section */}
               {hasEmails && (
-                <div className="p-4 border-b border-gray-100">
+                <div className="p-4 sm:p-5 md:p-6 border-b border-gray-100">
                   <h3 className="text-sm sm:text-base md:text-lg uppercase tracking-wide text-gray-500 mb-3 flex items-center">
                     <Mail className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mr-2" />Email
                   </h3>
@@ -654,7 +654,7 @@ export function WindowItem({
               
               {/* Phone Section */}
               {hasPhones && (
-                <div className="p-4">
+                <div className="p-4 sm:p-5 md:p-6">
                   <h3 className="text-sm sm:text-base md:text-lg uppercase tracking-wide text-gray-500 mb-3 flex items-center">
                     <PhoneIcon className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mr-2" />Phone
                   </h3>
@@ -682,7 +682,7 @@ export function WindowItem({
             </div>
             
             {/* Actions */}
-            <div className="flex gap-3 mt-6">
+            <div className="flex gap-3 mt-6 mb-4 sm:mb-8 md:mb-12">
               {hasEmails && (
                 <Button 
                   size="sm" 
