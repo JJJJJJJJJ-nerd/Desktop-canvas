@@ -144,57 +144,126 @@ export function WindowItem({
     
     console.log("Parsing VCF photo data");
     
-    // Extract multi-line photo data (handles line folding in vCard format)
-    let photoData = '';
-    
-    // Common patterns for vCard photos
-    if (vcfContent.includes('PHOTO')) {
-      console.log("Found PHOTO field in vCard");
+    try {
+      // Try to find the photo in the vCard
+      // There are various formats of PHOTO in vCards, we need to handle them differently
       
-      // Find the start of the photo data
-      const photoStartMatch = vcfContent.match(/PHOTO(;[^:]*)?:/i);
-      
-      if (photoStartMatch) {
-        const photoStartIndex = vcfContent.indexOf(photoStartMatch[0]) + photoStartMatch[0].length;
-        let photoEndIndex = vcfContent.indexOf("\n", photoStartIndex);
+      // Method 1: Look for photo block
+      const getPhotoBlock = () => {
+        // Find PHOTO property
+        const photoIndex = vcfContent.indexOf('PHOTO');
+        if (photoIndex === -1) return null;
         
-        if (photoEndIndex === -1) {
-          photoEndIndex = vcfContent.length;
-        }
+        // Find next attribute or end
+        let endIndex = vcfContent.indexOf('\n', photoIndex);
+        if (endIndex === -1) endIndex = vcfContent.length;
         
-        // Extract the initial line of photo data
-        photoData = vcfContent.substring(photoStartIndex, photoEndIndex).trim();
+        // Get photo line
+        const photoLine = vcfContent.substring(photoIndex, endIndex);
+        console.log("Found photo line:", photoLine);
         
-        // Check for folded lines (vCard can split long content with line breaks)
-        let nextLineStart = photoEndIndex + 1;
-        while (nextLineStart < vcfContent.length) {
-          // In vCard format, folded lines start with a space or tab
-          if (vcfContent.charAt(nextLineStart) === ' ' || vcfContent.charAt(nextLineStart) === '\t') {
-            const nextLineEnd = vcfContent.indexOf("\n", nextLineStart);
-            const lineContent = vcfContent.substring(nextLineStart + 1, nextLineEnd === -1 ? vcfContent.length : nextLineEnd).trim();
-            photoData += lineContent;
-            nextLineStart = nextLineEnd + 1;
+        // Check for folded lines (continuation)
+        let nextLine;
+        let currentPosition = endIndex + 1;
+        let photoBlock = photoLine;
+        
+        // vCard continuation lines start with space or tab
+        while (currentPosition < vcfContent.length) {
+          // Check if next line starts with a space (folded line)
+          if (vcfContent.charAt(currentPosition) === ' ' || vcfContent.charAt(currentPosition) === '\t') {
+            // Find end of this line
+            const nextLineEnd = vcfContent.indexOf('\n', currentPosition);
+            const lineEnd = nextLineEnd !== -1 ? nextLineEnd : vcfContent.length;
+            
+            // Add this folded line to photoBlock
+            photoBlock += vcfContent.substring(currentPosition + 1, lineEnd);
+            
+            // Move to next line
+            currentPosition = lineEnd + 1;
           } else {
-            break; // No more folded lines
+            // No more folded lines
+            break;
           }
         }
         
-        console.log("Extracted photo data length:", photoData.length);
+        return photoBlock;
+      };
+      
+      // Get the full photo block (including folded lines)
+      const photoBlock = getPhotoBlock();
+      
+      if (photoBlock) {
+        console.log("Processing photo block, length:", photoBlock.length);
         
-        // Determine the image format
-        let imageFormat = 'jpeg'; // Default
-        const formatMatch = photoStartMatch[0].match(/TYPE=([^;:]*)/i);
-        if (formatMatch) {
-          imageFormat = formatMatch[1].toLowerCase();
-        }
+        // Try to identify the photo format - different vCard versions use different formats
         
-        // Create the data URL with the correct MIME type
-        if (photoData) {
-          photoData = photoData.replace(/\s/g, ''); // Remove any whitespace
-          photo = `data:image/${imageFormat};base64,${photoData}`;
-          console.log("Created photo data URL:", photo.substring(0, 50) + "...");
+        // Format 1: PHOTO;ENCODING=b;TYPE=image/jpeg:base64data
+        // Format 2: PHOTO;TYPE=JPEG;ENCODING=BASE64:base64data
+        // Format 3: PHOTO;JPEG;ENCODING=BASE64:base64data
+        // Format 4: PHOTO:data:image/jpeg;base64,base64data
+        // Format 5: PHOTO:base64data
+        
+        let photoData = '';
+        let imageType = 'jpeg'; // Default
+        
+        // 1. Look for the colon that separates properties from value
+        const colonIndex = photoBlock.indexOf(':');
+        if (colonIndex !== -1) {
+          // Get the properties part and value part
+          const properties = photoBlock.substring(0, colonIndex).toLowerCase();
+          const value = photoBlock.substring(colonIndex + 1).trim();
+          
+          console.log("Photo properties:", properties);
+          console.log("Photo value length:", value.length);
+          
+          // Check if this is already a data URL (Format 4)
+          if (value.startsWith('data:image/')) {
+            console.log("Photo is already a data URL");
+            photo = value;
+          } else {
+            // Extract image type from properties
+            const typeMatch = properties.match(/type=([^;:]*)/i);
+            if (typeMatch) {
+              imageType = typeMatch[1].replace('image/', '').toLowerCase();
+            } else if (properties.includes('jpeg')) {
+              imageType = 'jpeg';
+            } else if (properties.includes('png')) {
+              imageType = 'png';
+            } else if (properties.includes('gif')) {
+              imageType = 'gif';
+            }
+            
+            // Clean photo data (strip whitespace)
+            photoData = value.replace(/\s/g, '');
+            
+            // Create data URL
+            photo = `data:image/${imageType};base64,${photoData}`;
+            console.log(`Created photo data URL with type ${imageType}, URL starts with:`, photo.substring(0, 50) + '...');
+          }
         }
       }
+      
+      // If we still don't have a photo, try a simpler approach
+      if (!photo) {
+        console.log("Trying simpler approach for photo extraction");
+        
+        // Simpler approach - just extract content between PHOTO: and next line
+        const simplifiedRegex = /PHOTO(?:[^:]*):([^\n]+)/i;
+        const photoMatch = vcfContent.match(simplifiedRegex);
+        
+        if (photoMatch && photoMatch[1]) {
+          const photoData = photoMatch[1].trim().replace(/\s/g, '');
+          if (photoData.startsWith('data:image/')) {
+            console.log("Found direct data URL format");
+            photo = photoData;
+          } else {
+            console.log("Creating data URL from extracted base64");
+            photo = `data:image/jpeg;base64,${photoData}`;
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error parsing VCF photo:", error);
     }
     
     return {
@@ -490,10 +559,35 @@ export function WindowItem({
       const phones = vCardData.phones || [];
       const hasEmails = emails.length > 0;
       const hasPhones = phones.length > 0;
+      const [showDebug, setShowDebug] = useState(false);
       
       return (
         <div className="h-full overflow-auto bg-gradient-to-br from-gray-50 to-gray-100">
           <div className="flex flex-col items-center p-6">
+            {/* Debug toggle */}
+            <div className="self-end mb-4">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="text-xs no-drag" 
+                onClick={() => setShowDebug(!showDebug)}
+              >
+                {showDebug ? "Hide Debug" : "Show Debug"}
+              </Button>
+            </div>
+            
+            {/* Debug info */}
+            {showDebug && (
+              <div className="w-full mb-4 bg-gray-800 text-gray-200 p-2 rounded text-xs font-mono overflow-auto">
+                <p>Photo data: {vCardData.photo ? `${vCardData.photo.substring(0, 50)}...` : 'None'}</p>
+                <p>Photo URL length: {vCardData.photo ? vCardData.photo.length : 0}</p>
+                <p>Raw vCard (first 200 chars):</p>
+                <pre className="mt-1 text-xs overflow-x-auto max-h-24">
+                  {textContent.substring(0, 200)}...
+                </pre>
+              </div>
+            )}
+            
             {/* Contact Photo or Avatar */}
             <div className="mb-6">
               <Avatar className="h-32 w-32 border-4 border-white shadow-lg">
@@ -503,7 +597,8 @@ export function WindowItem({
                       src={vCardData.photo} 
                       alt={contactName} 
                       onError={(e) => {
-                        console.error("Failed to load contact photo:", e);
+                        console.error("Failed to load contact photo:");
+                        console.error("Photo URL:", vCardData.photo?.substring(0, 50) + "...");
                         // Force display of fallback by setting src to empty
                         (e.target as HTMLImageElement).src = "";
                       }} 
