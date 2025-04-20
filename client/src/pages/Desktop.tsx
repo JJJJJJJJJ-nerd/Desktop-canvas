@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { DesktopToolbar } from "@/components/DesktopToolbar";
 import { FileItem } from "@/components/FileItem";
 import { FilePreviewModal } from "@/components/FilePreviewModal";
-import { ExcelFileItem } from "@/components/ExcelFileItem";
+import { WindowItem } from "@/components/WindowItem";
 import { EmptyState } from "@/components/EmptyState";
 import { useDesktopFiles } from "@/hooks/use-desktop-files";
 import { DesktopFile } from "@/types";
@@ -26,7 +26,7 @@ export default function Desktop() {
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredFiles, setFilteredFiles] = useState<DesktopFile[]>([]);
-  const [openExcelFiles, setOpenExcelFiles] = useState<number[]>([]);
+  const [openWindowFiles, setOpenWindowFiles] = useState<number[]>([]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -114,18 +114,15 @@ export default function Desktop() {
 
   // Handle file preview
   const handlePreviewFile = (file: DesktopFile) => {
-    // If this is an Excel file, open it in a window instead of preview modal
-    if (isExcelFile(file) && file.id) {
-      if (!openExcelFiles.includes(file.id)) {
-        setOpenExcelFiles([...openExcelFiles, file.id]);
+    // Always open any file in a window
+    if (file.id) {
+      if (!openWindowFiles.includes(file.id)) {
+        setOpenWindowFiles([...openWindowFiles, file.id]);
       }
       if (file.id && selectedFile !== files.findIndex(f => f.id === file.id)) {
         const fileIndex = files.findIndex(f => f.id === file.id);
         selectFile(fileIndex);
       }
-    } else {
-      setPreviewFile(file);
-      setIsPreviewOpen(true);
     }
   };
   
@@ -134,9 +131,9 @@ export default function Desktop() {
     setIsPreviewOpen(false);
   };
   
-  // Close Excel file window
-  const closeExcelFile = (fileId: number) => {
-    setOpenExcelFiles(openExcelFiles.filter(id => id !== fileId));
+  // Close file window
+  const closeWindowFile = (fileId: number) => {
+    setOpenWindowFiles(openWindowFiles.filter(id => id !== fileId));
   };
 
   // Setup Fuse.js for fuzzy search
@@ -268,8 +265,8 @@ export default function Desktop() {
               // All files in filteredFiles match the search criteria when using fuzzy search
               const isMatch = searchQuery ? true : false;
               
-              // Skip rendering files that are currently open as Excel windows
-              if (file.id && openExcelFiles.includes(file.id)) {
+              // Skip rendering files that are currently open as windows
+              if (file.id && openWindowFiles.includes(file.id)) {
                 return null;
               }
               
@@ -289,23 +286,23 @@ export default function Desktop() {
               );
             })}
             
-            {/* Open Excel files as windows */}
-            {openExcelFiles.map(fileId => {
+            {/* Open files in windows */}
+            {openWindowFiles.map((fileId: number) => {
               const fileIndex = files.findIndex(f => f.id === fileId);
               if (fileIndex === -1) return null;
               
               const file = files[fileIndex];
               
               return (
-                <ExcelFileItem
-                  key={`excel-${fileId}`}
+                <WindowItem
+                  key={`window-${fileId}`}
                   file={file}
                   index={fileIndex}
                   isSelected={selectedFile === fileIndex}
                   onSelect={handleSelectFile}
                   onDragEnd={handleFilePositionUpdate}
                   onResize={handleFileResize}
-                  onClose={() => closeExcelFile(fileId)}
+                  onClose={() => closeWindowFile(fileId)}
                 />
               );
             })}
