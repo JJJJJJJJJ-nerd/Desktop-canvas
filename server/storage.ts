@@ -141,11 +141,23 @@ export class DatabaseStorage implements IStorage {
   }
   
   async addFileToFolder(fileId: number, folderId: number): Promise<DesktopFileDB | undefined> {
+    console.log(`Adding file ${fileId} to folder ${folderId}`);
+    
     // First check if folder exists and is actually a folder
     const folder = await this.getFile(folderId);
     if (!folder || !folder.isFolder) {
+      console.error(`Folder ${folderId} not found or not a folder`);
       return undefined;
     }
+    
+    // Also check if the file exists
+    const file = await this.getFile(fileId);
+    if (!file) {
+      console.error(`File ${fileId} not found`);
+      return undefined;
+    }
+    
+    console.log(`File and folder both exist, setting parentId of file ${fileId} to ${folderId}`);
     
     // Update the file to be in this folder
     const [updatedFile] = await db
@@ -153,7 +165,8 @@ export class DatabaseStorage implements IStorage {
       .set({ parentId: folderId })
       .where(eq(desktopFiles.id, fileId))
       .returning();
-      
+    
+    console.log(`File updated:`, updatedFile);
     return updatedFile;
   }
   

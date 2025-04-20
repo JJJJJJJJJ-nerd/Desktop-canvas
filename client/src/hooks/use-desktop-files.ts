@@ -229,8 +229,22 @@ export function useDesktopFiles() {
         return;
       }
       
-      // Create folder name from both files
-      const folderName = `${sourceFile.name.split('.')[0]}_${targetFile.name.split('.')[0]}`;
+      // Skip if either file is already in a folder (parent ID exists)
+      if (sourceFile.parentId || targetFile.parentId) {
+        console.log('One of the files is already in a folder, skipping folder creation');
+        return;
+      }
+      
+      // Skip if either file is a folder itself
+      if (sourceFile.isFolder || targetFile.isFolder) {
+        console.log('Cannot create a folder from folders, skipping');
+        return;
+      }
+      
+      // Create folder name from both files (removing file extensions)
+      const sourceBaseName = sourceFile.name.split('.')[0];
+      const targetBaseName = targetFile.name.split('.')[0];
+      const folderName = `${sourceBaseName}_${targetBaseName}`;
       console.log('Creating folder with name:', folderName);
       
       // Create the folder at the target file's position
@@ -244,18 +258,28 @@ export function useDesktopFiles() {
       
       if (folderResponse.folder?.id) {
         console.log('Moving files to folder:', folderResponse.folder.id);
-        // Move both files to the folder
-        const sourceResult = await addFileToFolderMutation.mutateAsync({
-          fileId: sourceFileId,
-          folderId: folderResponse.folder.id,
-        });
-        console.log('Source file move result:', sourceResult);
         
-        const targetResult = await addFileToFolderMutation.mutateAsync({
-          fileId: targetFileId,
-          folderId: folderResponse.folder.id,
-        });
-        console.log('Target file move result:', targetResult);
+        try {
+          // Move source file to the folder first
+          const sourceResult = await addFileToFolderMutation.mutateAsync({
+            fileId: sourceFileId,
+            folderId: folderResponse.folder.id,
+          });
+          console.log('Source file move result:', sourceResult);
+          
+          // Then move target file to the folder
+          const targetResult = await addFileToFolderMutation.mutateAsync({
+            fileId: targetFileId,
+            folderId: folderResponse.folder.id,
+          });
+          console.log('Target file move result:', targetResult);
+          
+          // Force immediate refresh of files after folder creation and moves are complete
+          await queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+          
+        } catch (moveError) {
+          console.error('Error moving files to folder:', moveError);
+        }
       } else {
         console.error('No folder ID returned from creation');
       }
