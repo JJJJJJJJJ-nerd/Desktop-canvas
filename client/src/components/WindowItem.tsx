@@ -404,8 +404,8 @@ export function WindowItem({
     
     if (isVCF) {
       // VCF contact cards need more height to display all content
-      optimalWidth = 520;
-      optimalHeight = 820;
+      optimalWidth = 550;
+      optimalHeight = 920;
     } else if (isExcel) {
       // Excel files need more space to display tables
       optimalWidth = 800;
@@ -653,7 +653,7 @@ export function WindowItem({
             )}
             
             {/* Contact Photo or Avatar */}
-            <div className="mb-6 flex-grow">
+            <div className="mb-4 sm:mb-5 md:mb-6">
               <Avatar className="h-32 w-32 sm:h-40 sm:w-40 md:h-48 md:w-48 border-4 border-white shadow-lg">
                 {vCardData.photo ? (
                   <>
