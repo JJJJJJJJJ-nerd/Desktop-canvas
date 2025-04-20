@@ -215,10 +215,14 @@ export function useDesktopFiles() {
   
   // Create a folder from files
   const createFolderWithFiles = async (sourceFileId: number, targetFileId: number) => {
+    console.log('Attempting to create folder with files:', sourceFileId, targetFileId);
     try {
       // Get source and target files
       const sourceFile = files.find(file => file.id === sourceFileId);
       const targetFile = files.find(file => file.id === targetFileId);
+      
+      console.log('Source file:', sourceFile);
+      console.log('Target file:', targetFile);
       
       if (!sourceFile || !targetFile) {
         console.error('Files not found');
@@ -227,24 +231,33 @@ export function useDesktopFiles() {
       
       // Create folder name from both files
       const folderName = `${sourceFile.name.split('.')[0]}_${targetFile.name.split('.')[0]}`;
+      console.log('Creating folder with name:', folderName);
       
       // Create the folder at the target file's position
+      console.log('Calling createFolderMutation with:', { name: folderName, position: targetFile.position });
       const folderResponse = await createFolderMutation.mutateAsync({
         name: folderName,
         position: targetFile.position,
       });
       
+      console.log('Folder creation response:', folderResponse);
+      
       if (folderResponse.folder?.id) {
+        console.log('Moving files to folder:', folderResponse.folder.id);
         // Move both files to the folder
-        await addFileToFolderMutation.mutateAsync({
+        const sourceResult = await addFileToFolderMutation.mutateAsync({
           fileId: sourceFileId,
           folderId: folderResponse.folder.id,
         });
+        console.log('Source file move result:', sourceResult);
         
-        await addFileToFolderMutation.mutateAsync({
+        const targetResult = await addFileToFolderMutation.mutateAsync({
           fileId: targetFileId,
           folderId: folderResponse.folder.id,
         });
+        console.log('Target file move result:', targetResult);
+      } else {
+        console.error('No folder ID returned from creation');
       }
     } catch (error) {
       console.error('Error creating folder with files:', error);
@@ -253,24 +266,48 @@ export function useDesktopFiles() {
   
   // Start folder creation timer when a file is dragged over another
   const startFolderCreation = (sourceFileId: number, targetFileId: number) => {
-    // Clear any existing timeout
+    console.log('Start folder creation called with source:', sourceFileId, 'target:', targetFileId);
+    
+    // Don't create a folder if it's the same file (defensive check)
+    if (sourceFileId === targetFileId) {
+      console.log('Same file, ignoring folder creation');
+      return;
+    }
+    
+    // Check if we already have a timer for these exact files
+    const isSameFilePair = 
+      filesForFolderCreation && 
+      ((filesForFolderCreation.source === sourceFileId && filesForFolderCreation.target === targetFileId) ||
+       (filesForFolderCreation.source === targetFileId && filesForFolderCreation.target === sourceFileId));
+       
+    // If we already have the same pair, don't restart the timer
+    if (isSameFilePair && folderCreationTimeout) {
+      console.log('Already tracking these files for folder creation, not restarting timer');
+      return;
+    }
+    
+    // If we have a different pair, or no timer running, clear any existing timeout
     if (folderCreationTimeout) {
+      console.log('Clearing existing folder creation timeout');
       clearTimeout(folderCreationTimeout);
+      setFolderCreationTimeout(null);
     }
     
     // Set the files for folder creation
+    console.log('Setting files for folder creation');
     setFilesForFolderCreation({ source: sourceFileId, target: targetFileId });
     
     // Start a new timeout
-    const timeout = setTimeout(() => {
-      if (filesForFolderCreation) {
-        createFolderWithFiles(sourceFileId, targetFileId);
-      }
+    console.log('Starting new folder creation timeout');
+    const timeoutId = setTimeout(() => {
+      console.log('Folder creation timeout triggered');
+      createFolderWithFiles(sourceFileId, targetFileId);
       setFolderCreationTimeout(null);
       setFilesForFolderCreation(null);
     }, folderCreationDelay);
     
-    setFolderCreationTimeout(timeout);
+    setFolderCreationTimeout(timeoutId);
+    console.log('Folder creation timeout set, ID:', timeoutId);
   };
   
   // Cancel folder creation
