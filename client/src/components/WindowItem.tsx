@@ -140,12 +140,26 @@ export function WindowItem({
     }
     
     // Extract photo if present
-    const photoRegex = /PHOTO;(?:[^:]*):(.+?)(?:\r?\n\s|$)/is;
-    const photoMatch = vcfContent.match(photoRegex);
     let photo = undefined;
     
+    // Check for different vCard photo formats
+    // Format 1: PHOTO;ENCODING=b;TYPE=JPEG:base64data
+    const photoRegex1 = /PHOTO;(?:[^:]*?ENCODING=b[^:]*?):(.+?)(?:\r?\n|$)/i;
+    const photoMatch1 = vcfContent.match(photoRegex1);
+    
+    // Format 2: PHOTO;JPEG;ENCODING=BASE64:base64data
+    const photoRegex2 = /PHOTO;(?:[^:]*?BASE64[^:]*?):(.+?)(?:\r?\n|$)/i;
+    const photoMatch2 = vcfContent.match(photoRegex2);
+    
+    // Format 3: PHOTO:base64data
+    const photoRegex3 = /PHOTO:(.+?)(?:\r?\n|$)/i;
+    const photoMatch3 = vcfContent.match(photoRegex3);
+    
+    // Choose the first match found
+    const photoMatch = photoMatch1 || photoMatch2 || photoMatch3;
+    
     if (photoMatch && photoMatch[1]) {
-      // Photo is already in base64 format in some vCards
+      // Photo is in base64 format, clean up any whitespace
       const photoData = photoMatch[1].replace(/\s/g, '');
       photo = `data:image/jpeg;base64,${photoData}`;
     }
@@ -429,6 +443,128 @@ export function WindowItem({
           {getFileIcon(file.type).icon}
           <h3 className="text-lg font-semibold mb-2">Error Loading File</h3>
           <p>{error}</p>
+        </div>
+      );
+    }
+    
+    if (isVCF && vCardData) {
+      // VCF Contact Card display
+      return (
+        <div className="h-full overflow-auto bg-gradient-to-br from-gray-50 to-gray-100">
+          <div className="flex flex-col items-center p-6">
+            {/* Contact Photo or Avatar */}
+            <div className="mb-6">
+              <Avatar className="h-32 w-32 border-4 border-white shadow-lg">
+                {vCardData.photo ? (
+                  <AvatarImage src={vCardData.photo} alt={vCardData.name || 'Contact'} />
+                ) : (
+                  <AvatarFallback className="text-3xl bg-primary/10 text-primary">
+                    {vCardData.name ? vCardData.name.charAt(0).toUpperCase() : <User size={48} />}
+                  </AvatarFallback>
+                )}
+              </Avatar>
+            </div>
+            
+            {/* Contact Name */}
+            <h2 className="text-2xl font-bold mb-1 text-center">
+              {vCardData.name || vCardData.fullName || 'Unnamed Contact'}
+            </h2>
+            
+            {/* Contact Details Card */}
+            <div className="w-full max-w-md bg-white rounded-xl shadow-md overflow-hidden mt-4">
+              {/* Email Section */}
+              {vCardData.emails && vCardData.emails.length > 0 && (
+                <div className="p-4 border-b border-gray-100">
+                  <h3 className="text-sm uppercase tracking-wide text-gray-500 mb-3 flex items-center">
+                    <Mail className="h-4 w-4 mr-2" />Email
+                  </h3>
+                  <ul className="space-y-2">
+                    {vCardData.emails.map((email, index) => (
+                      <li key={`email-${index}`} className="flex items-start">
+                        <Badge 
+                          variant="outline" 
+                          className="mr-2 text-xs py-0 h-5 mt-0.5"
+                        >
+                          {email.type}
+                        </Badge>
+                        <a 
+                          href={`mailto:${email.value}`} 
+                          className="text-primary hover:underline flex items-center"
+                        >
+                          <AtSign className="h-3.5 w-3.5 mr-1 text-primary/70" />
+                          {email.value}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              {/* Phone Section */}
+              {vCardData.phones && vCardData.phones.length > 0 && (
+                <div className="p-4">
+                  <h3 className="text-sm uppercase tracking-wide text-gray-500 mb-3 flex items-center">
+                    <PhoneIcon className="h-4 w-4 mr-2" />Phone
+                  </h3>
+                  <ul className="space-y-2">
+                    {vCardData.phones.map((phone, index) => (
+                      <li key={`phone-${index}`} className="flex items-start">
+                        <Badge 
+                          variant="outline" 
+                          className="mr-2 text-xs py-0 h-5 mt-0.5"
+                        >
+                          {phone.type}
+                        </Badge>
+                        <a 
+                          href={`tel:${phone.value}`} 
+                          className="text-primary hover:underline flex items-center"
+                        >
+                          <Phone className="h-3.5 w-3.5 mr-1 text-primary/70" />
+                          {phone.value}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+            
+            {/* Actions */}
+            <div className="flex gap-3 mt-6">
+              {vCardData.emails && vCardData.emails.length > 0 && (
+                <Button 
+                  size="sm" 
+                  className="no-drag flex items-center" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (vCardData.emails && vCardData.emails.length > 0) {
+                      window.location.href = `mailto:${vCardData.emails[0].value}`;
+                    }
+                  }}
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  Send Email
+                </Button>
+              )}
+              
+              {vCardData.phones && vCardData.phones.length > 0 && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="no-drag flex items-center" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (vCardData.phones && vCardData.phones.length > 0) {
+                      window.location.href = `tel:${vCardData.phones[0].value}`;
+                    }
+                  }}
+                >
+                  <PhoneIcon className="h-4 w-4 mr-2" />
+                  Call
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
       );
     }
