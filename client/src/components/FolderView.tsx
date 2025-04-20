@@ -138,8 +138,9 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
       }
       const data = await response.json();
       
-      // Filter to include only files that aren't in this folder
-      // and are not folders themselves
+      // Filter to include only files that:
+      // 1. Aren't in this folder already
+      // 2. Aren't folders themselves
       const externalFilesOnly = data.files.filter((file: DesktopFile) => 
         file.id && 
         !file.isFolder && 
@@ -307,7 +308,7 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
                       key={file.id} 
                       className={cn(
                         "file-item flex flex-col items-center justify-center p-2 rounded cursor-pointer transition-colors relative",
-                        selectedFileIds.includes(file.id!) ? "bg-green-100 ring-2 ring-green-400" : "hover:bg-gray-100 animate-pulse"
+                        selectedFileIds.includes(file.id!) ? "bg-green-100 ring-2 ring-green-400" : "hover:bg-gray-100 file-blink"
                       )}
                       onClick={() => file.id && toggleFileSelection(file.id)}
                     >

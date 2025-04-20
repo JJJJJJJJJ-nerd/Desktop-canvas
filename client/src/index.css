@@ -52,4 +52,30 @@
     background-size: cover;
     background-position: center;
   }
+  
+  /* Custom blinking animation for file selection */
+  @keyframes file-blink {
+    0% {
+      opacity: 0.7;
+      transform: scale(0.95);
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.1);
+      background-color: rgba(219, 234, 254, 0.6);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.05);
+      box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.3);
+      background-color: rgba(147, 197, 253, 0.4);
+    }
+    100% {
+      opacity: 0.7;
+      transform: scale(0.95);
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.1);
+      background-color: rgba(219, 234, 254, 0.6);
+    }
+  }
+  
+  .file-blink {
+    animation: file-blink 1.2s infinite;
+  }
 }
