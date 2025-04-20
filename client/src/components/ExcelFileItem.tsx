@@ -181,18 +181,28 @@ export function ExcelFileItem({
     });
   };
 
-  // Handle mouse up - end dragging
+  // Handle mouse up - end dragging or handle click
   const handleMouseUp = (e: MouseEvent) => {
-    if (!dragging) return;
-    
     // Prevent default behavior
     e.preventDefault();
     
-    // Save the final position
-    onDragEnd(index, currentPosition.current.x, currentPosition.current.y);
+    // Handle as a click if there was minimal movement
+    if (isClick.current) {
+      // Select on click
+      onSelect(index);
+    } 
+    // Handle as a drag completion
+    else if (dragging) {
+      // Save the final position
+      onDragEnd(index, currentPosition.current.x, currentPosition.current.y);
+      
+      // End dragging state
+      setDragging(false);
+    }
     
-    // End dragging state
-    setDragging(false);
+    // Reset tracking variables
+    initialClick.current = null;
+    isClick.current = true;
     
     // Remove event listeners
     document.removeEventListener('mousemove', handleMouseMove);
@@ -381,10 +391,9 @@ export function ExcelFileItem({
     e.stopPropagation();
     e.preventDefault();
     
-    // Select the file on mousedown if not already selected
-    if (!isSelected) {
-      onSelect(index);
-    }
+    // Save the initial click position for later comparison
+    initialClick.current = { x: e.clientX, y: e.clientY };
+    isClick.current = true;
     
     // Calculate mouse offset from top-left corner - crucial for smooth dragging
     startPosRef.current = {
@@ -395,10 +404,7 @@ export function ExcelFileItem({
     // Store current position for reference
     currentPosition.current = localPosition;
     
-    // Set dragging state immediately
-    setDragging(true);
-    
-    // Add global event listeners
+    // Add global event listeners - we'll determine drag state in the mousemove handler
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
