@@ -245,52 +245,66 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
       y: e.clientY - position.y
     };
     
-    // Start dragging
+    // Immediately start dragging - no delay needed
     setIsDragging(true);
     
-    // Add document-level event listeners
+    // Add document-level event listeners for dragging
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
   
   const handleMouseMove = (e: MouseEvent) => {
-    if (isDragging) {
-      e.preventDefault();
-      
-      // Calculate new position
-      const newX = Math.max(0, e.clientX - startPosRef.current.x);
-      const newY = Math.max(0, e.clientY - startPosRef.current.y);
-      
-      // Update position
-      setPosition({ x: newX, y: newY });
-    }
+    // Only proceed if we're in dragging mode
+    if (!isDragging) return;
+    
+    e.preventDefault();
+    
+    // Calculate new position - ensure we stay within boundaries
+    const newX = Math.max(0, e.clientX - startPosRef.current.x);
+    const newY = Math.max(0, e.clientY - startPosRef.current.y);
+    
+    // Update position immediately
+    setPosition({ x: newX, y: newY });
   };
   
   const handleMouseUp = async (e: MouseEvent) => {
-    if (isDragging) {
-      e.preventDefault();
-      
-      // Stop dragging
-      setIsDragging(false);
-      
-      // Save the new position to the server
-      if (folder.id) {
-        try {
-          // Update file position in database
-          const response = await fetch(`/api/files/${folder.id}/position`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ x: position.x, y: position.y }),
-          });
-          
-          if (!response.ok) {
-            console.error('Failed to save folder position');
-          }
-        } catch (error) {
-          console.error('Error saving folder position:', error);
+    // Only proceed if we were dragging
+    if (!isDragging) return;
+    
+    e.preventDefault();
+    
+    // Stop dragging state
+    setIsDragging(false);
+    
+    // Save the new position to the server
+    if (folder.id) {
+      try {
+        // Use integer values to prevent serialization issues
+        const posX = Math.round(position.x);
+        const posY = Math.round(position.y);
+        
+        console.log(`Saving folder position: ${posX}, ${posY}`);
+        
+        // Update file position in database
+        const response = await fetch(`/api/files/${folder.id}/position`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            x: posX, 
+            y: posY 
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('Failed to save folder position:', errorData);
+        } else {
+          console.log('Successfully saved folder position');
         }
+      } catch (error) {
+        console.error('Error saving folder position:', error);
       }
     }
     
