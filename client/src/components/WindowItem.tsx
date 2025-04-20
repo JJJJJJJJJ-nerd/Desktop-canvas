@@ -385,6 +385,68 @@ export function WindowItem({
   };
   
   // Handle window drag with improved implementation for immediate dragging
+  // Handle double click to auto-resize window to optimal size
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    // Skip if double-clicking on elements we don't want to trigger resize
+    const target = e.target as HTMLElement;
+    if (
+      target.closest('.no-drag') ||
+      target.tagName === 'BUTTON' ||
+      target.tagName === 'INPUT' ||
+      target.closest('.resize-handle')
+    ) {
+      return;
+    }
+    
+    // Determine optimal size based on content type
+    let optimalWidth = 600; // Default width
+    let optimalHeight = 450; // Default height
+    
+    if (isVCF) {
+      // VCF contact cards look best at these dimensions
+      optimalWidth = 480;
+      optimalHeight = 680;
+    } else if (isExcel) {
+      // Excel files need more space to display tables
+      optimalWidth = 800;
+      optimalHeight = 600;
+    } else if (isPDF) {
+      // PDFs need a more square layout for proper viewing
+      optimalWidth = 800;
+      optimalHeight = 800;
+    } else if (isText) {
+      // Text files work well with medium-width layout for readability
+      optimalWidth = 600;
+      optimalHeight = 500;
+    } else if (isImage) {
+      // For images, try to use their natural dimensions while staying reasonable
+      const img = new Image();
+      img.src = file.dataUrl;
+      
+      // Set dimensions based on image aspect ratio but cap at reasonable sizes
+      if (img.width > 0 && img.height > 0) {
+        const aspectRatio = img.width / img.height;
+        
+        if (aspectRatio > 1) { // Landscape
+          optimalWidth = Math.min(900, img.width);
+          optimalHeight = optimalWidth / aspectRatio;
+        } else { // Portrait
+          optimalHeight = Math.min(700, img.height);
+          optimalWidth = optimalHeight * aspectRatio;
+        }
+      }
+    }
+    
+    // Apply the new dimensions
+    setLocalDimensions({ width: optimalWidth, height: optimalHeight });
+    
+    // Update dimensions in parent component
+    onResize(index, optimalWidth, optimalHeight);
+    
+    // Prevent further propagation
+    e.stopPropagation();
+  };
+
   const handleMouseDown = (e: React.MouseEvent) => {
     // Skip if clicking on elements we don't want to trigger drag
     const target = e.target as HTMLElement;
@@ -844,6 +906,8 @@ export function WindowItem({
           />
         </div>
       );
+      
+      // Optimal size for PDFs would be 800x800, but we handle that in the handleDoubleClick function
     } else {
       // Unsupported content type
       return (
@@ -893,6 +957,7 @@ export function WindowItem({
       <div 
         className="window-titlebar flex items-center justify-between bg-gray-100 px-3 py-2 cursor-move border-b"
         onMouseDown={handleMouseDown}
+        onDoubleClick={handleDoubleClick}
       >
         <div className="flex items-center gap-2">
           <div className="file-icon w-4 h-4">
@@ -927,6 +992,7 @@ export function WindowItem({
             onSelect(index);
           }
         }}
+        onDoubleClick={handleDoubleClick}
       >
         {renderFileContent()}
       </div>
