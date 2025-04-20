@@ -15,6 +15,9 @@ export interface DesktopFile {
   createdAt?: string;
   updatedAt?: string;
   userId?: number;
+  parentId?: number;
+  isFolder?: string;
+  children?: DesktopFile[];
 }
 
 export interface FileIconInfo {

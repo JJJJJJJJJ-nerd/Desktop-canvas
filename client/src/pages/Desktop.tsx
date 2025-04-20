@@ -64,6 +64,7 @@ export default function Desktop() {
   const [openWindowFiles, setOpenWindowFiles] = useState<number[]>([]);
   const [activeOverlap, setActiveOverlap] = useState<FileOverlap | null>(null);
   const [draggingFileId, setDraggingFileId] = useState<number | null>(null);
+  const [openFolderId, setOpenFolderId] = useState<number | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -155,12 +156,21 @@ export default function Desktop() {
   const handlePreviewFile = (file: DesktopFile) => {
     // If it's a folder, we'll handle it separately
     if (file.isFolder === 'true' && file.id) {
-      // For folders, toggle showing files inside
-      const fileIndex = files.findIndex(f => f.id === file.id);
-      selectFile(fileIndex);
-      
-      // Call backend API to get files in folder (handled in getFiles)
-      queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+      // For folders, toggle between open/closed state
+      if (openFolderId === file.id) {
+        // If folder is already open, close it
+        setOpenFolderId(null);
+      } else {
+        // Otherwise, open this folder
+        setOpenFolderId(file.id);
+        
+        // Select the folder to highlight it
+        const fileIndex = files.findIndex(f => f.id === file.id);
+        selectFile(fileIndex);
+        
+        // Fetch the latest data from server
+        queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+      }
       return;
     }
     
@@ -379,11 +389,32 @@ export default function Desktop() {
         </div>
       )}
 
+      {/* Folder navigation bar - only shown when inside a folder */}
+      {openFolderId && (
+        <div className="relative bg-gradient-to-r from-blue-900/80 via-primary/60 to-blue-900/80 backdrop-blur-sm py-2 px-4 border-b border-primary/30 shadow-md">
+          <div className="container mx-auto flex items-center justify-between">
+            <div className="flex items-center">
+              <FolderOpen className="h-4 w-4 text-white mr-2" />
+              <p className="text-white text-sm font-medium">
+                {files.find(f => f.id === openFolderId)?.name || "Folder"}
+              </p>
+            </div>
+            <button 
+              onClick={() => setOpenFolderId(null)}
+              className="text-white text-sm hover:bg-white/10 px-2 py-1 rounded flex items-center transition-colors"
+            >
+              <X className="h-3.5 w-3.5 mr-1" />
+              Close Folder
+            </button>
+          </div>
+        </div>
+      )}
+
       <div
         ref={canvasRef}
         className={`canvas-area relative flex-1 ${
           isDraggingOver ? "bg-blue-100/20" : ""
-        }${searchQuery ? " bg-blue-900/50" : ""}`}
+        }${searchQuery ? " bg-blue-900/50" : ""}${openFolderId ? " bg-blue-800/30" : ""}`}
         onClick={handleCanvasClick}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -451,8 +482,22 @@ export default function Desktop() {
               const isMatch = searchQuery ? true : false;
               
               // Skip rendering files that are currently open as windows
-              // or that belong to a folder
-              if (file.id && (openWindowFiles.includes(file.id) || file.parentId)) {
+              // or that belong to a folder (unless their parent folder is open)
+              if (file.id && (
+                openWindowFiles.includes(file.id) || 
+                (file.parentId && file.parentId !== openFolderId)
+              )) {
+                return null;
+              }
+              
+              // Only show files that are:
+              // 1. Not in any folder (parentId is null/undefined)
+              // 2. In the currently open folder
+              const isInOpenFolder = file.parentId === openFolderId;
+              const isRootFile = !file.parentId;
+              
+              // Hide root files when a folder is open, show only files in that folder
+              if (openFolderId && !isInOpenFolder && isRootFile) {
                 return null;
               }
               
