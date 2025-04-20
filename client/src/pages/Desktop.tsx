@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { queryClient } from "@/lib/queryClient";
 import { DesktopToolbar } from "@/components/DesktopToolbar";
 import { FileItem } from "@/components/FileItem";
 import { FilePreviewModal } from "@/components/FilePreviewModal";
@@ -152,7 +153,18 @@ export default function Desktop() {
 
   // Handle file preview
   const handlePreviewFile = (file: DesktopFile) => {
-    // Always open any file in a window
+    // If it's a folder, we'll handle it separately
+    if (file.isFolder === 'true' && file.id) {
+      // For folders, toggle showing files inside
+      const fileIndex = files.findIndex(f => f.id === file.id);
+      selectFile(fileIndex);
+      
+      // Call backend API to get files in folder (handled in getFiles)
+      queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+      return;
+    }
+    
+    // For regular files, open in a window
     if (file.id) {
       if (!openWindowFiles.includes(file.id)) {
         setOpenWindowFiles([...openWindowFiles, file.id]);
@@ -439,7 +451,8 @@ export default function Desktop() {
               const isMatch = searchQuery ? true : false;
               
               // Skip rendering files that are currently open as windows
-              if (file.id && openWindowFiles.includes(file.id)) {
+              // or that belong to a folder
+              if (file.id && (openWindowFiles.includes(file.id) || file.parentId)) {
                 return null;
               }
               
