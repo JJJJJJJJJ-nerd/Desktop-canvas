@@ -1,10 +1,12 @@
 import { useRef, useState, useEffect } from "react";
 import { DesktopFile } from "@/types";
 import { formatFileSize, getFileIcon } from "@/utils/file-utils";
-import { FileSpreadsheet, Save, Edit, Check, X, Maximize2 } from "lucide-react";
+import { FileSpreadsheet, Save, Edit, Check, X, Maximize2, Mail, Phone, User, AtSign, Phone as PhoneIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import * as XLSX from 'xlsx';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -55,6 +57,15 @@ export function WindowItem({
   // For text/image content
   const [textContent, setTextContent] = useState<string>("");
   
+  // For vCard content
+  const [vCardData, setVCardData] = useState<{
+    name?: string;
+    fullName?: string;
+    emails?: {type: string; value: string}[];
+    phones?: {type: string; value: string}[];
+    photo?: string;
+  } | null>(null);
+  
   // Current position reference to avoid jumps during drag
   const currentPosition = useRef({ x: 0, y: 0 });
   
@@ -71,7 +82,8 @@ export function WindowItem({
     file.name.endsWith('.csv');
   
   const isImage = file.type.startsWith('image/');
-  const isText = file.type.startsWith('text/') && !file.type.includes('csv');
+  const isVCF = file.type === "text/vcard" || file.name.endsWith('.vcf');
+  const isText = file.type.startsWith('text/') && !file.type.includes('csv') && !isVCF;
   const isPDF = file.type === 'application/pdf';
   
   // Only update position from props on initial render
@@ -79,6 +91,74 @@ export function WindowItem({
     setLocalPosition({ x: file.position.x, y: file.position.y });
   }, []);
   
+  // Parse VCF data from string
+  const parseVCardData = (vcfContent: string) => {
+    // Extract basic fields from vCard
+    const nameMatch = vcfContent.match(/FN:(.*?)(?:\r?\n|$)/i);
+    const fullName = nameMatch ? nameMatch[1].trim() : undefined;
+    
+    // Extract display name
+    const displayNameMatch = vcfContent.match(/N:([^;]*);([^;]*);([^;]*);([^;]*);([^;]*)(?:\r?\n|$)/i);
+    let name = undefined;
+    if (displayNameMatch) {
+      // Format varies but usually [lastName];[firstName];[middleName];[prefix];[suffix]
+      const lastName = displayNameMatch[1]?.trim() || '';
+      const firstName = displayNameMatch[2]?.trim() || '';
+      name = firstName || lastName;
+    }
+    
+    // Extract emails
+    const emailRegex = /EMAIL(?:;[^:]*)*:(.*?)(?:\r?\n|$)/gi;
+    const emails: {type: string, value: string}[] = [];
+    
+    let emailMatch;
+    while ((emailMatch = emailRegex.exec(vcfContent)) !== null) {
+      // Try to extract email type (HOME/WORK)
+      const typeMatch = emailMatch[0].match(/type=([^;:]*)/i);
+      const type = typeMatch ? typeMatch[1].toUpperCase() : 'OTHER';
+      
+      emails.push({
+        type,
+        value: emailMatch[1].trim()
+      });
+    }
+    
+    // Extract phone numbers
+    const phoneRegex = /TEL(?:;[^:]*)*:(.*?)(?:\r?\n|$)/gi;
+    const phones: {type: string, value: string}[] = [];
+    
+    let phoneMatch;
+    while ((phoneMatch = phoneRegex.exec(vcfContent)) !== null) {
+      // Try to extract phone type (CELL/WORK/HOME)
+      const typeMatch = phoneMatch[0].match(/type=([^;:]*)/i);
+      const type = typeMatch ? typeMatch[1].toUpperCase() : 'OTHER';
+      
+      phones.push({
+        type,
+        value: phoneMatch[1].trim()
+      });
+    }
+    
+    // Extract photo if present
+    const photoRegex = /PHOTO;(?:[^:]*):(.+?)(?:\r?\n\s|$)/is;
+    const photoMatch = vcfContent.match(photoRegex);
+    let photo = undefined;
+    
+    if (photoMatch && photoMatch[1]) {
+      // Photo is already in base64 format in some vCards
+      const photoData = photoMatch[1].replace(/\s/g, '');
+      photo = `data:image/jpeg;base64,${photoData}`;
+    }
+    
+    return {
+      name: name || fullName,
+      fullName,
+      emails,
+      phones,
+      photo
+    };
+  };
+
   // Load file data when component mounts
   useEffect(() => {
     const loadFileContent = async () => {
@@ -103,6 +183,18 @@ export function WindowItem({
           const wsData = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1 }) as any[][];
           setSheetData(wsData);
           
+        } else if (isVCF) {
+          // Load and parse vCard data
+          const response = await fetch(file.dataUrl);
+          const vcfText = await response.text();
+          
+          // Store text content for reference
+          setTextContent(vcfText);
+          
+          // Parse VCF data for display
+          const parsedData = parseVCardData(vcfText);
+          setVCardData(parsedData);
+          
         } else if (isText) {
           // Load text data
           const response = await fetch(file.dataUrl);
@@ -119,7 +211,7 @@ export function WindowItem({
     };
     
     loadFileContent();
-  }, [file.dataUrl, isExcel, isText]);
+  }, [file.dataUrl, isExcel, isText, isVCF]);
   
   // Save data for Excel files
   const saveExcelData = async () => {
