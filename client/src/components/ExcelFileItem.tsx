@@ -137,9 +137,12 @@ export function ExcelFileItem({
     document.addEventListener('mouseup', handleMouseUp);
   };
 
-  // Handle mouse movement during drag
+  // Handle mouse movement during drag - Enhanced for better performance
   const handleMouseMove = (e: MouseEvent) => {
     if (!dragging) return;
+    
+    // Prevent any default browser behavior
+    e.preventDefault();
     
     // Calculate new position - ensure it stays within visible area
     const newX = Math.max(0, e.clientX - startPosRef.current.x);
@@ -149,12 +152,18 @@ export function ExcelFileItem({
     currentPosition.current = { x: newX, y: newY };
     
     // Then update state (causing re-render)
-    setLocalPosition(currentPosition.current);
+    // Use requestAnimationFrame for smoother dragging performance
+    window.requestAnimationFrame(() => {
+      setLocalPosition(currentPosition.current);
+    });
   };
 
   // Handle mouse up - end dragging
   const handleMouseUp = (e: MouseEvent) => {
     if (!dragging) return;
+    
+    // Prevent default behavior
+    e.preventDefault();
     
     // Save the final position
     onDragEnd(index, currentPosition.current.x, currentPosition.current.y);
@@ -340,21 +349,21 @@ export function ExcelFileItem({
     document.removeEventListener('mouseup', handleResizeEnd);
   };
 
-  // Handle mouse down on the entire component
+  // Enhanced direct drag implementation for Excel windows
   const handleMouseDown = (e: React.MouseEvent) => {
-    // Only respond to left mouse button
-    if (e.button !== 0) return;
+    // Only respond to left mouse button and skip if resize is active
+    if (e.button !== 0 || isResizing) return;
     
-    // Prevent default browser behavior and stop event propagation
+    // Stop the event to prevent interference from parent elements
     e.stopPropagation();
     e.preventDefault();
     
-    // Always select on mousedown if not already selected
+    // Select the file on mousedown if not already selected
     if (!isSelected) {
       onSelect(index);
     }
     
-    // Calculate offset between mouse position and element top-left corner
+    // Calculate mouse offset from top-left corner - crucial for smooth dragging
     startPosRef.current = {
       x: e.clientX - localPosition.x,
       y: e.clientY - localPosition.y
@@ -363,10 +372,10 @@ export function ExcelFileItem({
     // Store current position for reference
     currentPosition.current = localPosition;
     
-    // Set dragging state
+    // Set dragging state immediately
     setDragging(true);
     
-    // Add document-level event listeners for move and release
+    // Add global event listeners
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
@@ -455,7 +464,11 @@ export function ExcelFileItem({
                   <Button 
                     variant="default" 
                     size="sm" 
-                    onClick={saveChanges}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      saveChanges();
+                    }}
                     className="text-xs flex items-center gap-1"
                   >
                     <Save className="h-3.5 w-3.5" /> Save Changes

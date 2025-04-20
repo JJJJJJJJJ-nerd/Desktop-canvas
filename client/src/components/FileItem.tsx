@@ -101,30 +101,20 @@ export function FileItem({
   // to avoid re-renders that might cause jumps
   const currentPosition = useRef({ x: 0, y: 0 });
 
-  // Fixed mouse event handler - implements direct drag on first click
+  // Direct drag implementation - starts dragging immediately on mouse down
   const handleMouseDown = (e: React.MouseEvent) => {
-    console.log('🖱️ MouseDown - Button:', e.button, 'File:', file.name, 'isSelected:', isSelected, 'isResizing:', isResizing);
-    
     // Only respond to left mouse button
-    if (e.button !== 0) {
-      console.log('⚠️ Ignoring non-left click');
-      return;
-    }
+    if (e.button !== 0) return;
     
     // Don't interfere with resize operation
-    if (isResizing) {
-      console.log('⚠️ Ignoring because resizing is active');
-      return;
-    }
+    if (isResizing) return;
     
     // Prevent default browser behavior and stop event propagation
     e.stopPropagation();
     e.preventDefault();
-    console.log('🚫 Prevented default and stopped propagation');
     
     // Always select on mousedown if not already selected
     if (!isSelected) {
-      console.log('📌 Selecting file on mousedown');
       onSelect(index);
     }
     
@@ -133,27 +123,24 @@ export function FileItem({
       x: e.clientX - localPosition.x,
       y: e.clientY - localPosition.y
     };
-    console.log('📍 Start position:', startPosRef.current, 'Client:', {x: e.clientX, y: e.clientY}, 'Local:', localPosition);
     
     // Store current position for reference
     currentPosition.current = localPosition;
     
-    // Set dragging state immediately - this is key to making it work
-    console.log('🔄 Setting dragging to true');
+    // Set dragging state immediately
     setDragging(true);
     
     // Add document-level event listeners for move and release
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-    console.log('👂 Added mousemove and mouseup listeners to document');
   };
 
-  // Handle mouse movement during drag
+  // Handle mouse movement during drag with requestAnimationFrame for better performance
   const handleMouseMove = (e: MouseEvent) => {
-    if (!dragging) {
-      console.log('👆 MouseMove ignored: not dragging');
-      return;
-    }
+    if (!dragging) return;
+    
+    // Prevent any default browser behavior
+    e.preventDefault();
     
     // Calculate new position - ensure it stays within visible area
     const newX = Math.max(0, e.clientX - startPosRef.current.x);
@@ -162,32 +149,28 @@ export function FileItem({
     // Update current position ref first (without causing re-renders)
     currentPosition.current = { x: newX, y: newY };
     
-    // Then update state (causing re-render)
-    setLocalPosition(currentPosition.current);
-    console.log('📱 Moving to:', { x: newX, y: newY }, 'Client:', { x: e.clientX, y: e.clientY });
+    // Use requestAnimationFrame for smoother dragging
+    window.requestAnimationFrame(() => {
+      setLocalPosition(currentPosition.current);
+    });
   };
 
   // Handle mouse up - end dragging
   const handleMouseUp = (e: MouseEvent) => {
-    console.log('👆 MouseUp - dragging state:', dragging);
+    if (!dragging) return;
     
-    if (!dragging) {
-      console.log('⚠️ MouseUp ignored: not dragging');
-      return;
-    }
+    // Prevent default behavior
+    e.preventDefault();
     
     // Save the final position
-    console.log('💾 Saving final position:', currentPosition.current);
     onDragEnd(index, currentPosition.current.x, currentPosition.current.y);
     
     // End dragging state
-    console.log('⏹️ Setting dragging to false');
     setDragging(false);
     
-    // Remove event listeners - using document to match where we added them
+    // Remove event listeners
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
-    console.log('🔕 Removed event listeners');
   };
 
   const handleDoubleClick = () => {
