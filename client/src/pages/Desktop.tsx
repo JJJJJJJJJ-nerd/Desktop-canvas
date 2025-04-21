@@ -63,6 +63,7 @@ function areFilesOverlapping(file1Element: HTMLElement, file2Element: HTMLElemen
 }
 
 export default function Desktop() {
+  const { toast } = useToast();
   const {
     files,
     selectedFile,
