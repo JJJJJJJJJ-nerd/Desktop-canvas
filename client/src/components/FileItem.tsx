@@ -100,7 +100,7 @@ export function FileItem({
 
   const fileIcon = getFileIcon(file.type);
   const isImage = file.type.startsWith('image/');
-  const isFolder = file.type === 'folder';
+  const isFolder = file.type === 'folder' || file.type === 'application/folder' || file.isFolder === 'true';
   
   // State for rename dialog
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
@@ -255,6 +255,15 @@ export function FileItem({
       setIsRenameDialogOpen(false);
     }
   };
+  
+  // Debug
+  console.log('File debug:', { 
+    name: file.name, 
+    type: file.type, 
+    isFolder: file.isFolder, 
+    usingIsFolder: isFolder,
+    isFolderCheck: file.type === 'folder' || file.type === 'application/folder' || file.isFolder === 'true'
+  });
   
   // Resize handlers
   const handleResizeStart = (e: React.MouseEvent) => {
