@@ -168,9 +168,13 @@ export function FileItem({
     onDragOver: (e: React.DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      setIsDragOver(true);
-      // Show that we can drop here
-      e.dataTransfer.dropEffect = 'move';
+      // Only highlight if dragging a file element (via data transfer, not upload)
+      const hasFileId = e.dataTransfer.types.includes('text/plain');
+      if (hasFileId) {
+        setIsDragOver(true);
+        // Show that we can drop here (visual cursor feedback)
+        e.dataTransfer.dropEffect = 'move';
+      }
     },
     onDragLeave: (e: React.DragEvent) => {
       e.preventDefault();
@@ -486,7 +490,8 @@ export function FileItem({
               left: `${localPosition.x}px`,
               top: `${localPosition.y}px`,
               width: isImage && file.dimensions ? `${file.dimensions.width}px` : 'auto',
-              transition: dragging ? 'none' : 'all 0.15s ease'
+              transition: dragging ? 'none' : 'all 0.15s ease',
+              zIndex: dragging ? 100 : (isSelected ? 50 : 10) // Ensure dragging files are above everything
             }}
             onMouseDown={handleMouseDown}
             onDoubleClick={handleDoubleClick}

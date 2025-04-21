@@ -41,7 +41,12 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDraggingOver(true);
+    // Check if dragging a file (not from file system upload)
+    const hasFileId = e.dataTransfer.types.includes('text/plain');
+    if (hasFileId) {
+      // Highlight the drop area to indicate it's a valid drop target
+      setIsDraggingOver(true);
+    }
   };
 
   // Handle drag leave events
@@ -56,6 +61,9 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingOver(false);
+    
+    console.log("Drop event in folder view:", folder.name, folder.id);
+    console.log("Drop data types:", e.dataTransfer.types);
     
     // Check if files were dropped
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
@@ -370,10 +378,11 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       {/* Window content */}
       <div 
         ref={dropAreaRef}
-        className={`p-4 h-[calc(100%-40px)] overflow-auto ${isDraggingOver ? 'bg-primary/10 ring-2 ring-primary/30 ring-inset' : ''}`}
+        className={`p-4 h-[calc(100%-40px)] overflow-auto ${isDraggingOver ? 'bg-green-100/80 ring-2 ring-green-500/50 ring-inset' : ''}`}
         onDragOver={!isSelectMode ? handleDragOver : undefined}
         onDragLeave={!isSelectMode ? handleDragLeave : undefined}
         onDrop={!isSelectMode ? handleDrop : undefined}
+        style={{ zIndex: 60 }} // Ensure the drop area is above other elements
       >
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
