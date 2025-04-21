@@ -287,7 +287,64 @@ export default function Desktop() {
   const registerFileElement = (id: number | undefined, element: HTMLElement | null) => {
     if (id && element) {
       fileElementsRef.current[`file-${id}`] = element;
+      console.log(`Registered file element for ID: ${id}`);
+    } else if (id) {
+      delete fileElementsRef.current[`file-${id}`];
     }
+  };
+  
+  // Function to check if two elements are overlapping
+  const checkFileOverFolder = (movingFileId: number | undefined) => {
+    if (!movingFileId) return null;
+    
+    const movingElementKey = `file-${movingFileId}`;
+    const movingElement = fileElementsRef.current[movingElementKey];
+    if (!movingElement) return null;
+    
+    const movingRect = movingElement.getBoundingClientRect();
+    
+    // Find all folder IDs
+    const folderFiles = files.filter(f => f.isFolder === 'true' || f.type === 'folder' || f.type === 'application/folder');
+    
+    for (const folder of folderFiles) {
+      if (!folder.id || folder.id === movingFileId) continue; // Skip if same file or invalid id
+      
+      const folderElementKey = `file-${folder.id}`;
+      const folderElement = fileElementsRef.current[folderElementKey];
+      if (!folderElement) continue;
+      
+      const folderRect = folderElement.getBoundingClientRect();
+      
+      // Check for overlap
+      const overlap = !(
+        movingRect.right < folderRect.left || 
+        movingRect.left > folderRect.right || 
+        movingRect.bottom < folderRect.top || 
+        movingRect.top > folderRect.bottom
+      );
+      
+      if (overlap) {
+        // Add highlight class to the folder element
+        folderElement.classList.add('folder-highlight');
+        console.log(`🎯 OVERLAP DETECTED: File ${movingFileId} is overlapping with folder ${folder.id}`);
+        return { fileId: movingFileId, folderId: folder.id };
+      } else {
+        // Remove highlight class from the folder
+        folderElement.classList.remove('folder-highlight');
+      }
+    }
+    
+    // No overlaps found - remove highlight from all folders
+    folderFiles.forEach(folder => {
+      if (folder.id) {
+        const folderElement = fileElementsRef.current[`file-${folder.id}`];
+        if (folderElement) {
+          folderElement.classList.remove('folder-highlight');
+        }
+      }
+    });
+    
+    return null;
   };
   
   // Handle file drag start
@@ -543,7 +600,11 @@ export default function Desktop() {
                         handleFilePositionUpdate(index, x, y);
                       }}
                       onDragStart={(fileId) => handleFileDragStart(fileId)}
-                      onDragMove={(fileId) => checkFileOverlap(fileId)}
+                      onDragMove={(fileId) => {
+                        checkFileOverlap(fileId);
+                        // Check for overlapping folders using our new function
+                        checkFileOverFolder(fileId);
+                      }}
                       registerRef={registerFileElement}
                       onResize={handleFileResize}
                       onPreview={handlePreviewFile}
@@ -597,7 +658,7 @@ export default function Desktop() {
             className="flex items-center cursor-pointer"
           >
             <FolderPlus className="mr-2 h-4 w-4 text-primary" />
-            <span>Nieuwe map maken</span>
+            <span>Create new folder</span>
           </ContextMenuItem>
           
           <ContextMenuSeparator />
@@ -607,7 +668,7 @@ export default function Desktop() {
             className="flex items-center cursor-pointer"
           >
             <FileUp className="mr-2 h-4 w-4 text-primary" />
-            <span>Bestand uploaden</span>
+            <span>Upload file</span>
           </ContextMenuItem>
           
           <ContextMenuItem 
@@ -615,7 +676,7 @@ export default function Desktop() {
             className="flex items-center cursor-pointer"
           >
             <RefreshCw className="mr-2 h-4 w-4 text-primary" />
-            <span>Vernieuwen</span>
+            <span>Refresh</span>
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
@@ -638,9 +699,9 @@ export default function Desktop() {
       <Dialog open={isFolderDialogOpen} onOpenChange={setIsFolderDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Map maken</DialogTitle>
+            <DialogTitle>Create Folder</DialogTitle>
             <DialogDescription>
-              Geef een naam aan de nieuwe map.
+              Enter a name for the new folder.
             </DialogDescription>
           </DialogHeader>
           
@@ -649,7 +710,7 @@ export default function Desktop() {
               <Input
                 value={folderName}
                 onChange={(e) => setFolderName(e.target.value)}
-                placeholder="Map naam"
+                placeholder="Folder name"
                 className="col-span-3"
                 autoFocus
               />
