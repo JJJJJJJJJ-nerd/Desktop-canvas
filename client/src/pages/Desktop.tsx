@@ -74,6 +74,7 @@ export default function Desktop() {
     selectFile,
     createFolderFromFiles,
     createFolder,
+    addFileToFolder,
   } = useDesktopFiles();
   const [previewFile, setPreviewFile] = useState<DesktopFile | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -639,7 +640,7 @@ export default function Desktop() {
                 
                 try {
                   if (pendingFolderFiles && pendingFolderFiles.length >= 2) {
-                    // Create folder from overlapping files
+                    // Create folder from overlapping files with custom name
                     await createFolderFromFiles(pendingFolderFiles, pendingFolderPosition, folderName);
                   } else {
                     // Create a new empty folder
