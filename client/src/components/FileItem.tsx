@@ -458,7 +458,7 @@ export function FileItem({
       <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Map hernoemen</DialogTitle>
+            <DialogTitle>Rename {isFolder ? "Folder" : "File"}</DialogTitle>
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
@@ -466,7 +466,7 @@ export function FileItem({
               id="name"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="Nieuwe naam"
+              placeholder="New name"
               className="col-span-3"
               autoFocus
               onKeyDown={(e) => {
@@ -479,10 +479,10 @@ export function FileItem({
           
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={() => setIsRenameDialogOpen(false)}>
-              Annuleren
+              Cancel
             </Button>
             <Button type="button" onClick={handleRenameSubmit}>
-              Opslaan
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>
