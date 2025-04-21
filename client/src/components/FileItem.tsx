@@ -198,6 +198,12 @@ export function FileItem({
               const allDesktopFiles = queryClient.getQueryData<any>(['/api/files'])?.files || [];
               const droppedFile = allDesktopFiles.find((f: any) => f.id === fileId);
               
+              // Don't allow dropping a folder into itself or any circular references
+              if (fileId === file.id || droppedFile?.isFolder === 'true') {
+                console.log('Cannot drop a folder into itself or another folder');
+                return;
+              }
+              
               if (droppedFile && droppedFile.parentId) {
                 // First remove from current folder
                 await removeFileFromFolder(fileId);
@@ -206,7 +212,7 @@ export function FileItem({
               // Now add to this folder
               await addFileToFolder(fileId, file.id);
               
-              // Refresh desktop files
+              // Refresh desktop files - this is crucial to make files disappear from desktop
               queryClient.invalidateQueries({ queryKey: ['/api/files'] });
             }
           } catch (error) {
