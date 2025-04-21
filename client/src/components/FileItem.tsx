@@ -150,10 +150,18 @@ export function FileItem({
     draggable: true,
     onDragStart: (e: React.DragEvent) => {
       if (file.id) {
-        console.log("Started dragging file:", file.name, file.id);
+        console.log(`🖱️ DRAG START: Started dragging file ${file.name} (ID: ${file.id})`);
+        
         // Set the dragged file ID as data
         e.dataTransfer.setData('text/plain', file.id.toString());
         e.dataTransfer.effectAllowed = 'move';
+        
+        // Store the currently dragged file ID in a global object for folder detection
+        // @ts-ignore - Adding custom property to window
+        window.draggedFileInfo = {
+          id: file.id,
+          name: file.name
+        };
         
         // Add a class to show we're dragging
         if (e.currentTarget) {
@@ -167,10 +175,16 @@ export function FileItem({
       }
     },
     onDragEnd: (e: React.DragEvent) => {
+      console.log(`🖱️ DRAG END: Stopped dragging file ${file.name}`);
+      
       // Remove the opacity class when drag ends
       if (e.currentTarget) {
         e.currentTarget.classList.remove('opacity-50');
       }
+      
+      // Clear the global drag reference
+      // @ts-ignore - Clearing custom property
+      window.draggedFileInfo = undefined;
     }
   };
   
@@ -182,25 +196,24 @@ export function FileItem({
     onDragOver: (e: React.DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      
       // Only highlight if dragging a file element (via data transfer, not upload)
       const hasFileId = e.dataTransfer.types.includes('text/plain');
+      
       if (hasFileId) {
-        setIsDragOver(true);
         // Show that we can drop here (visual cursor feedback)
         e.dataTransfer.dropEffect = 'move';
         
-        // Try to read the data to see which file is being dragged
-        try {
-          const data = e.dataTransfer.getData('text/plain');
-          if (data && file.id) {
-            const fileId = parseInt(data);
-            if (!isNaN(fileId)) {
-              console.log(`📂 DRAG DETECTED: File ${fileId} is being dragged over folder ${file.id} (${file.name})`);
-            }
+        // Use our global tracking object to see which file is being dragged
+        // @ts-ignore - Using custom window property
+        const draggedInfo = window.draggedFileInfo;
+        
+        if (draggedInfo && file.id) {
+          // Only set drag over if not already set
+          if (!isDragOver) {
+            setIsDragOver(true);
+            console.log(`📂 DRAG OVER: File ${draggedInfo.name} (ID: ${draggedInfo.id}) is hovering over folder ${file.name} (ID: ${file.id})`);
           }
-        } catch (error) {
-          // Firefox doesn't allow getData during dragover, only in drop
-          // This is just a silent catch
         }
       }
     },
@@ -221,12 +234,12 @@ export function FileItem({
           try {
             const fileId = parseInt(data);
             if (!isNaN(fileId)) {
-              console.log(`📁 DROP DETECTED: File ${fileId} (${droppedFile?.name || 'unknown'}) dropped into folder ${file.id} (${file.name})`);
-              console.log(`📁 TELEPORTING: Beginning teleport animation...`);
-              
-              // Check if this file is already in a folder
+              // Get info about the dragged file
               const allDesktopFiles = queryClient.getQueryData<any>(['/api/files'])?.files || [];
               const droppedFile = allDesktopFiles.find((f: any) => f.id === fileId);
+              
+              console.log(`📁 DROP DETECTED: File ${fileId} dropped into folder ${file.id} (${file.name})`);
+              console.log(`📁 TELEPORTING: Beginning teleport animation for ${droppedFile?.name || 'unknown file'}...`);
               
               // Don't allow dropping a folder into itself or any circular references
               if (fileId === file.id || droppedFile?.isFolder === 'true') {
