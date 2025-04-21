@@ -151,6 +151,12 @@ export function FileItem({
           onDragStart(file.id);
         }
       }
+    },
+    onDragEnd: (e: React.DragEvent) => {
+      // Remove the opacity class when drag ends
+      if (e.currentTarget) {
+        e.currentTarget.classList.remove('opacity-50');
+      }
     }
   };
   
@@ -376,13 +382,7 @@ export function FileItem({
   };
   
   // Debug
-  console.log('File debug:', { 
-    name: file.name, 
-    type: file.type, 
-    isFolder: file.isFolder, 
-    usingIsFolder: isFolder,
-    isFolderCheck: file.type === 'folder' || file.type === 'application/folder' || file.isFolder === 'true'
-  });
+  // Debug details removed for production
   
   // Resize handlers
   const handleResizeStart = (e: React.MouseEvent) => {

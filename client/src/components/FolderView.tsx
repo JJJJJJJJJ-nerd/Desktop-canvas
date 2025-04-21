@@ -382,7 +382,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         onDragOver={!isSelectMode ? handleDragOver : undefined}
         onDragLeave={!isSelectMode ? handleDragLeave : undefined}
         onDrop={!isSelectMode ? handleDrop : undefined}
-        style={{ zIndex: 60 }} // Ensure the drop area is above other elements
+        style={{ zIndex: 200 }} // Higher z-index to ensure it's above all files being dragged
       >
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
