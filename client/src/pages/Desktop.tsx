@@ -75,6 +75,7 @@ export default function Desktop() {
     createFolderFromFiles,
     createFolder,
     addFileToFolder,
+    updateFileName,
   } = useDesktopFiles();
   const [previewFile, setPreviewFile] = useState<DesktopFile | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -514,6 +515,7 @@ export default function Desktop() {
                       registerRef={registerFileElement}
                       onResize={handleFileResize}
                       onPreview={handlePreviewFile}
+                      onRename={updateFileName}
                     />
                   );
                 })}
