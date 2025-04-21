@@ -267,6 +267,11 @@ export function useDesktopFiles() {
   
   // Add a file to a folder
   const addFileToFolder = async (fileId: number, folderId: number) => {
+    if (typeof fileId !== 'number' || typeof folderId !== 'number') {
+      console.error('Invalid fileId or folderId:', { fileId, folderId });
+      return;
+    }
+    
     try {
       return await addFileToFolderMutation.mutateAsync({ fileId, folderId });
     } catch (error) {

@@ -218,16 +218,37 @@ export function FileItem({
                 return;
               }
               
+              // Find the dragged file's DOM element
+              const draggedFileElement = document.querySelector(`[data-file-id="${fileId}"]`);
+              if (draggedFileElement) {
+                // Add teleport animation class
+                draggedFileElement.classList.add('teleport-out');
+              }
+              
+              // Add receiving animation to folder
+              if (fileRef.current) {
+                fileRef.current.classList.add('folder-receive');
+                setTimeout(() => {
+                  if (fileRef.current) {
+                    fileRef.current.classList.remove('folder-receive');
+                  }
+                }, 500);
+              }
+              
               if (droppedFile && droppedFile.parentId) {
                 // First remove from current folder
                 await removeFileFromFolder(fileId);
               }
               
-              // Now add to this folder
-              await addFileToFolder(fileId, file.id);
-              
-              // Refresh desktop files - this is crucial to make files disappear from desktop
-              queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+              // Now add to this folder - slight delay for animation to complete
+              setTimeout(async () => {
+                if (file.id !== undefined && typeof file.id === 'number') {
+                  await addFileToFolder(fileId, file.id);
+                  
+                  // Refresh desktop files - this is crucial to make files disappear from desktop
+                  queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+                }
+              }, 300);
             }
           } catch (error) {
             console.error('Error dropping file into folder:', error);
@@ -490,6 +511,7 @@ export function FileItem({
         <ContextMenuTrigger>
           <div
             ref={fileRef}
+            data-file-id={file.id}
             className={cn(
               "file-item absolute backdrop-blur-sm rounded-lg shadow-md overflow-hidden",
               isImage ? "w-48" : "w-24 bg-white/80 p-3",
@@ -498,7 +520,7 @@ export function FileItem({
               dragging && "z-50 shadow-xl",
               isSearchMatch && "animate-pulse shadow-xl shadow-primary/20",
               isSearchMatch && !isSelected && "ring-2 ring-yellow-400 z-10",
-              isFolder && isDragOver && "ring-2 ring-green-500 shadow-lg bg-green-50/90 scale-105"
+              isFolder && isDragOver && "ring-2 ring-green-500 shadow-lg bg-green-50/90 scale-105 animate-pulse"
             )}
             style={{
               left: `${localPosition.x}px`,
@@ -571,12 +593,13 @@ export function FileItem({
               </div>
             )}
             
-            {/* Drop indicator for folders */}
+            {/* Drop indicator for folders - enhanced teleportation effect */}
             {isFolder && isDragOver && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="bg-green-100 rounded-lg p-2 shadow-md">
-                  <Upload className="h-6 w-6 text-green-600" />
+                <div className="bg-green-100 rounded-lg p-2 shadow-md animate-pulse">
+                  <Upload className="h-6 w-6 text-green-600 animate-bounce" />
                 </div>
+                <div className="absolute inset-0 bg-gradient-to-br from-green-400/20 to-blue-500/30 rounded-lg animate-pulse"></div>
               </div>
             )}
           </div>
