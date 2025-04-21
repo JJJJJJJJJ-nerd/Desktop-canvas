@@ -91,6 +91,34 @@ export function FileItem({
   registerRef,
   onRename
 }: FileItemProps) {
+  // Enable draggable functionality for files
+  const draggableProps = file.isFolder === 'true' ? {} : {
+    draggable: true,
+    onDragStart: (e: React.DragEvent) => {
+      if (file.id) {
+        // Set the dragged file ID as data
+        e.dataTransfer.setData('text/plain', file.id.toString());
+        e.dataTransfer.effectAllowed = 'move';
+        
+        // Set a simple drag image - optional
+        const dragIcon = document.createElement('div');
+        dragIcon.style.width = '60px';
+        dragIcon.style.height = '60px';
+        dragIcon.style.background = 'transparent';
+        document.body.appendChild(dragIcon);
+        e.dataTransfer.setDragImage(dragIcon, 30, 30);
+        
+        // For our custom drag logic
+        if (onDragStart) {
+          onDragStart(file.id);
+        }
+        
+        setTimeout(() => {
+          document.body.removeChild(dragIcon);
+        }, 0);
+      }
+    }
+  };
   const fileRef = useRef<HTMLDivElement>(null);
   const startPosRef = useRef({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
@@ -368,16 +396,7 @@ export function FileItem({
             }}
             onMouseDown={handleMouseDown}
             onDoubleClick={handleDoubleClick}
-            draggable="true"
-            onDragStart={e => {
-              if (file.id) {
-                e.dataTransfer.setData('text/plain', file.id.toString());
-                e.dataTransfer.effectAllowed = 'move';
-                if (onDragStart) {
-                  onDragStart(file.id);
-                }
-              }
-            }}
+            {...draggableProps}
           >
             {isImage ? (
               <div className="flex flex-col">
