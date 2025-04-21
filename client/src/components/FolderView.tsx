@@ -1,18 +1,28 @@
 import { useState, useEffect, useRef } from 'react';
 import { FileItem } from './FileItem';
 import { DesktopFile } from '@/types';
-import { X, FolderOpen, ArrowLeft, Upload, Check, Folder, MoveRight, FileX } from 'lucide-react';
+import { X, FolderOpen, ArrowLeft, Upload, Check, Folder, MoveRight, FileX, Edit } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { queryClient } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 interface FolderViewProps {
   folder: DesktopFile;
   onClose: () => void;
   onSelectFile: (file: DesktopFile) => void;
+  onRename?: (fileId: number, newName: string) => void;
 }
 
-export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
+export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderViewProps) {
   const [files, setFiles] = useState<DesktopFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -20,6 +30,10 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedFileIds, setSelectedFileIds] = useState<number[]>([]);
   const [externalFiles, setExternalFiles] = useState<DesktopFile[]>([]);
+  
+  // State for rename dialog
+  const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState(folder.name);
   
   const dropAreaRef = useRef<HTMLDivElement>(null);
 
@@ -227,6 +241,20 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
     }
   };
 
+  // Handle opening the rename dialog
+  const handleRenameClick = () => {
+    setNewFolderName(folder.name);
+    setIsRenameDialogOpen(true);
+  };
+  
+  // Handle the rename dialog submission
+  const handleRenameSubmit = () => {
+    if (folder.id && onRename && newFolderName.trim() !== "") {
+      onRename(folder.id, newFolderName.trim());
+      setIsRenameDialogOpen(false);
+    }
+  };
+  
   // Initial fetch of files
   useEffect(() => {
     if (folder.id) {
@@ -246,10 +274,20 @@ export function FolderView({ folder, onClose, onSelectFile }: FolderViewProps) {
     >
       {/* Window header */}
       <div className="bg-primary/90 text-white py-2 px-3 flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <FolderOpen className="w-5 h-5" />
-          <h3 className="font-medium text-sm">{folder.name}</h3>
-        </div>
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <div className="flex items-center space-x-2 cursor-pointer">
+              <FolderOpen className="w-5 h-5" />
+              <h3 className="font-medium text-sm">{folder.name}</h3>
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent className="w-48">
+            <ContextMenuItem onClick={handleRenameClick}>
+              <Edit className="w-4 h-4 mr-2" />
+              Hernoemen
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
         <div className="flex items-center space-x-2">
           {isSelectMode && selectedFileIds.length > 0 && (
             <Button 
