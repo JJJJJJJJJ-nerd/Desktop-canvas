@@ -29,6 +29,7 @@ export interface IStorage {
   addFileToFolder(fileId: number, folderId: number): Promise<DesktopFileDB | undefined>;
   getFilesInFolder(folderId: number): Promise<DesktopFileDB[]>;
   removeFileFromFolder(fileId: number): Promise<DesktopFileDB | undefined>;
+  updateFileName(id: number, name: string): Promise<DesktopFileDB | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -145,6 +146,15 @@ export class DatabaseStorage implements IStorage {
       .update(desktopFiles)
       .set({ parentId: null })
       .where(eq(desktopFiles.id, fileId))
+      .returning();
+    return updatedFile || undefined;
+  }
+  
+  async updateFileName(id: number, name: string): Promise<DesktopFileDB | undefined> {
+    const [updatedFile] = await db
+      .update(desktopFiles)
+      .set({ name })
+      .where(eq(desktopFiles.id, id))
       .returning();
     return updatedFile || undefined;
   }

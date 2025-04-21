@@ -67,6 +67,23 @@ export function useDesktopFiles() {
       queryClient.invalidateQueries({ queryKey: ['/api/files'] });
     },
   });
+  
+  // Update file name mutation
+  const updateFileNameMutation = useMutation({
+    mutationFn: async ({ id, name }: { id: number; name: string }) => {
+      const response = await fetch(`/api/files/${id}/name`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name }),
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+    },
+  });
 
   // Delete file mutation
   const deleteFileMutation = useMutation({
@@ -257,6 +274,15 @@ export function useDesktopFiles() {
       return await removeFileFromFolderMutation.mutateAsync(fileId);
     } catch (error) {
       console.error('Error removing file from folder:', error);
+    }
+  };
+  
+  // Update file or folder name
+  const updateFileName = async (id: number, name: string) => {
+    try {
+      return await updateFileNameMutation.mutateAsync({ id, name });
+    } catch (error) {
+      console.error('Error updating file name:', error);
     }
   };
   

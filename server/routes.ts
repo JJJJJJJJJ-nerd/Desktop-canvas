@@ -156,6 +156,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update file name
+  app.patch('/api/files/:id/name', express.json(), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { name } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ message: 'Name is required' });
+      }
+      
+      const updatedFile = await storage.updateFileName(id, name);
+      
+      if (!updatedFile) {
+        return res.status(404).json({ message: 'File not found' });
+      }
+      
+      return res.status(200).json({ file: updatedFile });
+    } catch (error) {
+      console.error('Error updating file name:', error);
+      return res.status(500).json({ message: 'Error updating file name' });
+    }
+  });
+  
   // Delete a file
   app.delete('/api/files/:id', async (req, res) => {
     try {
