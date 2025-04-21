@@ -8,8 +8,9 @@ import { FolderView } from "@/components/FolderView";
 import { EmptyState } from "@/components/EmptyState";
 import { useDesktopFiles } from "@/hooks/use-desktop-files";
 import { DesktopFile } from "@/types";
-import { Loader2 as Spinner, Search, X, FileText, FolderSearch, Folder, FolderOpen, FolderPlus, RefreshCw, FileUp } from "lucide-react";
+import { Loader2 as Spinner, Search, X, FileText, FolderSearch, Folder, FolderOpen, FolderPlus, RefreshCw, FileUp, Upload } from "lucide-react";
 import Fuse from 'fuse.js';
+import { useToast } from "@/hooks/use-toast";
 import { 
   ContextMenu,
   ContextMenuTrigger,
@@ -377,13 +378,9 @@ export default function Desktop() {
         console.log(`🗂️ Moving file ${fileId} into folder ${hoverFolderId}`);
         
         // Call the API to add the file to the folder
-        await addFileToFolder.mutateAsync({
-          fileId,
-          folderId: hoverFolderId
-        });
+        await addFileToFolder(fileId, hoverFolderId);
         
-        // Refetch files to update the UI
-        await refetch();
+        // No need to manually refetch as the mutation in addFileToFolder will handle cache invalidation
         
         // Clear the hover folder ID
         // @ts-ignore - Custom window property
