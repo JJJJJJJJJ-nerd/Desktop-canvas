@@ -252,17 +252,30 @@ export default function Desktop() {
   }, [files]);
 
   // Filter files based on search query with fuzzy matching
+  // Also filter out files that are inside folders (have parentId)
   useEffect(() => {
+    // First filter files to only show those not in folders
+    const filesOnDesktop = files.filter(file => !file.parentId);
+    
     if (!searchQuery) {
-      // If no search query, show all files
-      setFilteredFiles(files);
+      // If no search query, show all desktop files
+      setFilteredFiles(filesOnDesktop);
     } else {
       // Use fuzzy search to find matches
       const results = fuse.search(searchQuery);
-      // Extract the items from results and sort them by score
-      const filtered = results.map(result => result.item);
+      // Extract the items from results and filter out files in folders
+      const filtered = results
+        .map(result => result.item)
+        .filter(file => !file.parentId);
       setFilteredFiles(filtered);
     }
+    
+    console.log('Filtered files update:', {
+      totalFiles: files.length,
+      filesInFolders: files.filter(f => f.parentId).length,
+      filesOnDesktop: filesOnDesktop.length,
+      displayedFiles: !searchQuery ? filesOnDesktop.length : 'filtered search results'
+    });
   }, [searchQuery, files, fuse]);
   
   // Handle search

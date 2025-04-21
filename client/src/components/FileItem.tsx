@@ -99,6 +99,7 @@ export function FileItem({
   // Add file to folder
   const addFileToFolder = async (fileId: number, folderId: number) => {
     try {
+      console.log(`Adding file ${fileId} to folder ${folderId}`);
       const response = await fetch(`/api/folders/${folderId}/files/${fileId}`, {
         method: 'POST',
       });
@@ -107,7 +108,13 @@ export function FileItem({
         throw new Error('Failed to add file to folder');
       }
       
-      return await response.json();
+      const result = await response.json();
+      console.log('File added to folder successfully:', result);
+      
+      // Force refresh the desktop files - this is crucial to make files disappear from desktop
+      queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+      
+      return result;
     } catch (error) {
       console.error('Error adding file to folder:', error);
       throw error;
@@ -117,6 +124,7 @@ export function FileItem({
   // Remove file from folder (place back on desktop)
   const removeFileFromFolder = async (fileId: number) => {
     try {
+      console.log(`Removing file ${fileId} from its current folder`);
       const response = await fetch(`/api/folders/files/${fileId}`, {
         method: 'DELETE',
       });
@@ -125,7 +133,13 @@ export function FileItem({
         throw new Error('Failed to remove file from folder');
       }
       
-      return await response.json();
+      const result = await response.json();
+      console.log('File removed from folder successfully:', result);
+      
+      // Force refresh the desktop files - this is crucial to make files appear on desktop again
+      queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+      
+      return result;
     } catch (error) {
       console.error('Error removing file from folder:', error);
       throw error;
