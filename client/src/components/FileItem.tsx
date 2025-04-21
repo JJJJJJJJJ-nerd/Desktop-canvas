@@ -549,7 +549,7 @@ export function FileItem({
               dragging && "z-50 shadow-xl",
               isSearchMatch && "animate-pulse shadow-xl shadow-primary/20",
               isSearchMatch && !isSelected && "ring-2 ring-yellow-400 z-10",
-              isFolder && isDragOver && "ring-2 ring-green-500 shadow-lg bg-green-50/90 scale-105 animate-pulse"
+              isFolder && isDragOver && "ring-2 ring-green-500 shadow-lg bg-green-50/90 folder-highlight"
             )}
             style={{
               left: `${localPosition.x}px`,
