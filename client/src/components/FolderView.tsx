@@ -323,7 +323,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
             onClick={handleRenameClick}
           >
             <Edit className="w-3 h-3 mr-1" />
-            Hernoemen
+            Rename
           </Button>
           
           <button 
@@ -461,7 +461,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Map hernoemen</DialogTitle>
+            <DialogTitle>Rename Folder</DialogTitle>
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
@@ -469,7 +469,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
               id="name"
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
-              placeholder="Nieuwe naam"
+              placeholder="New name"
               className="col-span-3"
               autoFocus
               onKeyDown={(e) => {
@@ -482,10 +482,10 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
           
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={() => setIsRenameDialogOpen(false)}>
-              Annuleren
+              Cancel
             </Button>
             <Button type="button" onClick={handleRenameSubmit}>
-              Opslaan
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>

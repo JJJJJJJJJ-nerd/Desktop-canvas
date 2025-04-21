@@ -443,18 +443,14 @@ export function FileItem({
         <ContextMenuContent className="w-48">
           <ContextMenuItem onClick={handleDoubleClick}>
             <FolderOpen className="w-4 h-4 mr-2" />
-            Openen
+            Open
           </ContextMenuItem>
           
-          {isFolder && (
-            <>
-              <ContextMenuSeparator />
-              <ContextMenuItem onClick={handleRenameClick}>
-                <Edit className="w-4 h-4 mr-2" />
-                Hernoemen
-              </ContextMenuItem>
-            </>
-          )}
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={handleRenameClick}>
+            <Edit className="w-4 h-4 mr-2" />
+            Rename
+          </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
       
