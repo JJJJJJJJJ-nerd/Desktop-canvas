@@ -141,7 +141,10 @@ export function useDesktopFiles() {
       return response.json();
     },
     onSuccess: () => {
+      // This is crucial - force invalidation of both desktop files and folder contents
       queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/folders'] });
+      console.log('Added file to folder and invalidated queries');
     },
   });
   
@@ -154,7 +157,10 @@ export function useDesktopFiles() {
       return response.json();
     },
     onSuccess: () => {
+      // Force invalidation of both desktop files and folder contents
       queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/folders'] });
+      console.log('Removed file from folder and invalidated queries');
     },
   });
 
