@@ -450,6 +450,40 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
           </div>
         )}
       </div>
+
+      {/* Rename dialog */}
+      <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Map hernoemen</DialogTitle>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <Input
+              id="name"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              placeholder="Nieuwe naam"
+              className="col-span-3"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleRenameSubmit();
+                }
+              }}
+            />
+          </div>
+          
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={() => setIsRenameDialogOpen(false)}>
+              Annuleren
+            </Button>
+            <Button type="button" onClick={handleRenameSubmit}>
+              Opslaan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

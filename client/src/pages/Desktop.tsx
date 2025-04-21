@@ -535,6 +535,7 @@ export default function Desktop() {
                         folder={file}
                         onClose={() => closeWindowFile(fileId)}
                         onSelectFile={handlePreviewFile}
+                        onRename={updateFileName}
                       />
                     );
                   }
