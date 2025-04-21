@@ -188,12 +188,27 @@ export function FileItem({
         setIsDragOver(true);
         // Show that we can drop here (visual cursor feedback)
         e.dataTransfer.dropEffect = 'move';
+        
+        // Try to read the data to see which file is being dragged
+        try {
+          const data = e.dataTransfer.getData('text/plain');
+          if (data && file.id) {
+            const fileId = parseInt(data);
+            if (!isNaN(fileId)) {
+              console.log(`📂 DRAG DETECTED: File ${fileId} is being dragged over folder ${file.id} (${file.name})`);
+            }
+          }
+        } catch (error) {
+          // Firefox doesn't allow getData during dragover, only in drop
+          // This is just a silent catch
+        }
       }
     },
     onDragLeave: (e: React.DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
       setIsDragOver(false);
+      console.log(`📂 DRAG LEFT: Cursor left folder ${file.name}`);
     },
     onDrop: async (e: React.DragEvent) => {
       e.preventDefault();
@@ -206,7 +221,8 @@ export function FileItem({
           try {
             const fileId = parseInt(data);
             if (!isNaN(fileId)) {
-              console.log('Dropping file', fileId, 'into folder', file.id);
+              console.log(`📁 DROP DETECTED: File ${fileId} (${droppedFile?.name || 'unknown'}) dropped into folder ${file.id} (${file.name})`);
+              console.log(`📁 TELEPORTING: Beginning teleport animation...`);
               
               // Check if this file is already in a folder
               const allDesktopFiles = queryClient.getQueryData<any>(['/api/files'])?.files || [];
