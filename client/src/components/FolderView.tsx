@@ -274,20 +274,16 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     >
       {/* Window header */}
       <div className="bg-primary/90 text-white py-2 px-3 flex items-center justify-between">
-        <ContextMenu>
-          <ContextMenuTrigger asChild>
-            <div className="flex items-center space-x-2 cursor-pointer">
-              <FolderOpen className="w-5 h-5" />
-              <h3 className="font-medium text-sm">{folder.name}</h3>
-            </div>
-          </ContextMenuTrigger>
-          <ContextMenuContent className="w-48">
-            <ContextMenuItem onClick={handleRenameClick}>
-              <Edit className="w-4 h-4 mr-2" />
-              Hernoemen
-            </ContextMenuItem>
-          </ContextMenuContent>
-        </ContextMenu>
+        <div 
+          className="flex items-center space-x-2 cursor-pointer" 
+          onContextMenu={(e) => {
+            e.preventDefault();
+            handleRenameClick();
+          }}
+        >
+          <FolderOpen className="w-5 h-5" />
+          <h3 className="font-medium text-sm">{folder.name}</h3>
+        </div>
         <div className="flex items-center space-x-2">
           {isSelectMode && selectedFileIds.length > 0 && (
             <Button 
@@ -318,6 +314,16 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                 Move Files
               </>
             )}
+          </Button>
+
+          <Button
+            size="sm"
+            variant="ghost"
+            className="py-0.5 h-8 text-white/80 hover:text-white hover:bg-primary-600"
+            onClick={handleRenameClick}
+          >
+            <Edit className="w-3 h-3 mr-1" />
+            Hernoemen
           </Button>
           
           <button 
