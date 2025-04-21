@@ -117,8 +117,8 @@ export function FileItem({
   // Remove file from folder (place back on desktop)
   const removeFileFromFolder = async (fileId: number) => {
     try {
-      const response = await fetch(`/api/files/${fileId}/remove-from-folder`, {
-        method: 'POST',
+      const response = await fetch(`/api/folders/files/${fileId}`, {
+        method: 'DELETE',
       });
       
       if (!response.ok) {
