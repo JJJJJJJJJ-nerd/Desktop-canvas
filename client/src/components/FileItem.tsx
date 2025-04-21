@@ -2,7 +2,7 @@ import { useRef, useState, useEffect, Fragment } from "react";
 import { DesktopFile } from "@/types";
 import { getFileIcon, formatFileSize } from "@/utils/file-utils";
 import { cn } from "@/lib/utils";
-import { Maximize2, Edit, FolderOpen, Trash2 } from "lucide-react";
+import { Maximize2, Edit, FolderOpen, Trash2, Upload } from "lucide-react";
 import { 
   ContextMenu,
   ContextMenuTrigger,
@@ -13,6 +13,7 @@ import {
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useQueryClient } from "@tanstack/react-query";
 
 // Function to highlight text with fuzzy matches
 function highlightMatchedText(text: string, searchTerm: string) {
@@ -91,7 +92,46 @@ export function FileItem({
   registerRef,
   onRename
 }: FileItemProps) {
-  // Enable draggable functionality for files
+  // Get query client for data operations
+  const queryClient = useQueryClient();
+  
+  // API functions to manage files and folders
+  // Add file to folder
+  const addFileToFolder = async (fileId: number, folderId: number) => {
+    try {
+      const response = await fetch(`/api/folders/${folderId}/files/${fileId}`, {
+        method: 'POST',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to add file to folder');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error adding file to folder:', error);
+      throw error;
+    }
+  };
+  
+  // Remove file from folder (place back on desktop)
+  const removeFileFromFolder = async (fileId: number) => {
+    try {
+      const response = await fetch(`/api/files/${fileId}/remove-from-folder`, {
+        method: 'POST',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to remove file from folder');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error removing file from folder:', error);
+      throw error;
+    }
+  };
+  // Enable draggable functionality for files (not folders)
   const draggableProps = file.isFolder === 'true' ? {} : {
     draggable: true,
     onDragStart: (e: React.DragEvent) => {
@@ -119,6 +159,59 @@ export function FileItem({
       }
     }
   };
+  
+  // State for the drop target (only for folders)
+  const [isDragOver, setIsDragOver] = useState(false);
+  
+  // Add drop target capabilities for folders
+  const dropTargetProps = file.isFolder === 'true' ? {
+    onDragOver: (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(true);
+      // Show that we can drop here
+      e.dataTransfer.dropEffect = 'move';
+    },
+    onDragLeave: (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(false);
+    },
+    onDrop: async (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(false);
+      
+      if (file.id) {
+        const data = e.dataTransfer.getData('text/plain');
+        if (data) {
+          try {
+            const fileId = parseInt(data);
+            if (!isNaN(fileId)) {
+              console.log('Dropping file', fileId, 'into folder', file.id);
+              
+              // Check if this file is already in a folder
+              const allDesktopFiles = queryClient.getQueryData<any>(['/api/files'])?.files || [];
+              const droppedFile = allDesktopFiles.find((f: any) => f.id === fileId);
+              
+              if (droppedFile && droppedFile.parentId) {
+                // First remove from current folder
+                await removeFileFromFolder(fileId);
+              }
+              
+              // Now add to this folder
+              await addFileToFolder(fileId, file.id);
+              
+              // Refresh desktop files
+              queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+            }
+          } catch (error) {
+            console.error('Error dropping file into folder:', error);
+          }
+        }
+      }
+    }
+  } : {};
   const fileRef = useRef<HTMLDivElement>(null);
   const startPosRef = useRef({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
@@ -380,23 +473,25 @@ export function FileItem({
           <div
             ref={fileRef}
             className={cn(
-              "file-item absolute backdrop-blur-sm rounded-lg shadow-md",
+              "file-item absolute backdrop-blur-sm rounded-lg shadow-md overflow-hidden",
               isImage ? "w-48" : "w-24 bg-white/80 p-3",
               "cursor-move",
               isSelected && "ring-2 ring-primary shadow-lg z-10",
               dragging && "z-50 shadow-xl",
               isSearchMatch && "animate-pulse shadow-xl shadow-primary/20",
-              isSearchMatch && !isSelected && "ring-2 ring-yellow-400 z-10"
+              isSearchMatch && !isSelected && "ring-2 ring-yellow-400 z-10",
+              isFolder && isDragOver && "ring-2 ring-green-500 shadow-lg bg-green-50/90 scale-105"
             )}
             style={{
               left: `${localPosition.x}px`,
               top: `${localPosition.y}px`,
               width: isImage && file.dimensions ? `${file.dimensions.width}px` : 'auto',
-              transition: dragging ? 'none' : 'transform 0.1s ease'
+              transition: dragging ? 'none' : 'all 0.15s ease'
             }}
             onMouseDown={handleMouseDown}
             onDoubleClick={handleDoubleClick}
             {...draggableProps}
+            {...dropTargetProps}
           >
             {isImage ? (
               <div className="flex flex-col">
@@ -454,6 +549,15 @@ export function FileItem({
                 onMouseDown={handleResizeStart}
               >
                 <Maximize2 className="w-3 h-3 text-white" />
+              </div>
+            )}
+            
+            {/* Drop indicator for folders */}
+            {isFolder && isDragOver && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="bg-green-100 rounded-lg p-2 shadow-md">
+                  <Upload className="h-6 w-6 text-green-600" />
+                </div>
               </div>
             )}
           </div>
