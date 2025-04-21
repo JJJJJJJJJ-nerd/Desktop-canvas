@@ -17,6 +17,16 @@ import {
   ContextMenuItem,
   ContextMenuSeparator 
 } from "@/components/ui/context-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 // Interface for tracking overlapping files
 interface FileOverlap {
@@ -73,6 +83,12 @@ export default function Desktop() {
   const [openWindowFiles, setOpenWindowFiles] = useState<number[]>([]);
   const [activeOverlap, setActiveOverlap] = useState<FileOverlap | null>(null);
   const [draggingFileId, setDraggingFileId] = useState<number | null>(null);
+  
+  // Folder naming dialog state
+  const [isFolderDialogOpen, setIsFolderDialogOpen] = useState(false);
+  const [folderName, setFolderName] = useState("Nieuwe map");
+  const [pendingFolderPosition, setPendingFolderPosition] = useState<{x: number, y: number} | null>(null);
+  const [pendingFolderFiles, setPendingFolderFiles] = useState<number[] | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -138,12 +154,11 @@ export default function Desktop() {
       y: e.clientY - rect.top
     };
     
-    try {
-      // Create a new folder at the clicked position
-      await createFolder("Nieuwe map", position);
-    } catch (error) {
-      console.error('Error creating folder:', error);
-    }
+    // Open the folder naming dialog
+    setFolderName("Nieuwe map");
+    setPendingFolderPosition(position);
+    setPendingFolderFiles(null);
+    setIsFolderDialogOpen(true);
   };
 
   // Handle file selection
@@ -324,8 +339,11 @@ export default function Desktop() {
     try {
       const { fileId, targetId, position } = overlap;
       
-      // Create a folder with the overlapping files
-      await createFolderFromFiles([fileId, targetId], position);
+      // Open the folder naming dialog with the files to include
+      setFolderName("New Folder");
+      setPendingFolderPosition(position);
+      setPendingFolderFiles([fileId, targetId]);
+      setIsFolderDialogOpen(true);
       
       // Clear active overlap
       setActiveOverlap(null);
@@ -579,6 +597,69 @@ export default function Desktop() {
         isOpen={isPreviewOpen}
         onClose={closePreview}
       />
+      
+      {/* Folder naming dialog */}
+      <Dialog open={isFolderDialogOpen} onOpenChange={setIsFolderDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Map maken</DialogTitle>
+            <DialogDescription>
+              Geef een naam aan de nieuwe map.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex items-center space-x-2 mt-4">
+            <div className="grid flex-1 gap-2">
+              <Input
+                value={folderName}
+                onChange={(e) => setFolderName(e.target.value)}
+                placeholder="Map naam"
+                className="col-span-3"
+                autoFocus
+              />
+            </div>
+          </div>
+          
+          <DialogFooter className="sm:justify-between mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsFolderDialogOpen(false);
+                setPendingFolderPosition(null);
+                setPendingFolderFiles(null);
+              }}
+            >
+              Annuleren
+            </Button>
+            <Button
+              type="button"
+              onClick={async () => {
+                // Make sure we have a position
+                if (!pendingFolderPosition) return;
+                
+                try {
+                  if (pendingFolderFiles && pendingFolderFiles.length >= 2) {
+                    // Create folder from overlapping files
+                    await createFolderFromFiles(pendingFolderFiles, pendingFolderPosition, folderName);
+                  } else {
+                    // Create a new empty folder
+                    await createFolder(folderName, pendingFolderPosition);
+                  }
+                  
+                  // Close the dialog and reset state
+                  setIsFolderDialogOpen(false);
+                  setPendingFolderPosition(null);
+                  setPendingFolderFiles(null);
+                } catch (error) {
+                  console.error('Error creating folder:', error);
+                }
+              }}
+            >
+              Maken
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

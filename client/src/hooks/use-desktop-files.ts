@@ -261,12 +261,12 @@ export function useDesktopFiles() {
   };
   
   // Create a folder from files that were dragged on top of each other
-  const createFolderFromFiles = async (fileIds: number[], position: { x: number; y: number }) => {
+  const createFolderFromFiles = async (fileIds: number[], position: { x: number; y: number }, customName?: string) => {
     if (fileIds.length < 2) return;
     
     try {
-      // Create a new folder
-      const folderName = "New Folder";
+      // Create a new folder with either the custom name or default name
+      const folderName = customName || "New Folder";
       const result = await createFolderMutation.mutateAsync({ name: folderName, position });
       
       const folderId = result.folder.id;
