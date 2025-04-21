@@ -75,6 +75,7 @@ export default function Desktop() {
     createFolderFromFiles,
     createFolder,
     addFileToFolder,
+    removeFileFromFolder,
     updateFileName,
   } = useDesktopFiles();
   const [previewFile, setPreviewFile] = useState<DesktopFile | null>(null);

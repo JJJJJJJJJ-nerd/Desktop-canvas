@@ -138,6 +138,24 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       throw error;
     }
   };
+  
+  // Remove file from folder
+  const removeFileFromFolder = async (fileId: number) => {
+    try {
+      const response = await fetch(`/api/folders/files/${fileId}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to remove file from folder');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error removing file from folder:', error);
+      throw error;
+    }
+  };
 
   // Fetch files in the folder
   const fetchFiles = async () => {
