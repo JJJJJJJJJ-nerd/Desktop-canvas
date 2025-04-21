@@ -92,11 +92,25 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         console.error('Error uploading files:', error);
       }
     } else if (e.dataTransfer.getData('text/plain')) {
-      // This might be a file ID dragged from desktop
+      // This might be a file ID dragged from desktop or another folder
       try {
         const fileId = parseInt(e.dataTransfer.getData('text/plain'));
         if (!isNaN(fileId) && folder.id) {
+          // Check if this file is already in a folder (has a parentId)
+          const draggedFile = files.find(file => file.id === fileId);
+          const allDesktopFiles = queryClient.getQueryData<any>(['/api/files'])?.files || [];
+          const fileInDesktop = allDesktopFiles.find((file: any) => file.id === fileId);
+          
+          if (fileInDesktop && fileInDesktop.parentId) {
+            // First remove from the current folder
+            await removeFileFromFolder(fileId);
+            console.log("Removed file from previous folder:", fileId);
+          }
+          
+          // Now add to this folder
           await addFileToFolder(fileId, folder.id);
+          console.log("Added file to new folder:", fileId, "in folder:", folder.id);
+          
           // Refresh folder contents and desktop files
           fetchFiles();
           queryClient.invalidateQueries({ queryKey: ['/api/files'] });

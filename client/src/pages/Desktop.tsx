@@ -128,14 +128,32 @@ export default function Desktop() {
     setIsDraggingOver(false);
   };
   
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDraggingOver(false);
     
-    if (!e.dataTransfer.files || e.dataTransfer.files.length === 0) return;
+    // Check for files first (regular file upload)
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      // Pass files to addFiles function
+      addFiles(e.dataTransfer.files);
+      return;
+    }
     
-    // Pass files to addFiles function
-    addFiles(e.dataTransfer.files);
+    // Check for dragged files from folders (which use dataTransfer.getData)
+    const fileIdText = e.dataTransfer.getData('text/plain');
+    if (fileIdText) {
+      const fileId = parseInt(fileIdText);
+      if (!isNaN(fileId)) {
+        // We found a valid file ID, so this must be a file from a folder
+        // Remove from folder and place on desktop
+        try {
+          await removeFileFromFolder(fileId);
+          console.log('File removed from folder and placed on desktop:', fileId);
+        } catch (error) {
+          console.error('Error moving file to desktop:', error);
+        }
+      }
+    }
   };
 
   // Handle canvas click (deselects files)
