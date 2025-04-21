@@ -435,6 +435,19 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                 key={file.id} 
                 className="file-item flex flex-col items-center justify-center p-2 rounded hover:bg-gray-100 cursor-pointer transition-colors"
                 onClick={() => onSelectFile(file)}
+                draggable="true"
+                onDragStart={(e) => {
+                  if (file.id) {
+                    e.dataTransfer.setData('text/plain', file.id.toString());
+                    e.dataTransfer.effectAllowed = 'move';
+                    // Add a class to show we're dragging
+                    e.currentTarget.classList.add('opacity-50');
+                  }
+                }}
+                onDragEnd={(e) => {
+                  // Remove the opacity class when drag ends
+                  e.currentTarget.classList.remove('opacity-50');
+                }}
               >
                 <FileItemPreview file={file} />
                 <p className="text-xs font-medium mt-1 text-center truncate w-full">{file.name}</p>
