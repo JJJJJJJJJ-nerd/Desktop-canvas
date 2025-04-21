@@ -136,26 +136,20 @@ export function FileItem({
     draggable: true,
     onDragStart: (e: React.DragEvent) => {
       if (file.id) {
+        console.log("Started dragging file:", file.name, file.id);
         // Set the dragged file ID as data
         e.dataTransfer.setData('text/plain', file.id.toString());
         e.dataTransfer.effectAllowed = 'move';
         
-        // Set a simple drag image - optional
-        const dragIcon = document.createElement('div');
-        dragIcon.style.width = '60px';
-        dragIcon.style.height = '60px';
-        dragIcon.style.background = 'transparent';
-        document.body.appendChild(dragIcon);
-        e.dataTransfer.setDragImage(dragIcon, 30, 30);
+        // Add a class to show we're dragging
+        if (e.currentTarget) {
+          e.currentTarget.classList.add('opacity-50');
+        }
         
         // For our custom drag logic
         if (onDragStart) {
           onDragStart(file.id);
         }
-        
-        setTimeout(() => {
-          document.body.removeChild(dragIcon);
-        }, 0);
       }
     }
   };
