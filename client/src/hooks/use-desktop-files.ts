@@ -325,6 +325,7 @@ export function useDesktopFiles() {
     createFolder,
     addFileToFolder,
     removeFileFromFolder,
-    createFolderFromFiles
+    createFolderFromFiles,
+    updateFileName
   };
 }

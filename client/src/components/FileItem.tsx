@@ -2,7 +2,17 @@ import { useRef, useState, useEffect, Fragment } from "react";
 import { DesktopFile } from "@/types";
 import { getFileIcon, formatFileSize } from "@/utils/file-utils";
 import { cn } from "@/lib/utils";
-import { Maximize2 } from "lucide-react";
+import { Maximize2, Edit, FolderOpen, Trash2 } from "lucide-react";
+import { 
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator 
+} from "@/components/ui/context-menu";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 // Function to highlight text with fuzzy matches
 function highlightMatchedText(text: string, searchTerm: string) {
@@ -63,6 +73,7 @@ interface FileItemProps {
   onDragStart?: (fileId: number | undefined) => void;
   onDragMove?: (fileId: number | undefined) => void;
   registerRef?: (fileId: number | undefined, element: HTMLElement | null) => void;
+  onRename?: (fileId: number, newName: string) => void;
 }
 
 export function FileItem({ 
@@ -77,7 +88,8 @@ export function FileItem({
   onPreview,
   onDragStart,
   onDragMove,
-  registerRef
+  registerRef,
+  onRename
 }: FileItemProps) {
   const fileRef = useRef<HTMLDivElement>(null);
   const startPosRef = useRef({ x: 0, y: 0 });
@@ -88,6 +100,11 @@ export function FileItem({
 
   const fileIcon = getFileIcon(file.type);
   const isImage = file.type.startsWith('image/');
+  const isFolder = file.type === 'folder';
+  
+  // State for rename dialog
+  const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+  const [newName, setNewName] = useState(file.name);
   
   // Set initial dimensions from file or defaults
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>(() => {
@@ -225,6 +242,20 @@ export function FileItem({
     onPreview(file);
   };
   
+  // Handle rename request from context menu
+  const handleRenameClick = () => {
+    setNewName(file.name);
+    setIsRenameDialogOpen(true);
+  };
+  
+  // Handle the rename dialog submission
+  const handleRenameSubmit = () => {
+    if (file.id && onRename && newName.trim() !== "") {
+      onRename(file.id, newName.trim());
+      setIsRenameDialogOpen(false);
+    }
+  };
+  
   // Resize handlers
   const handleResizeStart = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -306,94 +337,151 @@ export function FileItem({
   }, [file.id, registerRef]);
 
   return (
-    <div
-      ref={fileRef}
-      className={cn(
-        "file-item absolute backdrop-blur-sm rounded-lg shadow-md",
-        isImage ? "w-48" : "w-24 bg-white/80 p-3",
-        "cursor-move",
-        isSelected && "ring-2 ring-primary shadow-lg z-10",
-        dragging && "z-50 shadow-xl",
-        isSearchMatch && "animate-pulse shadow-xl shadow-primary/20",
-        isSearchMatch && !isSelected && "ring-2 ring-yellow-400 z-10"
-      )}
-      style={{
-        left: `${localPosition.x}px`,
-        top: `${localPosition.y}px`,
-        width: isImage && file.dimensions ? `${file.dimensions.width}px` : 'auto',
-        transition: dragging ? 'none' : 'transform 0.1s ease'
-      }}
-      onMouseDown={handleMouseDown}
-      onDoubleClick={handleDoubleClick}
-      draggable="true"
-      onDragStart={e => {
-        if (file.id) {
-          e.dataTransfer.setData('text/plain', file.id.toString());
-          e.dataTransfer.effectAllowed = 'move';
-          if (onDragStart) {
-            onDragStart(file.id);
-          }
-        }
-      }}
-    >
-      {isImage ? (
-        <div className="flex flex-col">
-          <div className="image-container w-full h-32 overflow-hidden rounded-t-lg"
-              style={{
-                height: file.dimensions ? `${file.dimensions.height - 40}px` : '128px'
-              }}>
-            <img 
-              src={file.dataUrl} 
-              alt={file.name} 
-              className="w-full h-full object-cover"
+    <>
+      <ContextMenu>
+        <ContextMenuTrigger>
+          <div
+            ref={fileRef}
+            className={cn(
+              "file-item absolute backdrop-blur-sm rounded-lg shadow-md",
+              isImage ? "w-48" : "w-24 bg-white/80 p-3",
+              "cursor-move",
+              isSelected && "ring-2 ring-primary shadow-lg z-10",
+              dragging && "z-50 shadow-xl",
+              isSearchMatch && "animate-pulse shadow-xl shadow-primary/20",
+              isSearchMatch && !isSelected && "ring-2 ring-yellow-400 z-10"
+            )}
+            style={{
+              left: `${localPosition.x}px`,
+              top: `${localPosition.y}px`,
+              width: isImage && file.dimensions ? `${file.dimensions.width}px` : 'auto',
+              transition: dragging ? 'none' : 'transform 0.1s ease'
+            }}
+            onMouseDown={handleMouseDown}
+            onDoubleClick={handleDoubleClick}
+            draggable="true"
+            onDragStart={e => {
+              if (file.id) {
+                e.dataTransfer.setData('text/plain', file.id.toString());
+                e.dataTransfer.effectAllowed = 'move';
+                if (onDragStart) {
+                  onDragStart(file.id);
+                }
+              }
+            }}
+          >
+            {isImage ? (
+              <div className="flex flex-col">
+                <div className="image-container w-full h-32 overflow-hidden rounded-t-lg"
+                    style={{
+                      height: file.dimensions ? `${file.dimensions.height - 40}px` : '128px'
+                    }}>
+                  <img 
+                    src={file.dataUrl} 
+                    alt={file.name} 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="bg-black/70 text-white p-2 rounded-b-lg">
+                  <p className="text-xs font-medium truncate" title={file.name}>
+                    {isSearchMatch && searchTerm ? (
+                      <span className="relative">
+                        {highlightMatchedText(file.name, searchTerm)}
+                      </span>
+                    ) : (
+                      file.name
+                    )}
+                  </p>
+                  <p className="text-[10px] text-gray-300">
+                    {formatFileSize(file.size)}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className={`file-icon ${fileIcon.class} mb-2 w-12 h-12 mx-auto flex items-center justify-center rounded-md`}>
+                  {fileIcon.icon}
+                </div>
+                <div className="text-center">
+                  <p className="text-xs font-medium truncate" title={file.name}>
+                    {isSearchMatch && searchTerm ? (
+                      <span className="relative">
+                        {highlightMatchedText(file.name, searchTerm)}
+                      </span>
+                    ) : (
+                      file.name
+                    )}
+                  </p>
+                  <p className="text-[10px] text-gray-500">
+                    {formatFileSize(file.size)}
+                  </p>
+                </div>
+              </>
+            )}
+            
+            {/* Resize handle - only for images and only shown when selected */}
+            {isImage && isSelected && (
+              <div 
+                className="absolute bottom-0 right-0 w-5 h-5 bg-primary/90 flex items-center justify-center rounded-tl rounded-br-lg cursor-se-resize z-20"
+                onMouseDown={handleResizeStart}
+              >
+                <Maximize2 className="w-3 h-3 text-white" />
+              </div>
+            )}
+          </div>
+        </ContextMenuTrigger>
+        
+        <ContextMenuContent className="w-48">
+          <ContextMenuItem onClick={handleDoubleClick}>
+            <FolderOpen className="w-4 h-4 mr-2" />
+            Openen
+          </ContextMenuItem>
+          
+          {isFolder && (
+            <>
+              <ContextMenuSeparator />
+              <ContextMenuItem onClick={handleRenameClick}>
+                <Edit className="w-4 h-4 mr-2" />
+                Hernoemen
+              </ContextMenuItem>
+            </>
+          )}
+        </ContextMenuContent>
+      </ContextMenu>
+      
+      {/* Rename dialog */}
+      <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Map hernoemen</DialogTitle>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <Input
+              id="name"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Nieuwe naam"
+              className="col-span-3"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleRenameSubmit();
+                }
+              }}
             />
           </div>
-          <div className="bg-black/70 text-white p-2 rounded-b-lg">
-            <p className="text-xs font-medium truncate" title={file.name}>
-              {isSearchMatch && searchTerm ? (
-                <span className="relative">
-                  {highlightMatchedText(file.name, searchTerm)}
-                </span>
-              ) : (
-                file.name
-              )}
-            </p>
-            <p className="text-[10px] text-gray-300">
-              {formatFileSize(file.size)}
-            </p>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className={`file-icon ${fileIcon.class} mb-2 w-12 h-12 mx-auto flex items-center justify-center rounded-md`}>
-            {fileIcon.icon}
-          </div>
-          <div className="text-center">
-            <p className="text-xs font-medium truncate" title={file.name}>
-              {isSearchMatch && searchTerm ? (
-                <span className="relative">
-                  {highlightMatchedText(file.name, searchTerm)}
-                </span>
-              ) : (
-                file.name
-              )}
-            </p>
-            <p className="text-[10px] text-gray-500">
-              {formatFileSize(file.size)}
-            </p>
-          </div>
-        </>
-      )}
-      
-      {/* Resize handle - only for images and only shown when selected */}
-      {isImage && isSelected && (
-        <div 
-          className="absolute bottom-0 right-0 w-5 h-5 bg-primary/90 flex items-center justify-center rounded-tl rounded-br-lg cursor-se-resize z-20"
-          onMouseDown={handleResizeStart}
-        >
-          <Maximize2 className="w-3 h-3 text-white" />
-        </div>
-      )}
-    </div>
+          
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={() => setIsRenameDialogOpen(false)}>
+              Annuleren
+            </Button>
+            <Button type="button" onClick={handleRenameSubmit}>
+              Opslaan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
