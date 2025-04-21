@@ -348,7 +348,7 @@ export default function Desktop() {
   };
   
   // Handle file drag end - check for overlaps and create folder if needed
-  const handleFileDragEnd = (fileId: number | undefined, x: number, y: number) => {
+  const handleFileDragEnd = async (fileId: number | undefined, x: number, y: number) => {
     if (!fileId) return;
     
     // Clear dragging state
@@ -367,6 +367,44 @@ export default function Desktop() {
         createFolderFromOverlap(activeOverlap);
       }
       setActiveOverlap(null);
+    }
+    
+    // Check if we're over a folder (using our custom window property)
+    // @ts-ignore - Custom window property
+    const hoverFolderId = window._hoverFolderId;
+    if (hoverFolderId && fileId) {
+      try {
+        console.log(`🗂️ Moving file ${fileId} into folder ${hoverFolderId}`);
+        
+        // Call the API to add the file to the folder
+        await addFileToFolder.mutateAsync({
+          fileId,
+          folderId: hoverFolderId
+        });
+        
+        // Refetch files to update the UI
+        await refetch();
+        
+        // Clear the hover folder ID
+        // @ts-ignore - Custom window property
+        window._hoverFolderId = undefined;
+        
+        // Show success message
+        toast({
+          title: "File moved",
+          description: "File was moved to folder successfully.",
+          variant: "success"
+        });
+        
+        return; // Skip position update since file is now in a folder
+      } catch (error) {
+        console.error('Error moving file to folder:', error);
+        toast({
+          title: "Error",
+          description: "Failed to move file to folder.",
+          variant: "destructive"
+        });
+      }
     }
   };
   
