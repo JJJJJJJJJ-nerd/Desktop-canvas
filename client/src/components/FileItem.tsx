@@ -549,7 +549,7 @@ export function FileItem({
               dragging && "z-50 shadow-xl",
               isSearchMatch && "animate-pulse shadow-xl shadow-primary/20",
               isSearchMatch && !isSelected && "ring-2 ring-yellow-400 z-10",
-              isFolder && isDragOver && "ring-2 ring-green-500 shadow-lg bg-green-50/90 folder-highlight"
+              isFolder && (isDragOver || file.id === (window as any)._hoverFolderId) && "ring-2 ring-green-500 shadow-lg bg-green-50/90 folder-highlight"
             )}
             style={{
               left: `${localPosition.x}px`,
@@ -623,7 +623,7 @@ export function FileItem({
             )}
             
             {/* Drop indicator for folders - enhanced teleportation effect */}
-            {isFolder && isDragOver && (
+            {isFolder && (isDragOver || file.id === (window as any)._hoverFolderId) && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="bg-green-100 rounded-lg p-2 shadow-md animate-pulse">
                   <Upload className="h-6 w-6 text-green-600 animate-bounce" />

@@ -306,6 +306,10 @@ export default function Desktop() {
     // Find all folder IDs
     const folderFiles = files.filter(f => f.isFolder === 'true' || f.type === 'folder' || f.type === 'application/folder');
     
+    // Clear any previous hover state
+    // @ts-ignore - Custom window property
+    window._hoverFolderId = undefined;
+    
     for (const folder of folderFiles) {
       if (!folder.id || folder.id === movingFileId) continue; // Skip if same file or invalid id
       
@@ -324,25 +328,14 @@ export default function Desktop() {
       );
       
       if (overlap) {
-        // Add highlight class to the folder element
-        folderElement.classList.add('folder-highlight');
+        // Store the folder ID in a global variable so FileItem can access it
+        // @ts-ignore - Custom window property
+        window._hoverFolderId = folder.id;
+        
         console.log(`🎯 OVERLAP DETECTED: File ${movingFileId} is overlapping with folder ${folder.id}`);
         return { fileId: movingFileId, folderId: folder.id };
-      } else {
-        // Remove highlight class from the folder
-        folderElement.classList.remove('folder-highlight');
       }
     }
-    
-    // No overlaps found - remove highlight from all folders
-    folderFiles.forEach(folder => {
-      if (folder.id) {
-        const folderElement = fileElementsRef.current[`file-${folder.id}`];
-        if (folderElement) {
-          folderElement.classList.remove('folder-highlight');
-        }
-      }
-    });
     
     return null;
   };
@@ -726,7 +719,7 @@ export default function Desktop() {
                 setPendingFolderFiles(null);
               }}
             >
-              Annuleren
+              Cancel
             </Button>
             <Button
               type="button"
@@ -752,7 +745,7 @@ export default function Desktop() {
                 }
               }}
             >
-              Maken
+              Create
             </Button>
           </DialogFooter>
         </DialogContent>
