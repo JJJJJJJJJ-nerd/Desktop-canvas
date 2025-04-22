@@ -41,6 +41,14 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    // Add this folder to the window object so Desktop component can identify it
+    if (folder.id) {
+      // @ts-ignore - Custom property
+      window._openFolderHoverId = folder.id;
+      console.log(`🗂️ Folder hover detected in open folder: ${folder.id}`);
+    }
+
     // Check if dragging a file (not from file system upload)
     const hasFileId = e.dataTransfer.types.includes('text/plain');
     if (hasFileId) {
@@ -54,6 +62,13 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingOver(false);
+    
+    // Clear the folder hover ID when leaving
+    // @ts-ignore - Custom property
+    if (window._openFolderHoverId === folder.id) {
+      // @ts-ignore - Custom property
+      window._openFolderHoverId = undefined;
+    }
   };
 
   // Handle drop events
@@ -61,6 +76,13 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingOver(false);
+    
+    // Clear the folder hover ID when dropped
+    // @ts-ignore - Custom property
+    if (window._openFolderHoverId === folder.id) {
+      // @ts-ignore - Custom property
+      window._openFolderHoverId = undefined;
+    }
     
     console.log("Drop event in folder view:", folder.name, folder.id);
     console.log("Drop data types:", e.dataTransfer.types);
