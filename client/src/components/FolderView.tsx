@@ -965,57 +965,25 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         className="bg-primary/90 text-white py-2 px-3 flex items-center justify-between cursor-move"
         onMouseDown={handleHeaderMouseDown}
       >
-        <div 
-          className="flex items-center space-x-2 cursor-pointer" 
-          onContextMenu={(e) => {
-            e.preventDefault();
-            handleRenameClick();
-          }}
-        >
+        <div className="flex items-center space-x-2">
           <FolderOpen className="w-5 h-5" />
           <h3 className="font-medium text-sm">{folder.name}</h3>
         </div>
         <div className="flex items-center space-x-2">
-          {isSelectMode && selectedFileIds.length > 0 && (
+          {/* Knop "Move Files" en "Rename" weggehaald op verzoek van gebruiker */}
+          
+          {/* Toon Cancel knop alleen als selectie-modus actief is */}
+          {isSelectMode && (
             <Button 
               size="sm" 
-              variant="secondary"
-              className="py-0.5 h-8 bg-green-600 hover:bg-green-700 text-white"
-              onClick={moveSelectedFilesToFolder}
+              variant="ghost"
+              className="py-0.5 h-8 bg-orange-600 hover:bg-orange-700 text-white"
+              onClick={() => setIsSelectMode(false)}
             >
-              <MoveRight className="w-3 h-3 mr-1" />
-              Move Files ({selectedFileIds.length})
+              <X className="w-3 h-3 mr-1" />
+              Cancel
             </Button>
           )}
-          
-          <Button 
-            size="sm" 
-            variant="ghost"
-            className={`py-0.5 h-8 ${isSelectMode ? 'bg-orange-600 hover:bg-orange-700 text-white' : 'text-white/80 hover:text-white hover:bg-primary-600'}`}
-            onClick={toggleSelectMode}
-          >
-            {isSelectMode ? (
-              <>
-                <X className="w-3 h-3 mr-1" />
-                Cancel
-              </>
-            ) : (
-              <>
-                <MoveRight className="w-3 h-3 mr-1" />
-                Move Files
-              </>
-            )}
-          </Button>
-
-          <Button
-            size="sm"
-            variant="ghost"
-            className="py-0.5 h-8 text-white/80 hover:text-white hover:bg-primary-600"
-            onClick={handleRenameClick}
-          >
-            <Edit className="w-3 h-3 mr-1" />
-            Rename
-          </Button>
           
           <button 
             onClick={onClose}
@@ -1115,7 +1083,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
           <div className="flex flex-col items-center justify-center h-full text-gray-500">
             <FolderOpen className="w-12 h-12 mb-2 opacity-30" />
             <p>This folder is empty</p>
-            <p className="text-xs mt-2 text-gray-400">Drag and drop files here or use the Move Files button</p>
+            <p className="text-xs mt-2 text-gray-400">Drag and drop files here to add them to the folder</p>
             <div className="flex gap-2 mt-4">
               <div className="p-2 border-2 border-dashed border-gray-300 rounded-lg">
                 <MoveRight className="w-6 h-6 text-gray-400" />
