@@ -132,6 +132,52 @@ export function useDesktopFiles() {
   // Add file to folder mutation
   const addFileToFolderMutation = useMutation({
     mutationFn: async ({ fileId, folderId }: { fileId: number; folderId: number }) => {
+      console.log('📂 API: Toevoegen van bestand', fileId, 'aan map', folderId);
+      
+      // UI update eerst - bij naar map slepen
+      try {
+        // 1. Huidige desktop bestanden ophalen
+        const desktopFiles = queryClient.getQueryData<{files: DesktopFile[]}>(['/api/files']);
+        if (desktopFiles?.files) {
+          // Find the file that's being moved
+          const fileIndex = desktopFiles.files.findIndex(f => f.id === fileId);
+          
+          if (fileIndex >= 0) {
+            // Clone the files array to avoid mutating the cache directly
+            const updatedFiles = [...desktopFiles.files];
+            const movedFile = {...updatedFiles[fileIndex]};
+            
+            // Update the file's parentId to the folder's ID
+            movedFile.parentId = folderId;
+            
+            // Remove the file from desktop view immediately
+            updatedFiles.splice(fileIndex, 1);
+            
+            // Update the cache with the file removed from desktop
+            queryClient.setQueryData(['/api/files'], {
+              files: updatedFiles
+            });
+            
+            // Get folder contents and add the file there
+            const folderFilesKey = [`/api/folders/${folderId}/files`];
+            const folderContents = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey) || {files: []};
+            
+            // Add the file to the folder's contents with teleport-in animation class
+            movedFile.className = 'file-teleport-in';
+            
+            // Update folder contents cache
+            queryClient.setQueryData(folderFilesKey, {
+              files: [...folderContents.files, movedFile]
+            });
+            
+            console.log(`✨ UI Updated: File ${movedFile.name} is now shown in folder ${folderId}`);
+          }
+        }
+      } catch (error) {
+        console.error('Error updating UI before API call:', error);
+      }
+      
+      // Then do the API call
       const response = await fetch(`/api/folders/${folderId}/files/${fileId}`, {
         method: 'POST',
         headers: {
@@ -140,11 +186,11 @@ export function useDesktopFiles() {
       });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('✅ Bestand', data.file.name, '(ID:', data.file.id, ') succesvol aan map toegevoegd');
       // This is crucial - force invalidation of both desktop files and folder contents
       queryClient.invalidateQueries({ queryKey: ['/api/files'] });
       queryClient.invalidateQueries({ queryKey: ['/api/folders'] });
-      console.log('Added file to folder and invalidated queries');
     },
   });
   
