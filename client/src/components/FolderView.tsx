@@ -499,61 +499,90 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     document.removeEventListener('mouseup', handleHeaderMouseUp);
   };
 
-  // DIRECTE OPLOSSING: Gebruik mouseover/mouseout in plaats van drag events
-  const [isMouseOver, setIsMouseOver] = useState(false);
-  
-  // Global mouse tracking
+  // EXTREEM DIRECTE OPLOSSING - Maakt alle open mappen tot dropzones
   useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (!isMouseOver) return;
-      
+    // Plaats deze map in een globale lijst van beschikbare drop targets
+    console.log(`📂 Open map registreren als drop target: ${folder.name} (ID: ${folder.id})`);
+    
+    // @ts-ignore - Custom property
+    if (!window._openFolders) {
       // @ts-ignore - Custom property
-      if (window.draggedFileInfo && window.draggedFileInfo.id) {
-        const folderElement = document.getElementById(`folder-window-${folder.id}`);
-        if (!folderElement) return;
-        
-        const rect = folderElement.getBoundingClientRect();
-        const isInside = 
-          e.clientX >= rect.left && 
-          e.clientX <= rect.right && 
-          e.clientY >= rect.top && 
-          e.clientY <= rect.bottom;
-        
-        if (isInside) {
-          console.log(`🔥 BELANGRIJKE DETECTIE: Muis bevindt zich boven open map ${folder.name} (ID: ${folder.id})`);
-          // @ts-ignore - Custom property
-          console.log(`Gesleept bestand: ${window.draggedFileInfo.name} (ID: ${window.draggedFileInfo.id})`);
-          
-          setIsDraggingOver(true);
-          
-          // Set global folder info
-          // @ts-ignore - Custom property
-          window._activeDropFolder = {
-            id: folder.id,
-            name: folder.name,
-            element: folderElement,
-            timestamp: Date.now()
-          };
-          
-          // @ts-ignore - Custom property for backward compatibility
-          window._openFolderHoverId = folder.id;
-        } else {
-          setIsDraggingOver(false);
-          
-          // @ts-ignore - Custom property
-          if (window._activeDropFolder?.id === folder.id) {
-            // @ts-ignore - Custom property
-            window._activeDropFolder = undefined;
-            // @ts-ignore - Custom property for backward compatibility
-            window._openFolderHoverId = undefined;
-          }
-        }
-      }
+      window._openFolders = {};
+    }
+    
+    // @ts-ignore - Custom property - Registreer deze map
+    window._openFolders[folder.id] = {
+      id: folder.id,
+      name: folder.name,
+      element: document.getElementById(`folder-window-${folder.id}`),
+      isOpen: true,
+      timestamp: Date.now()
     };
     
-    document.addEventListener('mousemove', handleGlobalMouseMove);
-    return () => document.removeEventListener('mousemove', handleGlobalMouseMove);
-  }, [folder.id, folder.name, isMouseOver]);
+    // Toon een grote groene knop onder in de map om als drop zone te dienen
+    const folderElement = document.getElementById(`folder-window-${folder.id}`);
+    
+    // Schoonmaken bij unmount
+    return () => {
+      // @ts-ignore - Custom property
+      if (window._openFolders && window._openFolders[folder.id]) {
+        // @ts-ignore - Custom property - Verwijderen bij unmount
+        delete window._openFolders[folder.id];
+      }
+    };
+  }, [folder.id, folder.name]);
+  
+  // Voeg een specifieke drop zone toe binnen de map
+  useEffect(() => {
+    // Wacht even tot alles is gerenderd
+    setTimeout(() => {
+      // Voeg een expliciete drop zone toe voor betere zichtbaarheid
+      const folderElement = document.getElementById(`folder-window-${folder.id}`);
+      if (folderElement) {
+        // Maak een drop zone element aan
+        const dropZone = document.createElement('div');
+        dropZone.id = `dropzone-${folder.id}`;
+        dropZone.className = 'absolute bottom-4 left-0 right-0 mx-auto z-50 bg-green-100 border-2 border-dashed border-green-500 rounded-lg p-4 flex flex-col items-center justify-center w-4/5 h-20 transition-all duration-300';
+        dropZone.style.opacity = '0';
+        dropZone.style.transform = 'translateY(20px)';
+        dropZone.innerHTML = `
+          <div class="text-green-600 font-medium text-sm flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+            </svg>
+            Sleep bestanden hierheen
+          </div>
+          <div class="text-xs text-green-700 mt-1">Bestanden worden direct verplaatst naar deze map</div>
+        `;
+        
+        // Voeg de dropzone toe aan de map
+        folderElement.appendChild(dropZone);
+        
+        // Toon de dropzone wanneer slepen actief is
+        const showDropZone = () => {
+          // @ts-ignore - Custom property
+          if (window.draggedFileInfo && window.draggedFileInfo.id) {
+            dropZone.style.opacity = '1';
+            dropZone.style.transform = 'translateY(0)';
+          } else {
+            dropZone.style.opacity = '0';
+            dropZone.style.transform = 'translateY(20px)';
+          }
+        };
+        
+        // Controleer periodiek of er een bestand wordt gesleept
+        const intervalId = setInterval(showDropZone, 100);
+        
+        // Ruim alles op bij unmount
+        return () => {
+          clearInterval(intervalId);
+          if (folderElement.contains(dropZone)) {
+            folderElement.removeChild(dropZone);
+          }
+        };
+      }
+    }, 500);
+  }, [folder.id]);
 
   return (
     <div 
@@ -569,11 +598,72 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         zIndex: dragging ? 1000 : 30, // Higher when dragging, lower when static but still allow files to be visible above
         transition: dragging ? 'none' : 'all 0.15s ease'
       }}
-      onMouseEnter={() => setIsMouseOver(true)}
-      onMouseLeave={() => setIsMouseOver(false)}
-      onDragOver={!isSelectMode ? handleDragOver : undefined}
-      onDragLeave={!isSelectMode ? handleDragLeave : undefined}
-      onDrop={!isSelectMode ? handleDrop : undefined}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log(`🟢 DRAG OVER OPEN MAP: ${folder.name} (ID: ${folder.id})`);
+        setIsDraggingOver(true);
+        e.dataTransfer.dropEffect = 'move';
+        
+        // Sla de open map op als actieve drop target
+        // @ts-ignore - Custom property
+        window._activeDropFolder = {
+          id: folder.id,
+          name: folder.name,
+          element: document.getElementById(`folder-window-${folder.id}`),
+          timestamp: Date.now()
+        };
+        
+        // @ts-ignore - Voor backward compatibility
+        window._openFolderHoverId = folder.id;
+      }}
+      onDragLeave={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log(`🔴 DRAG LEAVE OPEN MAP: ${folder.name}`);
+        setIsDraggingOver(false);
+        
+        // @ts-ignore - Custom property
+        if (window._activeDropFolder?.id === folder.id) {
+          // @ts-ignore - Custom property
+          window._activeDropFolder = undefined;
+          // @ts-ignore - Custom property
+          window._openFolderHoverId = undefined;
+        }
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log(`⬇️ DROP OP OPEN MAP: ${folder.name} (ID: ${folder.id})`);
+        setIsDraggingOver(false);
+        
+        const fileId = e.dataTransfer.getData('text/plain');
+        if (!fileId) return;
+        
+        console.log(`📁 Bestand met ID ${fileId} gedropt op open map ${folder.id}`);
+        
+        // Voeg het bestand toe aan deze map
+        try {
+          const fileIdNumber = parseInt(fileId);
+          if (!isNaN(fileIdNumber)) {
+            // Roep de add-to-folder API aan
+            onSelectFile({
+              id: fileIdNumber,
+              name: "Moving file...",
+              type: "placeholder",
+              size: 0,
+              dataUrl: "",
+              position: { x: 0, y: 0 }
+            });
+            
+            // Gebruik addFileToFolder functie die via useDesktopFiles is geïmporteerd
+            // Dit heeft toegang tot de backend API om bestanden aan mappen toe te voegen
+            addFileToFolder(fileIdNumber, folder.id);
+          }
+        } catch (error) {
+          console.error('Error adding file to folder:', error);
+        }
+      }}
     >
       {/* Window header */}
       <div 
