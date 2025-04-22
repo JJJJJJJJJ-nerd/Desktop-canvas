@@ -145,12 +145,12 @@ export function FileItem({
       throw error;
     }
   };
-  // Enable draggable functionality for files (not folders)
-  const draggableProps = file.isFolder === 'true' ? {} : {
+  // Enable draggable functionality for all files including folders
+  const draggableProps = {
     draggable: true,
     onDragStart: (e: React.DragEvent) => {
       if (file.id) {
-        console.log(`🖱️ DRAG START: Started dragging file ${file.name} (ID: ${file.id})`);
+        console.log(`🖱️ DRAG START: Started dragging ${file.isFolder === 'true' ? 'folder' : 'file'} ${file.name} (ID: ${file.id})`);
         
         // Set the dragged file ID as data
         e.dataTransfer.setData('text/plain', file.id.toString());
@@ -160,7 +160,8 @@ export function FileItem({
         // @ts-ignore - Adding custom property to window
         window.draggedFileInfo = {
           id: file.id,
-          name: file.name
+          name: file.name,
+          isFolder: file.isFolder === 'true'
         };
         
         // Add a class to show we're dragging
@@ -175,7 +176,7 @@ export function FileItem({
       }
     },
     onDragEnd: (e: React.DragEvent) => {
-      console.log(`🖱️ DRAG END: Stopped dragging file ${file.name}`);
+      console.log(`🖱️ DRAG END: Stopped dragging ${file.isFolder === 'true' ? 'folder' : 'file'} ${file.name}`);
       
       // Remove the opacity class when drag ends
       if (e.currentTarget) {

@@ -351,18 +351,136 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     }
   }, [folder.id]);
 
+  // State and refs for dragging folder
+  const [dragging, setDragging] = useState(false);
+  const [localPosition, setLocalPosition] = useState({ x: folder.position.x, y: folder.position.y });
+  const startPosRef = useRef({ x: 0, y: 0 });
+  const currentPosition = useRef({ x: folder.position.x, y: folder.position.y });
+  const headerRef = useRef<HTMLDivElement>(null);
+  const initialClick = useRef<{x: number, y: number} | null>(null);
+  const isClick = useRef<boolean>(true);
+  
+  // Handle mouse down on folder header for dragging
+  const handleHeaderMouseDown = (e: React.MouseEvent) => {
+    // Only respond to left mouse button
+    if (e.button !== 0) return;
+    
+    // Prevent default browser behavior and stop event propagation
+    e.stopPropagation();
+    e.preventDefault();
+    
+    // Save the initial click position for later comparison
+    initialClick.current = { x: e.clientX, y: e.clientY };
+    isClick.current = true;
+    
+    // Calculate offset between mouse position and element top-left corner
+    startPosRef.current = {
+      x: e.clientX - localPosition.x,
+      y: e.clientY - localPosition.y
+    };
+    
+    // Store current position for reference
+    currentPosition.current = localPosition;
+    
+    // Add document-level event listeners
+    document.addEventListener('mousemove', handleHeaderMouseMove);
+    document.addEventListener('mouseup', handleHeaderMouseUp);
+  };
+  
+  // Handle mouse movement during drag
+  const handleHeaderMouseMove = (e: MouseEvent) => {
+    // Prevent any default browser behavior
+    e.preventDefault();
+    
+    // If we moved enough to consider this a drag (not a click)
+    if (initialClick.current) {
+      const moveThreshold = 2; // pixels for responsive dragging
+      const deltaX = Math.abs(e.clientX - initialClick.current.x);
+      const deltaY = Math.abs(e.clientY - initialClick.current.y);
+      
+      // If we moved enough, consider this a drag
+      if (deltaX > moveThreshold || deltaY > moveThreshold) {
+        // No longer a click - it's a drag
+        isClick.current = false;
+        
+        // Start dragging immediately upon movement
+        if (!dragging) {
+          setDragging(true);
+        }
+        
+        // Calculate new position - ensure it stays within visible area
+        const newX = Math.max(0, e.clientX - startPosRef.current.x);
+        const newY = Math.max(0, e.clientY - startPosRef.current.y);
+        
+        // Update current position ref first (without causing re-renders)
+        currentPosition.current = { x: newX, y: newY };
+        
+        // Use requestAnimationFrame for smoother dragging
+        window.requestAnimationFrame(() => {
+          setLocalPosition(currentPosition.current);
+        });
+      }
+    }
+  };
+  
+  // Handle mouse up - end dragging or handle click
+  const handleHeaderMouseUp = async (e: MouseEvent) => {
+    // Prevent default behavior
+    e.preventDefault();
+    
+    // Clean up after a drag operation
+    if (!isClick.current && dragging && folder.id) {
+      // Update the folder position in the database
+      try {
+        const response = await fetch(`/api/files/${folder.id}/position`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            position: { 
+              x: currentPosition.current.x, 
+              y: currentPosition.current.y 
+            } 
+          }),
+        });
+        
+        if (!response.ok) {
+          console.error('Failed to update folder position');
+        }
+      } catch (error) {
+        console.error('Error updating folder position:', error);
+      }
+      
+      setDragging(false);
+    }
+    
+    // Reset tracking variables
+    initialClick.current = null;
+    isClick.current = true;
+    
+    // Remove event listeners
+    document.removeEventListener('mousemove', handleHeaderMouseMove);
+    document.removeEventListener('mouseup', handleHeaderMouseUp);
+  };
+
   return (
     <div className="absolute bg-white/95 backdrop-blur-md rounded-lg shadow-xl overflow-hidden"
       style={{
         width: folder.dimensions?.width || 600,
         height: folder.dimensions?.height || 400,
-        left: folder.position.x,
-        top: folder.position.y,
-        zIndex: 50
+        left: localPosition.x,
+        top: localPosition.y,
+        zIndex: dragging ? 100 : 50,
+        transition: dragging ? 'none' : 'all 0.15s ease'
       }}
     >
       {/* Window header */}
-      <div className="bg-primary/90 text-white py-2 px-3 flex items-center justify-between">
+      <div 
+        ref={headerRef}
+        className="bg-primary/90 text-white py-2 px-3 flex items-center justify-between cursor-move"
+        onMouseDown={handleHeaderMouseDown}
+      >
         <div 
           className="flex items-center space-x-2 cursor-pointer" 
           onContextMenu={(e) => {
