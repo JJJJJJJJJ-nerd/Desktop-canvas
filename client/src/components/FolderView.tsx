@@ -58,16 +58,26 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       folderName: folder.name,
       x: e.clientX,
       y: e.clientY,
-      target: e.target,
-      currentTarget: e.currentTarget,
-      dataTransfer: e.dataTransfer.types
+      dataTypes: e.dataTransfer.types,
+      eventType: 'dragover',
+      element: 'FolderView'
     });
     
-    // Probeer de file ID te krijgen die wordt gesleept
-    // @ts-ignore - Custom property
-    if (window.draggedFileInfo && window.draggedFileInfo.id) {
+    // BELANGRIJK: Check of de dataTransfer informatie bevat
+    console.log('🔄 DATA TRANSFER TYPES:', Array.from(e.dataTransfer.types));
+    
+    // Probeer de text/plain data te lezen tijdens drag
+    try {
+      // Let op: dit kan alleen in de drop handler, niet in dragover
+      // Maar we kunnen wel de draggedFileInfo global gebruiken
+      
       // @ts-ignore - Custom property
-      console.log(`🔍 Bestand met ID ${window.draggedFileInfo.id} wordt over map ${folder.name} gesleept`);
+      if (window.draggedFileInfo && window.draggedFileInfo.id) {
+        // @ts-ignore - Custom property
+        console.log(`🔍 DESKTOP → FOLDER: Bestand met ID ${window.draggedFileInfo.id} (${window.draggedFileInfo.name}) wordt over map ${folder.name} gesleept`);
+      }
+    } catch (error) {
+      console.error('Error tijdens dragover event:', error);
     }
 
     // Setup global tracking of open folder - this is the MOST IMPORTANT part
@@ -135,7 +145,24 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     window._openFolderHoverId = undefined;
     
     console.log("Drop event in folder view:", folder.name, folder.id);
-    console.log("Drop data types:", e.dataTransfer.types);
+    console.log("Drop data types:", Array.from(e.dataTransfer.types));
+    
+    // BELANGRIJK: Debug informatie voor drag-drop operatie
+    console.log(`📝 BESTANDSVERPLAATSING: Drop event in map ${folder.name} (ID: ${folder.id})`);
+    
+    // Check de globale drag info
+    // @ts-ignore - Custom property
+    if (window.draggedFileInfo) {
+      // @ts-ignore - Custom property
+      console.log(`📋 DRAG INFO: Bestand ${window.draggedFileInfo.name} (ID: ${window.draggedFileInfo.id}) is verplaatst.`);
+      
+      // Extra nuttige debug info
+      const dragDuration = Date.now() - (
+        // @ts-ignore - Custom property
+        window.draggedFileInfo.startTime || Date.now()
+      );
+      console.log(`⏱️ DRAG DUUR: ${dragDuration}ms`);
+    }
     
     // Try to get a dragged fileId first
     const fileIdText = e.dataTransfer.getData('text/plain');
@@ -475,7 +502,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   return (
     <div 
       className={`absolute bg-white/95 backdrop-blur-md rounded-lg shadow-xl overflow-hidden ${
-        isDraggingOver ? 'ring-2 ring-green-500 bg-green-50/40' : ''
+        isDraggingOver ? 'folder-highlight-dragover' : ''
       }`}
       style={{
         width: folder.dimensions?.width || 600,
