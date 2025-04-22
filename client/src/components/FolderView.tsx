@@ -4,6 +4,7 @@ import { DesktopFile } from '@/types';
 import { X, FolderOpen, ArrowLeft, Upload, Check, Folder, MoveRight, FileX, Edit } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { queryClient } from '@/lib/queryClient';
+import { useDesktopFiles } from '@/hooks/use-desktop-files';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,9 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   const [error, setError] = useState<Error | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isSelectMode, setIsSelectMode] = useState(false);
+  
+  // Gebruik de removeFileFromFolder functie uit de hook
+  const { removeFileFromFolder } = useDesktopFiles();
   const [selectedFileIds, setSelectedFileIds] = useState<number[]>([]);
   const [externalFiles, setExternalFiles] = useState<DesktopFile[]>([]);
   
@@ -192,24 +196,6 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       return await response.json();
     } catch (error) {
       console.error('Error adding file to folder:', error);
-      throw error;
-    }
-  };
-  
-  // Remove file from folder
-  const removeFileFromFolder = async (fileId: number) => {
-    try {
-      const response = await fetch(`/api/folders/files/${fileId}`, {
-        method: 'DELETE',
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to remove file from folder');
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error removing file from folder:', error);
       throw error;
     }
   };
