@@ -281,14 +281,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Remove a file from a folder
-  app.delete('/api/folders/files/:fileId', async (req, res) => {
+  // Remove a file from a folder, optionally setting its new position
+  app.delete('/api/folders/files/:fileId', express.json(), async (req, res) => {
     try {
       const fileId = parseInt(req.params.fileId);
-      const updatedFile = await storage.removeFileFromFolder(fileId);
+      
+      // Controleer of er een positie is meegegeven in de request body
+      const position = req.body?.position;
+      let updatedFile;
+      
+      // Verwijder het bestand uit de map
+      updatedFile = await storage.removeFileFromFolder(fileId);
       
       if (!updatedFile) {
         return res.status(404).json({ message: 'File not found' });
+      }
+      
+      // Als er een positie is meegegeven en het bestand is gevonden, update dan de positie
+      if (position && updatedFile.id) {
+        console.log(`Bijwerken van bestandspositie na verwijdering uit map: ${position.x}, ${position.y}`);
+        // Valideer de positie
+        const positionSchema = z.object({
+          x: z.number(),
+          y: z.number()
+        });
+        
+        const validationResult = positionSchema.safeParse(position);
+        if (validationResult.success) {
+          // Update de positie
+          updatedFile = await storage.updateFile(updatedFile.id, position);
+          
+          if (!updatedFile) {
+            console.error('Fout bij het updaten van positie na verwijderen uit map');
+            // We gaan hier geen fout geven, omdat het bestand al uit de map is verwijderd
+          }
+        } else {
+          console.error('Ongeldige positiedata ontvangen:', validationResult.error);
+        }
       }
       
       return res.status(200).json({ file: updatedFile });

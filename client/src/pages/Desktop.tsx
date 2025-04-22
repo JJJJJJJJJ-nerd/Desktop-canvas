@@ -129,6 +129,13 @@ export default function Desktop() {
     // @ts-ignore - Custom property
     window._draggingFileToDesktop = true;
     
+    // Bewaar de huidige muispositie voor gebruik als droplocatie bij slepen vanuit mappen
+    // @ts-ignore - Custom property
+    window._desktopDragPosition = {
+      x: e.clientX,
+      y: e.clientY
+    };
+    
     // Set cursor to indicate we can drop here
     e.dataTransfer.dropEffect = 'move';
   };
@@ -165,12 +172,33 @@ export default function Desktop() {
         window._draggingFileToDesktop = true;
         
         // We found a valid file ID, so this must be a file from a folder
-        // Remove from folder and place on desktop
+        // Remove from folder and place on desktop at the exact position where dropped
         try {
-          await removeFileFromFolder(fileId);
-          console.log('File removed from folder and placed on desktop:', fileId);
+          // Gebruik de exacte muispositie voor het plaatsen van het bestand
+          const dropPosition = {
+            x: e.clientX,
+            y: e.clientY
+          };
+          
+          console.log(`⬇️ DESKTOP DROP POSITIE: ${dropPosition.x}, ${dropPosition.y}`);
+          
+          // Verwijderen uit map en direct op bureaubladpositie plaatsen
+          await removeFileFromFolder(fileId, dropPosition);
+          console.log('File removed from folder and placed on desktop at position:', dropPosition);
+          
+          // Toon een toast-melding
+          toast({
+            title: "Bestand verplaatst",
+            description: "Bestand is verplaatst naar het bureaublad op de exacte plaats waar je het losliet.",
+            duration: 3000,
+          });
         } catch (error) {
           console.error('Error moving file to desktop:', error);
+          toast({
+            title: "Fout",
+            description: "Er ging iets mis bij het verplaatsen van het bestand.",
+            variant: "destructive"
+          });
         }
       }
     }

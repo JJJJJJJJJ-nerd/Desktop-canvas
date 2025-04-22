@@ -652,13 +652,18 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                   if (window._draggingFileToDesktop && file.id) {
                     console.log(`📤 DRAG TO DESKTOP: File ${file.name} (ID: ${file.id}) wordt naar bureaublad gesleept`);
                     
-                    // Bepaal de positie waar het bestand zou moeten komen op basis van de muispositie
-                    const mousePosition = {
+                    // Bepaal de positie waar het bestand zou moeten komen
+                    // Gebruik bij voorkeur de laatst bekende positie op het bureaublad (veel nauwkeuriger)
+                    // @ts-ignore - Custom property
+                    const desktopPosition = window._desktopDragPosition;
+                    
+                    // Als er geen bureaubladpositie is, gebruik dan de huidige muispositie als fallback
+                    const mousePosition = desktopPosition || {
                       x: e.clientX,
                       y: e.clientY
                     };
                     
-                    console.log(`🖱️ Muispositie bij loslaten: ${mousePosition.x}, ${mousePosition.y}`);
+                    console.log(`🖱️ Positie voor bestand: ${mousePosition.x}, ${mousePosition.y}`);
                     
                     // Verwijderen uit huidige map en positie doorgeven
                     removeFileFromFolder(file.id, mousePosition)
