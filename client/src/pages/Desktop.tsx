@@ -389,7 +389,6 @@ export default function Desktop() {
         toast({
           title: "File moved",
           description: "File was moved to folder successfully.",
-          variant: "success"
         });
         
         return; // Skip position update since file is now in a folder
@@ -423,7 +422,6 @@ export default function Desktop() {
         toast({
           title: "File moved",
           description: "File was moved to folder successfully.",
-          variant: "success"
         });
         
         return; // Skip position update since file is now in a folder
