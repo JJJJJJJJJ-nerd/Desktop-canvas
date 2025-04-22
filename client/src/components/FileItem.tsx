@@ -164,9 +164,9 @@ export function FileItem({
           isFolder: file.isFolder === 'true'
         };
         
-        // Add a class to show we're dragging
+        // Add classes to show we're dragging
         if (e.currentTarget) {
-          e.currentTarget.classList.add('opacity-50');
+          e.currentTarget.classList.add('dragging-element');
         }
         
         // For our custom drag logic
@@ -178,9 +178,9 @@ export function FileItem({
     onDragEnd: (e: React.DragEvent) => {
       console.log(`🖱️ DRAG END: Stopped dragging ${file.isFolder === 'true' ? 'folder' : 'file'} ${file.name}`);
       
-      // Remove the opacity class when drag ends
+      // Remove the dragging class when drag ends
       if (e.currentTarget) {
-        e.currentTarget.classList.remove('opacity-50');
+        e.currentTarget.classList.remove('dragging-element');
       }
       
       // Clear the global drag reference
@@ -596,7 +596,7 @@ export function FileItem({
               isImage ? "w-48" : "w-24 bg-white/80 p-3",
               "cursor-move",
               isSelected && "ring-2 ring-primary shadow-lg z-10",
-              dragging && "z-50 shadow-xl",
+              dragging && "z-50 shadow-xl pointer-events-none", // Toegevoegd pointer-events-none om door open folders te kunnen gaan
               isSearchMatch && "animate-pulse shadow-xl shadow-primary/20",
               isSearchMatch && !isSelected && "ring-2 ring-yellow-400 z-10",
               isFolder && (isDragOver || file.id === (window as any)._hoverFolderId) && "ring-2 ring-green-500 shadow-lg bg-green-50/90 folder-highlight"

@@ -69,6 +69,7 @@
 
 .teleport-out {
   animation: teleport 0.3s ease-in forwards;
+  pointer-events: none !important; /* Zorgt ervoor dat elementen tijdens animatie niet interactief zijn */
 }
 
 .folder-receive {
@@ -154,5 +155,14 @@
   
   .file-blink {
     animation: file-blink 1.2s infinite;
+  }
+  
+  /* Styling voor bestanden/mappen die worden gesleept */
+  .dragging-element {
+    pointer-events: none !important; /* Belangrijk om interactie met andere elementen toe te staan */
+    z-index: 9000 !important; /* Extra hoge z-index om boven alles te blijven */
+    opacity: 0.8;
+    transform: scale(1.05);
+    transition: none !important;
   }
 }
