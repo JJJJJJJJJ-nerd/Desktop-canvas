@@ -142,6 +142,13 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         
         const data = await response.json();
         
+        // Toon een succes toast
+        toast({
+          title: "Bestanden geüpload",
+          description: `De bestanden zijn succesvol geüpload naar map "${folder.name}"`,
+          duration: 3000,
+        });
+        
         // Move newly uploaded files to this folder
         if (data.files && data.files.length > 0) {
           for (const file of data.files) {
@@ -161,27 +168,50 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       try {
         const fileId = parseInt(e.dataTransfer.getData('text/plain'));
         if (!isNaN(fileId) && folder.id) {
-          // Check if this file is already in a folder (has a parentId)
-          const draggedFile = files.find(file => file.id === fileId);
-          const allDesktopFiles = queryClient.getQueryData<any>(['/api/files'])?.files || [];
-          const fileInDesktop = allDesktopFiles.find((file: any) => file.id === fileId);
+          console.log(`🔄 Processing drop of file ID ${fileId} into folder ID ${folder.id}`);
           
-          if (fileInDesktop && fileInDesktop.parentId) {
-            // First remove from the current folder
-            await removeFileFromFolder(fileId);
-            console.log("Removed file from previous folder:", fileId);
+          // Get all desktop files to determine current state
+          const allDesktopFiles = queryClient.getQueryData<any>(['/api/files'])?.files || [];
+          const draggedFile = allDesktopFiles.find((file: any) => file.id === fileId);
+          
+          if (!draggedFile) {
+            console.error(`⚠️ Kon bestand met ID ${fileId} niet vinden in desktop bestanden`);
+            return;
           }
           
-          // Now add to this folder
-          await addFileToFolder(fileId, folder.id);
-          console.log("Added file to new folder:", fileId, "in folder:", folder.id);
+          console.log(`📁 Bestand gevonden: ${draggedFile.name} (huidige parent: ${draggedFile.parentId || 'geen'})`);
           
-          // Refresh folder contents and desktop files
+          // Check if file is already in a folder
+          if (draggedFile.parentId) {
+            // Als het bestand al in een map zit (inclusief dezelfde map), verwijder het eerst
+            console.log(`🔄 Bestand zit al in map ${draggedFile.parentId}, eerst verwijderen...`);
+            await removeFileFromFolder(fileId);
+          }
+          
+          // Now add to this folder - this will hide it from desktop
+          console.log(`➕ Toevoegen van bestand ${draggedFile.name} aan map ${folder.name}`);
+          await addFileToFolder(fileId, folder.id);
+          
+          // Show success message
+          toast({
+            title: "Bestand verplaatst",
+            description: `"${draggedFile.name}" is toegevoegd aan map "${folder.name}"`,
+            duration: 3000,
+          });
+          
+          // Refresh both folder contents and desktop files
           fetchFiles();
+          // Crucial: This makes sure files disappear from desktop
           queryClient.invalidateQueries({ queryKey: ['/api/files'] });
         }
       } catch (error) {
         console.error('Error adding file to folder:', error);
+        toast({
+          title: "Fout bij verplaatsen",
+          description: "Er ging iets mis bij het verplaatsen van het bestand naar de map.",
+          variant: "destructive",
+          duration: 5000,
+        });
       }
     }
   };
@@ -445,7 +475,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         height: folder.dimensions?.height || 400,
         left: localPosition.x,
         top: localPosition.y,
-        zIndex: dragging ? 1000 : 200, // Higher when dragging, lower when static but still above regular items
+        zIndex: dragging ? 1000 : 30, // Higher when dragging, lower when static but still allow files to be visible above
         transition: dragging ? 'none' : 'all 0.15s ease'
       }}
     >
@@ -526,7 +556,8 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         onDragLeave={!isSelectMode ? handleDragLeave : undefined}
         onDrop={!isSelectMode ? handleDrop : undefined}
         style={{ 
-          zIndex: 200, // Higher z-index to ensure it's above all files being dragged
+          // zIndex blijft laag om bestanden zichtbaar te houden tijdens sleep
+          zIndex: 10, // Lagere z-index zodat bestanden zichtbaar blijven tijdens sleep
           boxShadow: isDraggingOver ? 'inset 0 0 20px rgba(34, 197, 94, 0.4)' : 'none'
         }}
       >
