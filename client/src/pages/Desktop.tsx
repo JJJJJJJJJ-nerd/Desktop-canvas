@@ -98,7 +98,12 @@ export default function Desktop() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const fileElementsRef = useRef<{[key: string]: HTMLElement}>({});
+  const openFolderRefs = useRef<{[key: string]: HTMLElement}>({});
   const dragTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const activeDragRef = useRef<{fileId: number | null, overFolderId: number | null}>({
+    fileId: null,
+    overFolderId: null
+  });
 
   // Handle upload button click
   const handleUploadClick = () => {
@@ -337,6 +342,17 @@ export default function Desktop() {
       console.log(`Registered file element for ID: ${id}`);
     } else if (id) {
       delete fileElementsRef.current[`file-${id}`];
+    }
+  };
+  
+  // Registreer een open mapvenster
+  const registerOpenFolder = (folderId: number | undefined, element: HTMLElement | null) => {
+    if (folderId !== undefined && element) {
+      openFolderRefs.current[String(folderId)] = element;
+      console.log(`📂 Registreer open map ${folderId} referentie`, element);
+    } else if (folderId !== undefined && !element) {
+      delete openFolderRefs.current[String(folderId)];
+      console.log(`📂 Verwijder open map ${folderId} referentie`);
     }
   };
   

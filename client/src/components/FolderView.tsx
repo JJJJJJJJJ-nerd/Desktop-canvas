@@ -28,6 +28,9 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   const [files, setFiles] = useState<DesktopFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  
+  // Voor referentie tracking
+  const folderContainerRef = useRef<HTMLDivElement>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isSelectMode, setIsSelectMode] = useState(false);
   
@@ -358,6 +361,24 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       fetchFiles();
     }
   }, [folder.id]);
+  
+  // Registreer de folder voor de Desktop component zodat we kunnen detecteren wanneer bestanden eroverheen worden gesleept
+  useEffect(() => {
+    // Probeer de registerOpenFolder functie uit de window te halen (wordt door Desktop component toegevoegd)
+    // @ts-ignore - Custom property die door Desktop component wordt toegevoegd
+    const registerFunc = window.registerOpenFolder;
+    
+    if (typeof registerFunc === 'function' && folder.id && folderContainerRef.current) {
+      console.log(`📝 Registreer map ${folder.name} (ID: ${folder.id}) voor drop detectie`);
+      registerFunc(folder.id, folderContainerRef.current);
+      
+      return () => {
+        // Cleanup bij unmount
+        console.log(`🗑️ De-registreer map ${folder.name} (ID: ${folder.id})`);
+        registerFunc(folder.id, null);
+      };
+    }
+  }, [folder.id, folder.name]);
   
   // Extra effect voor drag tracking
   useEffect(() => {
