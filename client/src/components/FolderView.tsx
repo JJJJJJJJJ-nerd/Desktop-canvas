@@ -122,7 +122,46 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     console.log("Drop event in folder view:", folder.name, folder.id);
     console.log("Drop data types:", e.dataTransfer.types);
     
-    // Check if files were dropped
+    // Try to get a dragged fileId first
+    const fileIdText = e.dataTransfer.getData('text/plain');
+    if (fileIdText && folder.id) {
+      try {
+        const fileId = parseInt(fileIdText);
+        if (!isNaN(fileId)) {
+          console.log(`🔄 Processing file ID drop: ${fileId} into folder ${folder.id}`);
+          
+          const allDesktopFiles = queryClient.getQueryData<any>(['/api/files'])?.files || [];
+          const draggedFile = allDesktopFiles.find((file: any) => file.id === fileId);
+          
+          if (draggedFile) {
+            // Check if the file is already in a folder (including this one)
+            if (draggedFile.parentId) {
+              console.log(`Bestand zit al in map ${draggedFile.parentId}, eerst verwijderen`);
+              await removeFileFromFolder(fileId);
+            }
+            
+            console.log(`Toevoegen van bestand ${draggedFile.name} aan map ${folder.name} (${folder.id})`);
+            const result = await addFileToFolder(fileId, folder.id);
+            
+            toast({
+              title: "Bestand toegevoegd aan map",
+              description: `"${draggedFile.name}" is toegevoegd aan map "${folder.name}"`,
+              duration: 3000,
+            });
+            
+            // Refresh both views - this is critical
+            fetchFiles();
+            queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+            
+            return;
+          }
+        }
+      } catch (error) {
+        console.error("Error moving file to folder:", error);
+      }
+    }
+    
+    // If no file ID was found, check for file uploads
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       // Handle dropped files (upload)
       const formData = new FormData();
@@ -162,56 +201,6 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         }
       } catch (error) {
         console.error('Error uploading files:', error);
-      }
-    } else if (e.dataTransfer.getData('text/plain')) {
-      // This might be a file ID dragged from desktop or another folder
-      try {
-        const fileId = parseInt(e.dataTransfer.getData('text/plain'));
-        if (!isNaN(fileId) && folder.id) {
-          console.log(`🔄 Processing drop of file ID ${fileId} into folder ID ${folder.id}`);
-          
-          // Get all desktop files to determine current state
-          const allDesktopFiles = queryClient.getQueryData<any>(['/api/files'])?.files || [];
-          const draggedFile = allDesktopFiles.find((file: any) => file.id === fileId);
-          
-          if (!draggedFile) {
-            console.error(`⚠️ Kon bestand met ID ${fileId} niet vinden in desktop bestanden`);
-            return;
-          }
-          
-          console.log(`📁 Bestand gevonden: ${draggedFile.name} (huidige parent: ${draggedFile.parentId || 'geen'})`);
-          
-          // Check if file is already in a folder
-          if (draggedFile.parentId) {
-            // Als het bestand al in een map zit (inclusief dezelfde map), verwijder het eerst
-            console.log(`🔄 Bestand zit al in map ${draggedFile.parentId}, eerst verwijderen...`);
-            await removeFileFromFolder(fileId);
-          }
-          
-          // Now add to this folder - this will hide it from desktop
-          console.log(`➕ Toevoegen van bestand ${draggedFile.name} aan map ${folder.name}`);
-          await addFileToFolder(fileId, folder.id);
-          
-          // Show success message
-          toast({
-            title: "Bestand verplaatst",
-            description: `"${draggedFile.name}" is toegevoegd aan map "${folder.name}"`,
-            duration: 3000,
-          });
-          
-          // Refresh both folder contents and desktop files
-          fetchFiles();
-          // Crucial: This makes sure files disappear from desktop
-          queryClient.invalidateQueries({ queryKey: ['/api/files'] });
-        }
-      } catch (error) {
-        console.error('Error adding file to folder:', error);
-        toast({
-          title: "Fout bij verplaatsen",
-          description: "Er ging iets mis bij het verplaatsen van het bestand naar de map.",
-          variant: "destructive",
-          duration: 5000,
-        });
       }
     }
   };
@@ -469,7 +458,10 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   };
 
   return (
-    <div className="absolute bg-white/95 backdrop-blur-md rounded-lg shadow-xl overflow-hidden"
+    <div 
+      className={`absolute bg-white/95 backdrop-blur-md rounded-lg shadow-xl overflow-hidden ${
+        isDraggingOver ? 'ring-2 ring-green-500 bg-green-50/40' : ''
+      }`}
       style={{
         width: folder.dimensions?.width || 600,
         height: folder.dimensions?.height || 400,
@@ -478,6 +470,9 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         zIndex: dragging ? 1000 : 30, // Higher when dragging, lower when static but still allow files to be visible above
         transition: dragging ? 'none' : 'all 0.15s ease'
       }}
+      onDragOver={!isSelectMode ? handleDragOver : undefined}
+      onDragLeave={!isSelectMode ? handleDragLeave : undefined}
+      onDrop={!isSelectMode ? handleDrop : undefined}
     >
       {/* Window header */}
       <div 
