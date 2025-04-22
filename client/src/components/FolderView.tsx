@@ -968,7 +968,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         <div className="flex items-center space-x-2">
           <FolderOpen className="w-5 h-5" />
           <h3 
-            className="font-medium text-sm hover:text-primary/80 hover:underline cursor-pointer" 
+            className="font-medium text-sm hover:text-white hover:font-bold cursor-pointer transition-all duration-100" 
             onDoubleClick={() => handleRenameClick()}
             title="Dubbelklik om de mapnaam te wijzigen"
           >
