@@ -358,6 +358,50 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       fetchFiles();
     }
   }, [folder.id]);
+  
+  // Extra effect voor drag tracking
+  useEffect(() => {
+    // Functie voor het tracken van drag over de map
+    const trackDragMove = (e: MouseEvent) => {
+      // Check if we're currently dragging a file (using our global variable)
+      // @ts-ignore - Custom property
+      if (window.draggedFileInfo && window.draggedFileInfo.id) {
+        const folderRect = dropAreaRef.current?.getBoundingClientRect();
+        
+        if (folderRect) {
+          // Check if mouse is within folder bounds
+          if (
+            e.clientX >= folderRect.left && 
+            e.clientX <= folderRect.right &&
+            e.clientY >= folderRect.top && 
+            e.clientY <= folderRect.bottom
+          ) {
+            // We're over the folder!
+            console.log(`⬆️ MUIS OVER MAP: Bestand wordt over map ${folder.name} gesleept op positie ${e.clientX}, ${e.clientY}`);
+            
+            if (!isDraggingOver) {
+              setIsDraggingOver(true);
+            }
+          } else {
+            // We're outside the folder
+            if (isDraggingOver) {
+              setIsDraggingOver(false);
+            }
+          }
+        }
+      }
+    };
+    
+    // Luister naar muis bewegingen als we een map hebben
+    if (folder.id) {
+      document.addEventListener('mousemove', trackDragMove);
+    }
+    
+    // Cleanup function
+    return () => {
+      document.removeEventListener('mousemove', trackDragMove);
+    };
+  }, [folder.id, isDraggingOver]);
 
   // State and refs for dragging folder
   const [dragging, setDragging] = useState(false);
