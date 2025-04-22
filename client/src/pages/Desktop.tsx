@@ -392,12 +392,16 @@ export default function Desktop() {
     }
   }, [draggingFileId, folderRefs]);
   
-  // NIEUWE GLOBALE MUISPOSITIE-TRACKER - WERKT TIJDENS SLEPEN
+  // ENHANCED GLOBAL MOUSE POSITION TRACKER - IMPROVED FOLDER DETECTION
   useEffect(() => {
     const handleGlobalMouseTracking = (e: MouseEvent) => {
       // @ts-ignore - Custom window property
       if (window.draggedFileInfo && window.draggedFileInfo.id) {
-        // Sla huidige muispositie op
+        // Store current mouse position and update global tracking object
+        // @ts-ignore - Custom property
+        window.draggedFileInfo.position = { x: e.clientX, y: e.clientY };
+        // @ts-ignore - Custom property  
+        window.draggedFileInfo.updateTime = Date.now();
         const mousePosition = { x: e.clientX, y: e.clientY };
         
         // Controleer alle open mappen

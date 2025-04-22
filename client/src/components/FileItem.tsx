@@ -476,6 +476,21 @@ export function FileItem({
     // Prevent any default browser behavior
     e.preventDefault();
     
+    // If we have an active drag, update the tracking information for open folders to detect
+    if (dragging && file.id) {
+      // Update the global drag tracking info on every mouse move
+      // This is crucial for the folder detection system
+      // @ts-ignore - Custom property
+      window.draggedFileInfo = {
+        id: file.id,
+        name: file.name,
+        isFolder: file.isFolder === 'true',
+        element: fileRef.current,
+        position: { x: e.clientX, y: e.clientY },
+        updateTime: Date.now()
+      };
+    }
+    
     // If we moved enough to consider this a drag (not a click)
     if (initialClick.current) {
       const moveThreshold = 2; // pixels - reduced threshold for more responsive dragging

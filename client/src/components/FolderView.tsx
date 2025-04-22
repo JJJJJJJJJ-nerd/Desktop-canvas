@@ -557,13 +557,17 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       // Add the drop indicator to the folder window
       folderElement.appendChild(dropIndicator);
       
-      // Track mouse movements to detect when it's over this folder
+      // Enhanced mouse movement tracking to reliably detect when cursor is over an open folder
       const handleMouseMove = (e: MouseEvent) => {
         // Only process if we're currently dragging a file
         // @ts-ignore - Custom property for global tracking
-        if (!window.draggedFileInfo) return;
+        const dragInfo = window.draggedFileInfo;
+        if (!dragInfo) return;
         
-        // Check if mouse is inside this folder's bounds
+        // Skip if we're dragging a folder into itself (prevents loops)
+        if (dragInfo.isFolder && dragInfo.id === folder.id) return;
+        
+        // Check if mouse is inside this folder's bounds with increased precision
         const rect = folderElement.getBoundingClientRect();
         const isInside = 
           e.clientX >= rect.left && 
@@ -572,28 +576,53 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
           e.clientY <= rect.bottom;
         
         if (isInside) {
-          // Mouse is over this folder while dragging
+          // Mouse is over this open folder while dragging a file
+          console.log(`🎯 DETECTED: File ${dragInfo.name} is hovering over open folder ${folder.name}`);
+          
+          // Show drop indicators
           dropIndicator.classList.add('active');
           folderElement.classList.add('folder-highlight-dragover');
           setIsDraggingOver(true);
           
-          // Mark this folder as current drop target
+          // Store this folder as the global active target for files
+          // This is crucial for other components to know where a file will be dropped
+          // @ts-ignore - Custom global properties
+          window._activeDropFolder = {
+            id: folder.id,
+            name: folder.name,
+            element: folderElement,
+            timestamp: Date.now()
+          };
+          
+          // Also update the more generic tracking property
           // @ts-ignore
           window._currentDropTarget = {
             id: folder.id,
             element: folderElement
           };
+          
+          // Broadcast that we're over an open folder
+          // @ts-ignore
+          window._openFolderHoverId = folder.id;
         } else {
           // Mouse is not over this folder
           dropIndicator.classList.remove('active');
           folderElement.classList.remove('folder-highlight-dragover');
           
-          // Only reset the current target if it was this folder
+          // Only reset the tracking properties if they were pointing to this folder
+          // @ts-ignore
+          if (window._activeDropFolder?.id === folder.id) {
+            // @ts-ignore
+            window._activeDropFolder = null;
+            // @ts-ignore
+            window._openFolderHoverId = null;
+            setIsDraggingOver(false);
+          }
+          
           // @ts-ignore
           if (window._currentDropTarget?.id === folder.id) {
             // @ts-ignore
             window._currentDropTarget = null;
-            setIsDraggingOver(false);
           }
         }
       };
