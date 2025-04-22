@@ -567,22 +567,86 @@ export default function Desktop() {
       try {
         console.log(`📂 Moving file ${fileId} into folder ${activeDropFolder.name} (ID: ${activeDropFolder.id})`);
         
-        // Call the API to add the file to the folder
-        await addFileToFolder(fileId, activeDropFolder.id);
-        
-        // Clear the active drop folder reference
-        // @ts-ignore - Custom property
-        window._activeDropFolder = undefined;
-        // @ts-ignore - Custom property for backward compatibility
-        window._openFolderHoverId = undefined;
-        
-        // Show success message with folder name
-        toast({
-          title: "File moved",
-          description: `File was moved to "${activeDropFolder.name}" folder successfully.`,
-        });
-        
-        return; // Skip position update since file is now in a folder
+        // Get the current files from the query cache
+        const desktopFiles = queryClient.getQueryData<{files: DesktopFile[]}>(['/api/files']);
+        if (desktopFiles?.files) {
+          // Find the file that's being moved
+          const fileIndex = desktopFiles.files.findIndex(f => f.id === fileId);
+          
+          if (fileIndex >= 0) {
+            // Clone the files array to avoid mutating the cache directly
+            const updatedFiles = [...desktopFiles.files];
+            const movedFile = {...updatedFiles[fileIndex]};
+            
+            // Update the file's parentId to the folder's ID
+            movedFile.parentId = activeDropFolder.id;
+            
+            // Remove the file from desktop view immediately for instant visual feedback
+            updatedFiles.splice(fileIndex, 1);
+            
+            // Update the cache with the file removed from desktop
+            queryClient.setQueryData(['/api/files'], {
+              files: updatedFiles
+            });
+            
+            // Get folder contents and add the file there immediately
+            const folderFilesKey = [`/api/folders/${activeDropFolder.id}/files`];
+            const folderContents = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey) || {files: []};
+            
+            // Update folder contents cache immediately
+            queryClient.setQueryData(folderFilesKey, {
+              files: [...folderContents.files, movedFile]
+            });
+            
+            // Show success message with folder name
+            toast({
+              title: "File moved",
+              description: `File was moved to "${activeDropFolder.name}" folder successfully.`,
+            });
+            
+            // Clear the active drop folder reference
+            // @ts-ignore - Custom property
+            window._activeDropFolder = undefined;
+            // @ts-ignore - Custom property for backward compatibility
+            window._openFolderHoverId = undefined;
+            
+            // THEN make the actual API call to update the database
+            addFileToFolder(fileId, activeDropFolder.id)
+              .then(() => {
+                console.log("✅ Database updated to match UI changes");
+              })
+              .catch(error => {
+                console.error('Error moving file to open folder:', error);
+                toast({
+                  title: "Error",
+                  description: "Failed to move file to folder.",
+                  variant: "destructive"
+                });
+                // Revert UI changes by refetching data
+                queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+                queryClient.invalidateQueries({ queryKey: folderFilesKey });
+              });
+            
+            return; // Skip position update since file is now in a folder
+          }
+        } else {
+          // Fallback to direct API call if cache not available
+          await addFileToFolder(fileId, activeDropFolder.id);
+          
+          // Clear the active drop folder reference
+          // @ts-ignore - Custom property
+          window._activeDropFolder = undefined;
+          // @ts-ignore - Custom property for backward compatibility
+          window._openFolderHoverId = undefined;
+          
+          // Show success message with folder name
+          toast({
+            title: "File moved",
+            description: `File was moved to "${activeDropFolder.name}" folder successfully.`,
+          });
+          
+          return; // Skip position update since file is now in a folder
+        }
       } catch (error) {
         console.error('Error moving file to open folder:', error);
         toast({
@@ -600,22 +664,82 @@ export default function Desktop() {
       try {
         console.log(`🗂️ Moving file ${fileId} into folder ${hoverFolderId}`);
         
-        // Call the API to add the file to the folder
-        await addFileToFolder(fileId, hoverFolderId);
-        
-        // No need to manually refetch as the mutation in addFileToFolder will handle cache invalidation
-        
-        // Clear the hover folder ID
-        // @ts-ignore - Custom window property
-        window._hoverFolderId = undefined;
-        
-        // Show success message
-        toast({
-          title: "File moved",
-          description: "File was moved to folder successfully.",
-        });
-        
-        return; // Skip position update since file is now in a folder
+        // Get the current files from the query cache
+        const desktopFiles = queryClient.getQueryData<{files: DesktopFile[]}>(['/api/files']);
+        if (desktopFiles?.files) {
+          // Find the file that's being moved
+          const fileIndex = desktopFiles.files.findIndex(f => f.id === fileId);
+          
+          if (fileIndex >= 0) {
+            // Clone the files array to avoid mutating the cache directly
+            const updatedFiles = [...desktopFiles.files];
+            const movedFile = {...updatedFiles[fileIndex]};
+            
+            // Update the file's parentId to the folder's ID
+            movedFile.parentId = hoverFolderId;
+            
+            // Remove the file from desktop view immediately for instant visual feedback
+            updatedFiles.splice(fileIndex, 1);
+            
+            // Update the cache with the file removed from desktop
+            queryClient.setQueryData(['/api/files'], {
+              files: updatedFiles
+            });
+            
+            // Get folder contents and add the file there immediately
+            const folderFilesKey = [`/api/folders/${hoverFolderId}/files`];
+            const folderContents = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey) || {files: []};
+            
+            // Update folder contents cache immediately
+            queryClient.setQueryData(folderFilesKey, {
+              files: [...folderContents.files, movedFile]
+            });
+            
+            // Show success message
+            toast({
+              title: "File moved",
+              description: "File was moved to folder successfully.",
+            });
+            
+            // Clear the hover folder ID
+            // @ts-ignore - Custom window property
+            window._hoverFolderId = undefined;
+            
+            // THEN make the actual API call to update the database
+            addFileToFolder(fileId, hoverFolderId)
+              .then(() => {
+                console.log("✅ Database updated to match UI changes");
+              })
+              .catch(error => {
+                console.error('Error moving file to folder:', error);
+                toast({
+                  title: "Error",
+                  description: "Failed to move file to folder.",
+                  variant: "destructive"
+                });
+                // Revert UI changes by refetching data
+                queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+                queryClient.invalidateQueries({ queryKey: folderFilesKey });
+              });
+            
+            return; // Skip position update since file is now in a folder
+          }
+        } else {
+          // Fallback to direct API call if cache not available
+          await addFileToFolder(fileId, hoverFolderId);
+          
+          // Clear the hover folder ID
+          // @ts-ignore - Custom window property
+          window._hoverFolderId = undefined;
+          
+          // Show success message
+          toast({
+            title: "File moved",
+            description: "File was moved to folder successfully.",
+          });
+          
+          return; // Skip position update since file is now in a folder
+        }
       } catch (error) {
         console.error('Error moving file to folder:', error);
         toast({

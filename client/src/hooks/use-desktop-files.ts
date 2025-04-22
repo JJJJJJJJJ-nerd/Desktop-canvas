@@ -152,11 +152,67 @@ export function useDesktopFiles() {
   const removeFileFromFolderMutation = useMutation({
     mutationFn: async ({ 
       fileId, 
-      position 
+      position,
+      parentId 
     }: { 
       fileId: number; 
-      position?: { x: number; y: number } 
+      position?: { x: number; y: number };
+      parentId?: number;
     }) => {
+      console.log('📤 API: Verwijderen van bestand', fileId, 'uit map');
+      if (position) {
+        console.log('🖱️ Met nieuwe positie:', `x=${position.x}, y=${position.y}`);
+      }
+      
+      // Update UI FIRST before API call for instant feedback
+      if (parentId && position) {
+        try {
+          // 1. Get and update folder contents
+          const folderFilesKey = [`/api/folders/${parentId}/files`];
+          const folderContents = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey);
+          
+          if (folderContents?.files) {
+            // Find the file being removed
+            const fileIndex = folderContents.files.findIndex(f => f.id === fileId);
+            
+            if (fileIndex >= 0) {
+              // Get a copy of the file
+              const removedFile = {...folderContents.files[fileIndex]};
+              // Remove from folder view immediately
+              const updatedFolderFiles = [...folderContents.files];
+              updatedFolderFiles.splice(fileIndex, 1);
+              
+              // Update folder contents cache
+              queryClient.setQueryData(folderFilesKey, {
+                files: updatedFolderFiles
+              });
+              
+              // 2. Add file back to desktop
+              const desktopFiles = queryClient.getQueryData<{files: DesktopFile[]}>(['/api/files']);
+              if (desktopFiles?.files) {
+                // Add to desktop with new position and without parentId
+                const updatedFile = {
+                  ...removedFile,
+                  position: position,
+                  parentId: undefined
+                };
+                
+                // Update desktop files cache
+                queryClient.setQueryData(['/api/files'], {
+                  files: [...desktopFiles.files, updatedFile]
+                });
+                
+                console.log('✅ Bestand', removedFile.name, '(ID:', fileId, ') succesvol uit map verwijderd');
+                console.log('🖱️ Bijwerken van bestandspositie na verwijdering uit map:', position.x, position.y);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Fout bij direct bijwerken van UI voor bestandsverplaatsing:', error);
+        }
+      }
+      
+      // THEN make the actual API call
       const response = await fetch(`/api/folders/files/${fileId}`, {
         method: 'DELETE',
         headers: {
@@ -177,7 +233,7 @@ export function useDesktopFiles() {
             },
             body: JSON.stringify({ position }),
           });
-          console.log(`Bestand positie direct bijgewerkt naar: ${position.x}, ${position.y}`);
+          console.log(`✅ Positie van bestand ${result.file.name} succesvol bijgewerkt naar (${position.x}, ${position.y})`);
         } catch (err) {
           console.error('Fout bij direct updaten van bestandspositie:', err);
         }
@@ -186,7 +242,7 @@ export function useDesktopFiles() {
       return result;
     },
     onSuccess: () => {
-      // Force invalidation of both desktop files and folder contents
+      // Light refresh to ensure data is consistent
       queryClient.invalidateQueries({ queryKey: ['/api/files'] });
       queryClient.invalidateQueries({ queryKey: ['/api/folders'] });
       console.log('Removed file from folder and invalidated queries');

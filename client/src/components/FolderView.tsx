@@ -656,25 +656,88 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
               position: { x: 0, y: 0 }
             });
             
-            // Call the API to move the file
-            addFileToFolder(fileIdNum, folder.id)
-              .then(() => {
+            // Immediately update UI for instant feedback
+            const desktopFiles = queryClient.getQueryData<{files: DesktopFile[]}>(['/api/files']);
+            if (desktopFiles?.files) {
+              // Find the file that's being moved
+              const fileIndex = desktopFiles.files.findIndex(f => f.id === fileIdNum);
+              
+              if (fileIndex >= 0) {
+                // Clone the files array to avoid mutating the cache directly
+                const updatedFiles = [...desktopFiles.files];
+                const movedFile = {...updatedFiles[fileIndex]};
+                
+                // Update the file's parentId to the folder's ID
+                movedFile.parentId = folder.id;
+                
+                // Remove the file from desktop view
+                updatedFiles.splice(fileIndex, 1);
+                
+                // Update the cache with the file removed from desktop
+                queryClient.setQueryData(['/api/files'], {
+                  files: updatedFiles
+                });
+                
+                // Get folder contents and add the file there
+                const folderFilesKey = [`/api/folders/${folder.id}/files`];
+                const folderContents = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey) || {files: []};
+                
+                // Update folder contents cache
+                queryClient.setQueryData(folderFilesKey, {
+                  files: [...folderContents.files, movedFile]
+                });
+                
+                // Show success toast immediately
                 toast({
                   title: "File moved",
                   description: "File successfully moved to folder",
-                  duration: 3000
+                  duration: 2000
                 });
-                fetchFiles();
-              })
-              .catch(error => {
-                console.error("Error moving file to folder:", error);
-                toast({
-                  title: "Error",
-                  description: "Failed to move file to folder",
-                  variant: "destructive",
-                  duration: 3000
+                
+                // Then make the actual API call to update the database
+                addFileToFolder(fileIdNum, folder.id)
+                  .then(() => {
+                    console.log("✅ Database updated to match UI");
+                    // Refresh all files data to ensure consistency
+                    setTimeout(() => {
+                      fetchFiles();
+                      queryClient.invalidateQueries({ queryKey: folderFilesKey });
+                    }, 300);
+                  })
+                  .catch(error => {
+                    console.error("Error moving file to folder:", error);
+                    // Show error and revert UI changes
+                    toast({
+                      title: "Error",
+                      description: "Failed to move file to folder",
+                      variant: "destructive",
+                      duration: 3000
+                    });
+                    // Refresh data to revert visual changes
+                    fetchFiles();
+                  });
+              }
+            } else {
+              // Fallback if we don't have the current files in cache
+              addFileToFolder(fileIdNum, folder.id)
+                .then(() => {
+                  toast({
+                    title: "File moved",
+                    description: "File successfully moved to folder",
+                    duration: 3000
+                  });
+                  fetchFiles();
+                })
+                .catch(error => {
+                  console.error("Error moving file to folder:", error);
+                  toast({
+                    title: "Error",
+                    description: "Failed to move file to folder",
+                    variant: "destructive",
+                    duration: 3000
+                  });
                 });
-              });
+            }
           }
         } catch (error) {
           console.error("Error processing drop:", error);
@@ -764,11 +827,11 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         
         console.log(`📁 Bestand met ID ${fileId} gedropt op open map ${folder.id}`);
         
-        // Voeg het bestand toe aan deze map
+        // Immediately update UI for instant feedback
         try {
           const fileIdNumber = parseInt(fileId);
           if (!isNaN(fileIdNumber)) {
-            // Roep de add-to-folder API aan
+            // Show visual feedback
             onSelectFile({
               id: fileIdNumber,
               name: "Moving file...",
@@ -778,10 +841,69 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
               position: { x: 0, y: 0 }
             });
             
-            // Gebruik addFileToFolder functie die via useDesktopFiles is geïmporteerd
-            // Dit heeft toegang tot de backend API om bestanden aan mappen toe te voegen
-            if (folder.id !== undefined) {
-              addFileToFolder(fileIdNumber, folder.id);
+            // Instant visual update
+            const desktopFiles = queryClient.getQueryData<{files: DesktopFile[]}>(['/api/files']);
+            if (desktopFiles?.files) {
+              // Find the file that's being moved
+              const fileIndex = desktopFiles.files.findIndex(f => f.id === fileIdNumber);
+              
+              if (fileIndex >= 0) {
+                // Clone the files array to avoid mutating the cache directly
+                const updatedFiles = [...desktopFiles.files];
+                const movedFile = {...updatedFiles[fileIndex]};
+                
+                // Update the file's parentId to the folder's ID
+                movedFile.parentId = folder.id;
+                
+                // Remove the file from desktop view immediately
+                updatedFiles.splice(fileIndex, 1);
+                
+                // Update the cache with the file removed from desktop
+                queryClient.setQueryData(['/api/files'], {
+                  files: updatedFiles
+                });
+                
+                // Get folder contents and add the file there
+                const folderFilesKey = [`/api/folders/${folder.id}/files`];
+                const folderContents = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey) || {files: []};
+                
+                // Update folder contents cache immediately
+                queryClient.setQueryData(folderFilesKey, {
+                  files: [...folderContents.files, movedFile]
+                });
+                
+                // Show success toast
+                toast({
+                  title: "File moved",
+                  description: `File added to ${folder.name}`,
+                  duration: 2000
+                });
+                
+                // Then make the actual API call to update the database
+                if (folder.id !== undefined) {
+                  addFileToFolder(fileIdNumber, folder.id)
+                    .then(() => {
+                      console.log("✅ Database updated to match UI");
+                    })
+                    .catch(error => {
+                      console.error("Error moving file to folder:", error);
+                      // Show error and revert the visual changes
+                      toast({
+                        title: "Error",
+                        description: "Failed to move file to folder",
+                        variant: "destructive",
+                        duration: 3000
+                      });
+                      // Refresh to revert visual changes
+                      fetchFiles();
+                    });
+                }
+              }
+            } else {
+              // Fallback to direct API call if we don't have cache data
+              if (folder.id !== undefined) {
+                addFileToFolder(fileIdNumber, folder.id);
+              }
             }
           }
         } catch (error) {
