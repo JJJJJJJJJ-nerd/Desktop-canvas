@@ -18,6 +18,7 @@ export interface DesktopFile {
   isFolder?: string;
   parentId?: number;
   children?: DesktopFile[];
+  className?: string; // Voor animatie en styling
 }
 
 export interface FileIconInfo {
