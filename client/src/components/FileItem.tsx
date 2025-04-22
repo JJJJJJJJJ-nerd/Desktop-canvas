@@ -152,6 +152,41 @@ export function FileItem({
       if (file.id) {
         console.log(`🖱️ DRAG START: Started dragging ${file.isFolder === 'true' ? 'folder' : 'file'} ${file.name} (ID: ${file.id})`);
         
+        // Belangrijk: zet een ghost image voor de drag-operatie
+        // Dit zorgt ervoor dat er altijd iets zichtbaar is tijdens het slepen
+        const dragGhost = document.createElement('div');
+        dragGhost.classList.add('drag-ghost');
+        dragGhost.innerHTML = `
+          <div style="
+            padding: 10px; 
+            background: rgba(255,255,255,0.9); 
+            border: 2px solid #4f46e5;
+            border-radius: 6px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            font-size: 12px;
+            max-width: 150px;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+          ">
+            ${file.name}
+          </div>
+        `;
+        
+        document.body.appendChild(dragGhost);
+        
+        // Zet de drag ghost op een onzichtbare plek
+        dragGhost.style.position = 'absolute';
+        dragGhost.style.top = '-1000px';
+        dragGhost.style.left = '-1000px';
+        
+        // Stel de drag ghost in als beeld
+        e.dataTransfer.setDragImage(dragGhost, 75, 25);
+        
+        setTimeout(() => {
+          document.body.removeChild(dragGhost);
+        }, 0);
+        
         // Set the dragged file ID as data
         e.dataTransfer.setData('text/plain', file.id.toString());
         e.dataTransfer.effectAllowed = 'move';
@@ -161,8 +196,11 @@ export function FileItem({
         window.draggedFileInfo = {
           id: file.id,
           name: file.name,
-          isFolder: file.isFolder === 'true'
+          isFolder: file.isFolder === 'true',
+          startTime: Date.now() // Toevoegen voor tracking
         };
+        
+        console.log(`⭐ GLOBALE DRAG DATA INGESTELD: Bestand ${file.name} (ID: ${file.id}) wordt nu gesleept`);
         
         // Add class to show we're dragging
         if (e.currentTarget) {

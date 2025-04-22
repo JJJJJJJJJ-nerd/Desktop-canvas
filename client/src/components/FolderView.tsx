@@ -53,7 +53,22 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     // Set dropEffect to 'move' to indicate this is a valid drop target
     e.dataTransfer.dropEffect = 'move';
 
-    console.log('🔍 Open folder drag over event triggered', { folderId: folder.id, folderName: folder.name });
+    console.log('🔍 Open folder drag over event triggered', { 
+      folderId: folder.id, 
+      folderName: folder.name,
+      x: e.clientX,
+      y: e.clientY,
+      target: e.target,
+      currentTarget: e.currentTarget,
+      dataTransfer: e.dataTransfer.types
+    });
+    
+    // Probeer de file ID te krijgen die wordt gesleept
+    // @ts-ignore - Custom property
+    if (window.draggedFileInfo && window.draggedFileInfo.id) {
+      // @ts-ignore - Custom property
+      console.log(`🔍 Bestand met ID ${window.draggedFileInfo.id} wordt over map ${folder.name} gesleept`);
+    }
 
     // Setup global tracking of open folder - this is the MOST IMPORTANT part
     if (folder.id) {
