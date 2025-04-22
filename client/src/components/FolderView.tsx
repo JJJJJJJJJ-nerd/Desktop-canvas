@@ -427,11 +427,16 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       {/* Window content */}
       <div 
         ref={dropAreaRef}
-        className={`p-4 h-[calc(100%-40px)] overflow-auto ${isDraggingOver ? 'bg-green-100/80 ring-2 ring-green-500/50 ring-inset animate-pulse' : ''}`}
+        className={`p-4 h-[calc(100%-40px)] overflow-auto ${
+          isDraggingOver ? 'bg-green-100/60 ring-2 ring-green-500/60 ring-inset backdrop-blur-sm transition-all duration-200' : 'transition-all duration-200'
+        }`}
         onDragOver={!isSelectMode ? handleDragOver : undefined}
         onDragLeave={!isSelectMode ? handleDragLeave : undefined}
         onDrop={!isSelectMode ? handleDrop : undefined}
-        style={{ zIndex: 200 }} // Higher z-index to ensure it's above all files being dragged
+        style={{ 
+          zIndex: 200, // Higher z-index to ensure it's above all files being dragged
+          boxShadow: isDraggingOver ? 'inset 0 0 20px rgba(34, 197, 94, 0.4)' : 'none'
+        }}
       >
         {isLoading ? (
           <div className="flex items-center justify-center h-full">

@@ -213,6 +213,23 @@ export function FileItem({
           if (!isDragOver) {
             setIsDragOver(true);
             console.log(`📂 DRAG OVER: File ${draggedInfo.name} (ID: ${draggedInfo.id}) is hovering over folder ${file.name} (ID: ${file.id})`);
+            
+            // Also set up the global folder tracking
+            if (file.isFolder === 'true') {
+              // @ts-ignore - Custom property
+              window._hoverFolderId = file.id;
+              
+              // Also update the activeDropFolder property for consistency with open folders
+              // @ts-ignore - Custom property
+              window._activeDropFolder = {
+                id: file.id,
+                name: file.name,
+                element: fileRef.current,
+                timestamp: Date.now()
+              };
+              
+              console.log(`✓ FOLDER READY: Closed folder ${file.name} (ID: ${file.id}) is now ready to receive files`);
+            }
           }
         }
       }
@@ -220,13 +237,45 @@ export function FileItem({
     onDragLeave: (e: React.DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      setIsDragOver(false);
-      console.log(`📂 DRAG LEFT: Cursor left folder ${file.name}`);
+      
+      // We need to check if we're truly leaving the folder or just entering a child element
+      // to prevent flickering when moving around
+      setTimeout(() => {
+        setIsDragOver(false);
+        console.log(`📂 DRAG LEFT: Cursor left folder ${file.name}`);
+        
+        // Clear the hover folder IDs when truly leaving
+        if (file.isFolder === 'true' && file.id) {
+          // @ts-ignore - Custom property
+          if (window._hoverFolderId === file.id) {
+            // @ts-ignore - Custom property
+            window._hoverFolderId = undefined;
+          }
+          
+          // Also clear the activeDropFolder property
+          // @ts-ignore - Custom property
+          if (window._activeDropFolder?.id === file.id) {
+            console.log(`❌ CLEARING DROP TARGET: Folder ${file.name} is no longer a drop target`);
+            // @ts-ignore - Custom property
+            window._activeDropFolder = undefined;
+          }
+        }
+      }, 50); // Small delay to ensure we're not just moving between child elements
     },
     onDrop: async (e: React.DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
       setIsDragOver(false);
+      
+      console.log(`🎯 DROP SUCCESS: File dropped into folder ${file.name} (ID: ${file.id})`);
+      
+      // Clear all folder hover tracking
+      // @ts-ignore - Custom property
+      window._activeDropFolder = undefined;
+      // @ts-ignore - Custom property
+      window._hoverFolderId = undefined;
+      // @ts-ignore - Custom property for backward compatibility
+      window._openFolderHoverId = undefined;
       
       if (file.id) {
         const data = e.dataTransfer.getData('text/plain');

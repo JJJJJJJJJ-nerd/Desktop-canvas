@@ -5,16 +5,24 @@
 /* Custom animations */
 @keyframes teleport {
   0% {
-    transform: scale(1);
+    transform: scale(1) translate(0, 0);
     opacity: 1;
+    filter: brightness(1);
   }
-  50% {
-    transform: scale(0.6);
+  30% {
+    transform: scale(0.8) translate(0, -10px);
+    opacity: 0.9;
+    filter: brightness(1.4);
+  }
+  60% {
+    transform: scale(0.5) translate(0, -8px);
     opacity: 0.7;
+    filter: brightness(1.2);
   }
   100% {
-    transform: scale(0);
+    transform: scale(0) translate(0, 0);
     opacity: 0;
+    filter: brightness(1);
   }
 }
 
@@ -22,14 +30,22 @@
   0% {
     transform: scale(1);
     box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+    background-color: rgba(220, 252, 231, 0.2);
   }
-  50% {
-    transform: scale(1.05);
-    box-shadow: 0 0 0 15px rgba(34, 197, 94, 0.5);
+  30% {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 18px rgba(34, 197, 94, 0.6);
+    background-color: rgba(187, 247, 208, 0.8);
+  }
+  70% {
+    transform: scale(1.04);
+    box-shadow: 0 0 0 10px rgba(34, 197, 94, 0.4);
+    background-color: rgba(187, 247, 208, 0.5);
   }
   100% {
     transform: scale(1);
     box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+    background-color: rgba(220, 252, 231, 0);
   }
 }
 
@@ -37,14 +53,17 @@
   0% {
     transform: scale(1);
     box-shadow: 0 0 5px 1px rgba(34, 197, 94, 0.5);
+    background-color: rgba(220, 252, 231, 0.5);
   }
   50% {
-    transform: scale(1.02);
-    box-shadow: 0 0 8px 3px rgba(34, 197, 94, 0.7);
+    transform: scale(1.03);
+    box-shadow: 0 0 10px 5px rgba(34, 197, 94, 0.7);
+    background-color: rgba(187, 247, 208, 0.7);
   }
   100% {
     transform: scale(1);
     box-shadow: 0 0 5px 1px rgba(34, 197, 94, 0.5);
+    background-color: rgba(220, 252, 231, 0.5);
   }
 }
 
