@@ -158,9 +158,13 @@
   }
   
   /* Styling voor bestanden/mappen die worden gesleept */
+  .opacity-50 {
+    opacity: 0.5 !important;
+  }
+  
   .dragging-element {
     z-index: 9000 !important; /* Extra hoge z-index om boven alles te blijven */
-    opacity: 0.85;
+    opacity: 0.8;
     transform: scale(1.05);
     transition: none !important;
     box-shadow: 0 0 15px rgba(0, 0, 0, 0.2) !important;
