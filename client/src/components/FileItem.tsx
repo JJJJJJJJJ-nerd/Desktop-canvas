@@ -152,36 +152,35 @@ export function FileItem({
       if (file.id) {
         console.log(`🖱️ DRAG START: Started dragging ${file.isFolder === 'true' ? 'folder' : 'file'} ${file.name} (ID: ${file.id})`);
         
-        // Belangrijk: zet een ghost image voor de drag-operatie
-        // Dit zorgt ervoor dat er altijd iets zichtbaar is tijdens het slepen
-        const dragGhost = document.createElement('div');
-        dragGhost.classList.add('drag-ghost');
-        dragGhost.innerHTML = `
-          <div style="
-            padding: 10px; 
-            background: rgba(255,255,255,0.9); 
-            border: 2px solid #4f46e5;
-            border-radius: 6px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            font-size: 12px;
-            max-width: 150px;
-            overflow: hidden;
-            white-space: nowrap;
-            text-overflow: ellipsis;
-          ">
-            ${file.name}
-          </div>
-        `;
+        // Verbeterde drag image aanpak om stretching te voorkomen 
+        // Maak een exacte kloon van het element dat wordt gesleept
+        const originalRect = e.currentTarget.getBoundingClientRect();
+        const dragGhost = e.currentTarget.cloneNode(true) as HTMLElement;
         
+        // Bewaar de originele afmetingen en styling
+        dragGhost.style.width = `${originalRect.width}px`;
+        dragGhost.style.height = `${originalRect.height}px`;
+        dragGhost.style.position = 'fixed';
+        dragGhost.style.top = '0';
+        dragGhost.style.left = '0';
+        dragGhost.style.zIndex = '9999';
+        dragGhost.style.pointerEvents = 'none';
+        dragGhost.style.opacity = '0.8';
+        dragGhost.style.transformOrigin = '0 0';
+        dragGhost.style.boxShadow = '0 4px 10px rgba(0,0,0,0.3)';
+        dragGhost.style.backgroundColor = file.isFolder === 'true' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(255, 255, 255, 0.9)';
+        dragGhost.style.border = file.isFolder === 'true' ? '2px solid rgba(59, 130, 246, 0.6)' : '2px solid rgba(79, 70, 229, 0.6)';
+        
+        // Voeg toe aan document om als drag image te gebruiken
         document.body.appendChild(dragGhost);
         
-        // Zet de drag ghost op een onzichtbare plek
-        dragGhost.style.position = 'absolute';
-        dragGhost.style.top = '-1000px';
-        dragGhost.style.left = '-1000px';
-        
-        // Stel de drag ghost in als beeld
-        e.dataTransfer.setDragImage(dragGhost, 75, 25);
+        // Gebruik de drag ghost als afbeelding met correcte offset
+        // Dit voorkomt het 'stretching' probleem
+        e.dataTransfer.setDragImage(
+          dragGhost, 
+          e.clientX - originalRect.left,
+          e.clientY - originalRect.top
+        );
         
         setTimeout(() => {
           document.body.removeChild(dragGhost);

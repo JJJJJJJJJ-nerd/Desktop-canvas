@@ -807,6 +807,42 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                   if (file.id) {
                     e.dataTransfer.setData('text/plain', file.id.toString());
                     e.dataTransfer.effectAllowed = 'move';
+                    
+                    // Verbeterde drag image aanpak om stretching te voorkomen 
+                    const originalRect = e.currentTarget.getBoundingClientRect();
+                    const dragGhost = e.currentTarget.cloneNode(true) as HTMLElement;
+                    
+                    // Bewaar de originele afmetingen en styling
+                    dragGhost.style.width = `${originalRect.width}px`;
+                    dragGhost.style.height = `${originalRect.height}px`;
+                    dragGhost.style.position = 'fixed';
+                    dragGhost.style.top = '0';
+                    dragGhost.style.left = '0';
+                    dragGhost.style.zIndex = '9999';
+                    dragGhost.style.pointerEvents = 'none';
+                    dragGhost.style.opacity = '0.8';
+                    dragGhost.style.transform = 'none'; // Reset transformaties
+                    dragGhost.style.transformOrigin = '0 0';
+                    dragGhost.style.boxShadow = '0 4px 10px rgba(0,0,0,0.3)';
+                    dragGhost.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+                    dragGhost.style.border = '2px solid rgba(79, 70, 229, 0.6)';
+                    
+                    // Voeg toe aan document om als drag image te gebruiken
+                    document.body.appendChild(dragGhost);
+                    
+                    // Gebruik de drag ghost als afbeelding met correcte offset
+                    // Dit voorkomt het 'stretching' probleem
+                    e.dataTransfer.setDragImage(
+                      dragGhost, 
+                      e.clientX - originalRect.left,
+                      e.clientY - originalRect.top
+                    );
+                    
+                    // Verwijder na korte vertraging (genoeg voor dataTransfer)
+                    setTimeout(() => {
+                      document.body.removeChild(dragGhost);
+                    }, 0);
+                    
                     // Add class to show we're dragging with consistent styling
                     e.currentTarget.classList.add('opacity-50');
                     
