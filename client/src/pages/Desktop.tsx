@@ -392,6 +392,76 @@ export default function Desktop() {
     }
   }, [draggingFileId, folderRefs]);
   
+  // NIEUWE GLOBALE MUISPOSITIE-TRACKER - WERKT TIJDENS SLEPEN
+  useEffect(() => {
+    const handleGlobalMouseTracking = (e: MouseEvent) => {
+      // @ts-ignore - Custom window property
+      if (window.draggedFileInfo && window.draggedFileInfo.id) {
+        // Sla huidige muispositie op
+        const mousePosition = { x: e.clientX, y: e.clientY };
+        
+        // Controleer alle open mappen
+        const openFolderWindows = document.querySelectorAll('[id^="folder-window-"]');
+        let foundOverlappingFolder = false;
+        
+        openFolderWindows.forEach((folderElement) => {
+          if (!(folderElement instanceof HTMLElement)) return;
+          
+          // Haal folder ID uit element ID (format: folder-window-{id})
+          const folderId = parseInt(folderElement.id.replace('folder-window-', ''));
+          // @ts-ignore - Check voor gelijk ID om slepen naar zichzelf te voorkomen
+          if (folderId === window.draggedFileInfo.id) return;
+          
+          const rect = folderElement.getBoundingClientRect();
+          const isInside = 
+            mousePosition.x >= rect.left && 
+            mousePosition.x <= rect.right && 
+            mousePosition.y >= rect.top && 
+            mousePosition.y <= rect.bottom;
+          
+          if (isInside) {
+            foundOverlappingFolder = true;
+            console.log(`🎯🎯 BELANGRIJKE DETECTIE: Gesleept bestand bevindt zich boven open map ${folderId}`);
+            
+            // Voeg highlight class toe aan dit element
+            folderElement.classList.add('folder-highlight-dragover');
+            
+            // Sla informatie op over actieve drop target
+            // @ts-ignore - Custom window property
+            window._activeDropFolder = {
+              id: folderId,
+              element: folderElement,
+              timestamp: Date.now()
+            };
+            
+            // @ts-ignore - Voor backward compatibility
+            window._openFolderHoverId = folderId;
+          } else {
+            // Verwijder highlight als we deze map verlaten
+            folderElement.classList.remove('folder-highlight-dragover');
+            
+            // @ts-ignore - Custom window property
+            if (window._activeDropFolder?.id === folderId) {
+              // @ts-ignore - Custom window property
+              window._activeDropFolder = undefined;
+              // @ts-ignore - Custom window property for backward compatibility
+              window._openFolderHoverId = undefined;
+            }
+          }
+        });
+        
+        // Debug logging voor het bijhouden van overlaps
+        if (foundOverlappingFolder) {
+          console.log('🎯 Overlap gedetecteerd met open map!');
+        }
+      }
+    };
+    
+    // Voeg event listener toe en ruim op - ALTIJD ACTIEF
+    document.addEventListener('mousemove', handleGlobalMouseTracking);
+    return () => document.removeEventListener('mousemove', handleGlobalMouseTracking);
+  }, []);
+  
   // Listen for global mouse movement when dragging
   useEffect(() => {
     if (draggingFileId) {
