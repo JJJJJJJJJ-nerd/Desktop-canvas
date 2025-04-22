@@ -28,9 +28,6 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   const [files, setFiles] = useState<DesktopFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  
-  // Voor referentie tracking
-  const folderContainerRef = useRef<HTMLDivElement>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isSelectMode, setIsSelectMode] = useState(false);
   
@@ -362,24 +359,6 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     }
   }, [folder.id]);
   
-  // Registreer de folder voor de Desktop component zodat we kunnen detecteren wanneer bestanden eroverheen worden gesleept
-  useEffect(() => {
-    // Probeer de registerOpenFolder functie uit de window te halen (wordt door Desktop component toegevoegd)
-    // @ts-ignore - Custom property die door Desktop component wordt toegevoegd
-    const registerFunc = window.registerOpenFolder;
-    
-    if (typeof registerFunc === 'function' && folder.id && folderContainerRef.current) {
-      console.log(`📝 Registreer map ${folder.name} (ID: ${folder.id}) voor drop detectie`);
-      registerFunc(folder.id, folderContainerRef.current);
-      
-      return () => {
-        // Cleanup bij unmount
-        console.log(`🗑️ De-registreer map ${folder.name} (ID: ${folder.id})`);
-        registerFunc(folder.id, null);
-      };
-    }
-  }, [folder.id, folder.name]);
-  
   // Extra effect voor drag tracking
   useEffect(() => {
     // Functie voor het tracken van drag over de map
@@ -539,7 +518,6 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
 
   return (
     <div 
-      ref={folderContainerRef}
       className={`absolute bg-white/95 backdrop-blur-md rounded-lg shadow-xl overflow-hidden ${
         isDraggingOver ? 'ring-2 ring-green-500 bg-green-50/40' : ''
       }`}
@@ -807,53 +785,6 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                   if (file.id) {
                     e.dataTransfer.setData('text/plain', file.id.toString());
                     e.dataTransfer.effectAllowed = 'move';
-                    
-                    // Compleet nieuwe aanpak: we maken een volledig eigen drag image
-                    // in plaats van een kloon te gebruiken
-                    const dragGhost = document.createElement('div');
-                    
-                    // File styling
-                    dragGhost.innerHTML = `
-                      <div style="
-                        padding: 15px; 
-                        background-color: rgba(255, 255, 255, 0.95);
-                        border: 2px solid rgba(99, 102, 241, 0.7);
-                        border-radius: 8px;
-                        box-shadow: 0 6px 16px rgba(0,0,0,0.2);
-                        display: flex;
-                        align-items: center;
-                        gap: 8px;
-                      ">
-                        <div style="color: #4f46e5;">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
-                            <polyline points="14 2 14 8 20 8"/>
-                          </svg>
-                        </div>
-                        <span style="
-                          font-size: 14px;
-                          font-weight: 500;
-                          color: #4338ca;
-                          font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                        ">${file.name}</span>
-                      </div>
-                    `;
-                    
-                    // Positionering
-                    document.body.appendChild(dragGhost);
-                    dragGhost.style.position = 'absolute';
-                    dragGhost.style.zIndex = '9999';
-                    dragGhost.style.top = '-1000px';
-                    dragGhost.style.left = '-1000px';
-                    
-                    // Stel een vaste offset in om het natuurlijker te maken
-                    e.dataTransfer.setDragImage(dragGhost, 40, 20);
-                    
-                    // Verwijder na korte vertraging (genoeg voor dataTransfer)
-                    setTimeout(() => {
-                      document.body.removeChild(dragGhost);
-                    }, 0);
-                    
                     // Add class to show we're dragging with consistent styling
                     e.currentTarget.classList.add('opacity-50');
                     

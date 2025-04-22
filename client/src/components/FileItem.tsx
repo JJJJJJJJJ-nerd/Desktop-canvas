@@ -152,76 +152,36 @@ export function FileItem({
       if (file.id) {
         console.log(`🖱️ DRAG START: Started dragging ${file.isFolder === 'true' ? 'folder' : 'file'} ${file.name} (ID: ${file.id})`);
         
-        // Compleet nieuwe aanpak: we maken een volledig eigen drag image
-        // in plaats van een kloon te gebruiken
+        // Belangrijk: zet een ghost image voor de drag-operatie
+        // Dit zorgt ervoor dat er altijd iets zichtbaar is tijdens het slepen
         const dragGhost = document.createElement('div');
+        dragGhost.classList.add('drag-ghost');
+        dragGhost.innerHTML = `
+          <div style="
+            padding: 10px; 
+            background: rgba(255,255,255,0.9); 
+            border: 2px solid #4f46e5;
+            border-radius: 6px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            font-size: 12px;
+            max-width: 150px;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+          ">
+            ${file.name}
+          </div>
+        `;
         
-        // Aparte styling voor mappen en bestanden
-        if (file.isFolder === 'true') {
-          // Folder styling
-          dragGhost.innerHTML = `
-            <div style="
-              padding: 15px; 
-              background-color: rgba(59, 130, 246, 0.1);
-              border: 2px solid rgba(59, 130, 246, 0.7);
-              border-radius: 8px;
-              box-shadow: 0 6px 16px rgba(0,0,0,0.2);
-              display: flex;
-              align-items: center;
-              gap: 8px;
-            ">
-              <div style="color: #3b82f6;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M2 9V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1"/>
-                  <path d="M2 13h10v8H4a2 2 0 0 1-2-2v-6z"/>
-                </svg>
-              </div>
-              <span style="
-                font-size: 14px;
-                font-weight: 500;
-                color: #1e40af;
-                font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              ">${file.name}</span>
-            </div>
-          `;
-        } else {
-          // File styling
-          dragGhost.innerHTML = `
-            <div style="
-              padding: 15px; 
-              background-color: rgba(255, 255, 255, 0.95);
-              border: 2px solid rgba(99, 102, 241, 0.7);
-              border-radius: 8px;
-              box-shadow: 0 6px 16px rgba(0,0,0,0.2);
-              display: flex;
-              align-items: center;
-              gap: 8px;
-            ">
-              <div style="color: #4f46e5;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                </svg>
-              </div>
-              <span style="
-                font-size: 14px;
-                font-weight: 500;
-                color: #4338ca;
-                font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              ">${file.name}</span>
-            </div>
-          `;
-        }
-        
-        // Positionering
         document.body.appendChild(dragGhost);
+        
+        // Zet de drag ghost op een onzichtbare plek
         dragGhost.style.position = 'absolute';
-        dragGhost.style.zIndex = '9999';
         dragGhost.style.top = '-1000px';
         dragGhost.style.left = '-1000px';
         
-        // Stel een vaste offset in om het natuurlijker te maken
-        e.dataTransfer.setDragImage(dragGhost, 40, 20);
+        // Stel de drag ghost in als beeld
+        e.dataTransfer.setDragImage(dragGhost, 75, 25);
         
         setTimeout(() => {
           document.body.removeChild(dragGhost);
