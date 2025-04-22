@@ -1201,22 +1201,75 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                     
                     console.log(`🖱️ Positie voor bestand: ${mousePosition.x}, ${mousePosition.y}`);
                     
-                    // Verwijderen uit huidige map en positie doorgeven
-                    removeFileFromFolder(file.id, mousePosition)
-                      .then(() => {
-                        // Toast melding tonen
-                        toast({
-                          title: "Bestand verplaatst",
-                          description: `"${file.name}" is verplaatst naar het bureaublad op de exacte positie waar je het losliet.`,
-                        });
+                    // Directe UI update, dan pas database aanpassen
+                    try {
+                      // 1. Update folder contents cache
+                      const folderFilesKey = [`/api/folders/${folder.id}/files`];
+                      const folderContents = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey);
+                      
+                      if (folderContents?.files) {
+                        // Find the file being removed
+                        const fileIndex = folderContents.files.findIndex(f => f.id === file.id);
                         
-                        // Vernieuwen van desktop bestanden
-                        queryClient.invalidateQueries({ queryKey: ['/api/files'] });
-                        
-                        // Ook de mapinhoud vernieuwen
-                        fetchFiles();
-                      })
-                      .catch(err => console.error('Fout bij verplaatsen bestand naar bureaublad:', err));
+                        if (fileIndex >= 0) {
+                          // Get a copy of the file
+                          const removedFile = {...folderContents.files[fileIndex]};
+                          // Remove from folder view immediately
+                          const updatedFolderFiles = [...folderContents.files];
+                          updatedFolderFiles.splice(fileIndex, 1);
+                          
+                          // Update folder contents cache immediately
+                          queryClient.setQueryData(folderFilesKey, {
+                            files: updatedFolderFiles
+                          });
+                          
+                          // 2. Add file back to desktop with the correct position
+                          const desktopFiles = queryClient.getQueryData<{files: DesktopFile[]}>(['/api/files']);
+                          if (desktopFiles?.files) {
+                            // Add to desktop with new position and no parentId
+                            const updatedFile = {
+                              ...removedFile,
+                              position: mousePosition,
+                              parentId: undefined
+                            };
+                            
+                            // Update desktop files cache immediately
+                            queryClient.setQueryData(['/api/files'], {
+                              files: [...desktopFiles.files, updatedFile]
+                            });
+                            
+                            // Show toast immediately
+                            toast({
+                              title: "Bestand verplaatst",
+                              description: `"${file.name}" is direct verplaatst naar het bureaublad.`,
+                              duration: 2000
+                            });
+                            
+                            // THEN update the database
+                            removeFileFromFolderMutation.mutate({
+                              fileId: file.id, 
+                              position: mousePosition,
+                              parentId: folder.id
+                            });
+                          }
+                        }
+                      }
+                    } catch (error) {
+                      console.error("Error updating UI before database:", error);
+                      
+                      // Fallback to direct API call if cache update fails
+                      removeFileFromFolder(file.id, mousePosition)
+                        .then(() => {
+                          toast({
+                            title: "Bestand verplaatst",
+                            description: `"${file.name}" is verplaatst naar het bureaublad.`,
+                          });
+                          
+                          queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+                          fetchFiles();
+                        })
+                        .catch(err => console.error('Fout bij verplaatsen bestand naar bureaublad:', err));
+                    }
                   }
                   
                   // Clear global tracking
