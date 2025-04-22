@@ -5,6 +5,7 @@ import { X, FolderOpen, ArrowLeft, Upload, Check, Folder, MoveRight, FileX, Edit
 import { cn } from '@/lib/utils';
 import { queryClient } from '@/lib/queryClient';
 import { useDesktopFiles } from '@/hooks/use-desktop-files';
+import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -30,8 +31,11 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isSelectMode, setIsSelectMode] = useState(false);
   
-  // Gebruik de removeFileFromFolder functie uit de hook
-  const { removeFileFromFolder } = useDesktopFiles();
+  // Toast notificaties
+  const { toast } = useToast();
+  
+  // Gebruik de functies uit de hook
+  const { removeFileFromFolder, addFileToFolder } = useDesktopFiles();
   const [selectedFileIds, setSelectedFileIds] = useState<number[]>([]);
   const [externalFiles, setExternalFiles] = useState<DesktopFile[]>([]);
   
@@ -182,23 +186,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     }
   };
   
-  // Add file to folder
-  const addFileToFolder = async (fileId: number, folderId: number) => {
-    try {
-      const response = await fetch(`/api/folders/${folderId}/files/${fileId}`, {
-        method: 'POST',
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to add file to folder');
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error adding file to folder:', error);
-      throw error;
-    }
-  };
+  // We gebruiken nu de addFileToFolder functie uit de hook
 
   // Fetch files in the folder
   const fetchFiles = async () => {
@@ -647,8 +635,12 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                     window.draggedFileInfo = {
                       id: file.id,
                       name: file.name,
-                      isFolder: false
+                      isFolder: false,
+                      fromFolder: true,  // Markeer dat dit bestand uit een map komt
+                      parentFolderId: folder.id  // Bewaar de huidige map ID
                     };
+                    
+                    console.log(`📤 DRAG START vanuit map: Bestand ${file.name} (ID: ${file.id}) wordt gesleept uit map ${folder.name}`);
                   }
                 }}
                 onDragEnd={(e) => {
@@ -663,6 +655,12 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                     // Verwijderen uit huidige map
                     removeFileFromFolder(file.id)
                       .then(() => {
+                        // Toast melding tonen
+                        toast({
+                          title: "Bestand verplaatst",
+                          description: `"${file.name}" is verplaatst naar het bureaublad.`,
+                        });
+                        
                         // Vernieuwen van desktop bestanden
                         queryClient.invalidateQueries({ queryKey: ['/api/files'] });
                         
