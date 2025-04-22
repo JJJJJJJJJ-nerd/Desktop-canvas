@@ -159,10 +159,10 @@
   
   /* Styling voor bestanden/mappen die worden gesleept */
   .dragging-element {
-    pointer-events: none !important; /* Belangrijk om interactie met andere elementen toe te staan */
     z-index: 9000 !important; /* Extra hoge z-index om boven alles te blijven */
-    opacity: 0.8;
+    opacity: 0.85;
     transform: scale(1.05);
     transition: none !important;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.2) !important;
   }
 }

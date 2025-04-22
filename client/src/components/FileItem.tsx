@@ -291,9 +291,15 @@ export function FileItem({
               console.log(`📁 DROP DETECTED: File ${fileId} dropped into folder ${file.id} (${file.name})`);
               console.log(`📁 TELEPORTING: Beginning teleport animation for ${droppedFile?.name || 'unknown file'}...`);
               
-              // Don't allow dropping a folder into itself or any circular references
-              if (fileId === file.id || droppedFile?.isFolder === 'true') {
-                console.log('Cannot drop a folder into itself or another folder');
+              // Don't allow dropping a folder into itself (circular reference prevention)
+              if (fileId === file.id) {
+                console.log('Cannot drop a folder into itself');
+                return;
+              }
+              
+              // Alleen niet toestaan als de gesleepte item een map is (maar WEL bestanden in mappen toestaan)
+              if (droppedFile?.isFolder === 'true') {
+                console.log('Cannot drop a folder into another folder at this time');
                 return;
               }
               

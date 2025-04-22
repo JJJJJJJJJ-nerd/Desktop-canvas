@@ -653,13 +653,25 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                   if (file.id) {
                     e.dataTransfer.setData('text/plain', file.id.toString());
                     e.dataTransfer.effectAllowed = 'move';
-                    // Add a class to show we're dragging
-                    e.currentTarget.classList.add('opacity-50');
+                    // Add class to show we're dragging with consistent styling
+                    e.currentTarget.classList.add('dragging-element');
+                    
+                    // Set up global drag tracking
+                    // @ts-ignore - Custom property
+                    window.draggedFileInfo = {
+                      id: file.id,
+                      name: file.name,
+                      isFolder: false
+                    };
                   }
                 }}
                 onDragEnd={(e) => {
-                  // Remove the opacity class when drag ends
-                  e.currentTarget.classList.remove('opacity-50');
+                  // Remove the dragging class when drag ends
+                  e.currentTarget.classList.remove('dragging-element');
+                  
+                  // Clear global tracking
+                  // @ts-ignore - Custom property
+                  window.draggedFileInfo = undefined;
                 }}
               >
                 <FileItemPreview file={file} />
