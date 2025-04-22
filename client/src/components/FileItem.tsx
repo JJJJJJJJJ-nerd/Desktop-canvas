@@ -192,12 +192,19 @@ export function FileItem({
         e.dataTransfer.effectAllowed = 'move';
         
         // Store the currently dragged file ID in a global object for folder detection
+        // Enhanced with more information to improve folder drop detection
         // @ts-ignore - Adding custom property to window
         window.draggedFileInfo = {
           id: file.id,
           name: file.name,
           isFolder: file.isFolder === 'true',
-          startTime: Date.now() // Toevoegen voor tracking
+          startTime: Date.now(),
+          element: e.currentTarget, // Store the dragged element
+          initialPosition: { 
+            x: e.clientX, 
+            y: e.clientY 
+          },
+          dragImageSet: true
         };
         
         console.log(`⭐ GLOBALE DRAG DATA INGESTELD: Bestand ${file.name} (ID: ${file.id}) wordt nu gesleept`);

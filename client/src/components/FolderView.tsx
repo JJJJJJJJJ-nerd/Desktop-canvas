@@ -532,135 +532,149 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     };
   }, [folder.id, folder.name]);
   
-  // Implementeer een verbeterd dropsysteem voor mappen
+  // Add global mouse tracking for better folder drop detection
   useEffect(() => {
-    // Wacht even tot alles is gerenderd
-    setTimeout(() => {
+    // Wait until DOM has been rendered
+    const timeoutId = setTimeout(() => {
       const folderElement = document.getElementById(`folder-window-${folder.id}`);
-      if (folderElement) {
-        // Maak een permanente dropzone die alleen zichtbaar wordt tijdens slepen
-        const dropZone = document.createElement('div');
-        dropZone.id = `dropzone-${folder.id}`;
-        dropZone.className = 'folder-dropzone';
-        dropZone.innerHTML = `
-          <div class="flex items-center justify-center mb-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-              <path d="M12 11v6"></path>
-              <path d="m9 14 3 3 3-3"></path>
-            </svg>
-          </div>
-          <p class="text-green-700 font-medium text-sm text-center">Drop files here to move</p>
-          <p class="text-green-600/80 text-xs mt-1 text-center">Files will be instantly moved into this folder</p>
-        `;
+      if (!folderElement) return;
+      
+      // Create a visible drop indicator that appears when dragging
+      const dropIndicator = document.createElement('div');
+      dropIndicator.className = 'folder-dropzone';
+      dropIndicator.innerHTML = `
+        <div class="flex items-center justify-center mb-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            <path d="M12 11v6"></path>
+            <path d="m9 14 3 3 3-3"></path>
+          </svg>
+        </div>
+        <p class="text-green-700 font-medium text-sm text-center">Drop files here</p>
+      `;
+      
+      // Add the drop indicator to the folder window
+      folderElement.appendChild(dropIndicator);
+      
+      // Track mouse movements to detect when it's over this folder
+      const handleMouseMove = (e: MouseEvent) => {
+        // Only process if we're currently dragging a file
+        // @ts-ignore - Custom property for global tracking
+        if (!window.draggedFileInfo) return;
         
-        // Handle drag events voor deze dropzone
-        dropZone.addEventListener('dragover', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          e.dataTransfer!.dropEffect = 'move';
-          console.log(`🟢 DRAG OVER DROPZONE IN FOLDER: ${folder.name}`);
-        });
+        // Check if mouse is inside this folder's bounds
+        const rect = folderElement.getBoundingClientRect();
+        const isInside = 
+          e.clientX >= rect.left && 
+          e.clientX <= rect.right && 
+          e.clientY >= rect.top && 
+          e.clientY <= rect.bottom;
         
-        dropZone.addEventListener('drop', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          console.log(`⬇️ FILE DROPPED ON DROPZONE IN FOLDER: ${folder.name}`);
+        if (isInside) {
+          // Mouse is over this folder while dragging
+          dropIndicator.classList.add('active');
+          folderElement.classList.add('folder-highlight-dragover');
+          setIsDraggingOver(true);
           
-          const fileId = e.dataTransfer!.getData('text/plain');
-          if (!fileId) return;
+          // Mark this folder as current drop target
+          // @ts-ignore
+          window._currentDropTarget = {
+            id: folder.id,
+            element: folderElement
+          };
+        } else {
+          // Mouse is not over this folder
+          dropIndicator.classList.remove('active');
+          folderElement.classList.remove('folder-highlight-dragover');
           
-          // Pas animatie toe
-          dropZone.classList.remove('active');
-          
-          // Voeg bestand toe aan map
-          try {
-            const fileIdNumber = parseInt(fileId);
-            if (!isNaN(fileIdNumber) && typeof folder.id === 'number') {
-              // Gebruik de API functie met type check
-              addFileToFolder(fileIdNumber, folder.id).then(() => {
-                toast({
-                  title: "File moved",
-                  description: "File successfully moved to folder.",
-                  duration: 3000,
-                });
-                
-                // Vernieuwen van mapinhoud
-                fetchFiles();
-              });
-            }
-          } catch (error) {
-            console.error('Error adding file to folder:', error);
-          }
-        });
-        
-        // Voeg de dropzone toe aan de map
-        folderElement.appendChild(dropZone);
-        
-        // Stel een globale event listener in om bestandsleep te detecteren
-        // Dit is een veel betrouwbaardere methode dan de native drag events
-        const documentMouseMoveHandler = (e: MouseEvent) => {
-          // @ts-ignore - Custom property
-          if (window.draggedFileInfo && window.draggedFileInfo.id) {
-            // Als we een bestand slepen, controleer of de muispositie boven deze map is
-            const folderRect = folderElement.getBoundingClientRect();
-            
-            // Controleer of de muis binnen de grenzen van de map is
-            if (
-              e.clientX >= folderRect.left && 
-              e.clientX <= folderRect.right && 
-              e.clientY >= folderRect.top && 
-              e.clientY <= folderRect.bottom
-            ) {
-              // Muis is boven deze map tijdens het slepen
-              console.log(`🔵 Drag detected over folder ${folder.name} via mousemove`);
-              
-              // Markeer deze map als actieve droptarget
-              // @ts-ignore - Custom property
-              window._activeDropFolder = {
-                id: folder.id,
-                element: folderElement,
-                timestamp: Date.now()
-              };
-              
-              // Toon visuele feedback
-              folderElement.classList.add('folder-highlight-dragover');
-              dropZone.classList.add('active');
-              setIsDraggingOver(true);
-            } else {
-              // Verwijder markering als de muis deze map verlaat
-              // @ts-ignore - Custom property
-              if (window._activeDropFolder?.id === folder.id) {
-                // @ts-ignore - Custom property
-                window._activeDropFolder = null;
-              }
-              
-              // Verwijder visuele feedback
-              folderElement.classList.remove('folder-highlight-dragover');
-              dropZone.classList.remove('active');
-              setIsDraggingOver(false);
-            }
-          } else {
-            // Er wordt niets gesleept, zorg ervoor dat alle visuele effecten zijn verwijderd
-            folderElement.classList.remove('folder-highlight-dragover');
-            dropZone.classList.remove('active');
+          // Only reset the current target if it was this folder
+          // @ts-ignore
+          if (window._currentDropTarget?.id === folder.id) {
+            // @ts-ignore
+            window._currentDropTarget = null;
             setIsDraggingOver(false);
           }
-        };
+        }
+      };
+      
+      // Handle drop events on the whole folder window
+      const handleDrop = (e: DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
         
-        // Voeg de global mouse event toe
-        document.addEventListener('mousemove', documentMouseMoveHandler);
+        dropIndicator.classList.remove('active');
+        folderElement.classList.remove('folder-highlight-dragover');
+        setIsDraggingOver(false);
         
-        // Cleanup
-        return () => {
-          document.removeEventListener('mousemove', documentMouseMoveHandler);
-          if (folderElement.contains(dropZone)) {
-            folderElement.removeChild(dropZone);
+        // Get the file ID from the drag data
+        if (!e.dataTransfer) return;
+        
+        const fileId = e.dataTransfer.getData('text/plain');
+        if (!fileId) return;
+        
+        // Add the file to this folder
+        try {
+          const fileIdNum = parseInt(fileId);
+          if (!isNaN(fileIdNum) && typeof folder.id === 'number') {
+            // Show visual feedback
+            onSelectFile({
+              id: fileIdNum,
+              name: "Moving file...",
+              type: "placeholder",
+              size: 0,
+              dataUrl: "",
+              position: { x: 0, y: 0 }
+            });
+            
+            // Call the API to move the file
+            addFileToFolder(fileIdNum, folder.id)
+              .then(() => {
+                toast({
+                  title: "File moved",
+                  description: "File successfully moved to folder",
+                  duration: 3000
+                });
+                fetchFiles();
+              })
+              .catch(error => {
+                console.error("Error moving file to folder:", error);
+                toast({
+                  title: "Error",
+                  description: "Failed to move file to folder",
+                  variant: "destructive",
+                  duration: 3000
+                });
+              });
           }
-        };
-      }
+        } catch (error) {
+          console.error("Error processing drop:", error);
+        }
+      };
+      
+      // Add event listeners
+      document.addEventListener('mousemove', handleMouseMove);
+      folderElement.addEventListener('drop', handleDrop);
+      folderElement.addEventListener('dragover', e => {
+        e.preventDefault(); 
+        if (e.dataTransfer) {
+          e.dataTransfer.dropEffect = 'move';
+        }
+      });
+      
+      // Clean up when component unmounts
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        folderElement.removeEventListener('drop', handleDrop);
+        folderElement.removeEventListener('dragover', e => e.preventDefault());
+        
+        if (folderElement.contains(dropIndicator)) {
+          folderElement.removeChild(dropIndicator);
+        }
+      };
     }, 300);
-  }, [folder.id, folder.name, addFileToFolder, fetchFiles, toast]);
+    
+    return () => clearTimeout(timeoutId);
+  }, [folder.id, folder.name, addFileToFolder, fetchFiles, onSelectFile, toast]);
 
   return (
     <div 
