@@ -371,7 +371,39 @@ export default function Desktop() {
       setActiveOverlap(null);
     }
     
-    // Check if we're over a folder (using our custom window property)
+    // Check if we're over an open folder window
+    // @ts-ignore - Custom property
+    const openFolderHoverId = window._openFolderHoverId;
+    if (openFolderHoverId && fileId) {
+      try {
+        console.log(`📂 Moving file ${fileId} into open folder window ${openFolderHoverId}`);
+        
+        // Call the API to add the file to the folder
+        await addFileToFolder(fileId, openFolderHoverId);
+        
+        // Clear the open folder hover ID
+        // @ts-ignore - Custom property
+        window._openFolderHoverId = undefined;
+        
+        // Show success message
+        toast({
+          title: "File moved",
+          description: "File was moved to folder successfully.",
+          variant: "success"
+        });
+        
+        return; // Skip position update since file is now in a folder
+      } catch (error) {
+        console.error('Error moving file to open folder:', error);
+        toast({
+          title: "Error",
+          description: "Failed to move file to folder.",
+          variant: "destructive"
+        });
+      }
+    }
+    
+    // Check if we're over a closed folder (using our custom window property)
     // @ts-ignore - Custom window property
     const hoverFolderId = window._hoverFolderId;
     if (hoverFolderId && fileId) {
