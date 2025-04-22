@@ -1246,46 +1246,25 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                         if (fileIndex >= 0) {
                           // Get a copy of the file
                           const removedFile = {...folderContents.files[fileIndex]};
-                          // Voeg animatie klasse toe aan het element voor het verdwijnen
-                          try {
-                            // Find the DOM element for this file using its ID
-                            const fileElement = document.querySelector(`[data-file-id="${file.id}"]`);
-                            if (fileElement) {
-                              // Add the teleport-out animation class
-                              fileElement.classList.add('file-teleport-out');
-                              
-                              // Give animation time to play (shorter than actual animation time)
-                              setTimeout(() => {
-                                // Remove from folder view after short animation
-                                const updatedFolderFiles = [...folderContents.files];
-                                updatedFolderFiles.splice(fileIndex, 1);
-                                
-                                // Update folder contents cache after animation starts
-                                queryClient.setQueryData(folderFilesKey, {
-                                  files: updatedFolderFiles
-                                });
-                              }, 150);
-                            } else {
-                              // Fallback - no animation
-                              const updatedFolderFiles = [...folderContents.files];
-                              updatedFolderFiles.splice(fileIndex, 1);
-                              
-                              // Update folder contents cache immediately
-                              queryClient.setQueryData(folderFilesKey, {
-                                files: updatedFolderFiles
-                              });
-                            }
-                          } catch (error) {
-                            console.error("Animation error:", error);
-                            // Fallback - no animation
-                            const updatedFolderFiles = [...folderContents.files];
-                            updatedFolderFiles.splice(fileIndex, 1);
-                            
-                            // Update folder contents cache immediately
-                            queryClient.setQueryData(folderFilesKey, {
-                              files: updatedFolderFiles
-                            });
-                          }
+                          
+                          // Direct verwijderen uit de UI
+                          const updatedFolderFiles = [...folderContents.files];
+                          updatedFolderFiles.splice(fileIndex, 1);
+                          
+                          // Update folder contents cache immediately
+                          queryClient.setQueryData(folderFilesKey, {
+                            files: updatedFolderFiles
+                          });
+                          
+                          // Direct bijwerken van de lokale state zodat het bestand meteen verdwijnt
+                          setFiles(updatedFolderFiles);
+                          
+                          // Visuele indicatie voor de gebruiker
+                          toast({
+                            title: "Bestand verplaatst",
+                            description: `"${file.name}" is verplaatst naar het bureaublad`,
+                            duration: 2000,
+                          });
                           
                           // Force refetch the folder files to ensure UI is updated
                           setTimeout(() => {
