@@ -366,7 +366,7 @@ export default function Desktop() {
     }
   };
   
-  // Handle file drag end - check for overlaps and create folder if needed
+  // Handle file drag end - UITGESCHAKELD: automatische map-creatie
   const handleFileDragEnd = async (fileId: number | undefined, x: number, y: number) => {
     if (!fileId) return;
     
@@ -379,6 +379,12 @@ export default function Desktop() {
       dragTimeoutRef.current = null;
     }
     
+    // Automatische map-creatie uitgeschakeld
+    if (activeOverlap) {
+      setActiveOverlap(null);
+    }
+    
+    /* UITGESCHAKELDE CODE:
     // If we had an active overlap, create a folder
     if (activeOverlap && activeOverlap.fileId === fileId) {
       const now = Date.now();
@@ -387,6 +393,7 @@ export default function Desktop() {
       }
       setActiveOverlap(null);
     }
+    */
     
     // Check if we're over an open folder window
     // Check if there's an active drop folder (new implementation)
@@ -458,8 +465,14 @@ export default function Desktop() {
     }
   };
   
-  // Check for file overlaps
+  // Check for file overlaps - UITGESCHAKELD: functie om automatisch mappen te maken is gedeactiveerd
   const checkFileOverlap = (fileId: number | undefined) => {
+    // Functie uitgeschakeld op verzoek van de gebruiker
+    // De automatische map-creatie functie is nu uitgeschakeld
+    
+    return; // Early return om geen overlap-detectie uit te voeren
+    
+    /* UITGESCHAKELDE CODE:
     if (!fileId || !draggingFileId || fileId === draggingFileId) return;
     
     // Clear any existing timeout
@@ -504,6 +517,7 @@ export default function Desktop() {
         setActiveOverlap(null);
       }
     }
+    */
   };
   
   // Create a folder from overlapping files
