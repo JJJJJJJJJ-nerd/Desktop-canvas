@@ -220,6 +220,64 @@
       transform: scale(1.02);
     }
   }
+  
+  /* Enhanced folder dropzone */
+  .folder-window-highlight {
+    box-shadow: 0 0 0 4px #16a34a, 0 0 20px rgba(22, 163, 74, 0.4) !important;
+    animation: folder-pulse 1.2s infinite alternate ease-in-out;
+  }
+  
+  @keyframes folder-pulse {
+    0% {
+      box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.6), 0 0 15px rgba(22, 163, 74, 0.4);
+      background-color: rgba(240, 253, 244, 0.85);
+    }
+    100% {
+      box-shadow: 0 0 0 6px rgba(22, 163, 74, 0.4), 0 0 25px rgba(22, 163, 74, 0.6);
+      background-color: rgba(220, 252, 231, 0.95);
+    }
+  }
+  
+  /* Central dropzone in folder window */
+  .central-dropzone {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    width: 200px;
+    height: 150px;
+    background: rgba(240, 253, 244, 0.9);
+    border: 3px dashed #16a34a;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    opacity: 0;
+    transition: all 0.3s ease-in-out;
+    z-index: 1000;
+    pointer-events: none;
+  }
+  
+  .central-dropzone.active {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    animation: dropzone-pulse 1.5s infinite alternate ease-in-out;
+  }
+  
+  @keyframes dropzone-pulse {
+    0% {
+      border-color: #16a34a;
+      box-shadow: 0 0 15px rgba(22, 163, 74, 0.3);
+      transform: translate(-50%, -50%) scale(1);
+    }
+    100% {
+      border-color: #15803d;
+      box-shadow: 0 0 25px rgba(22, 163, 74, 0.5);
+      transform: translate(-50%, -50%) scale(1.05);
+    }
+  }
 
   /* File drag effect */
   .file-drag-active {

@@ -541,16 +541,17 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       
       // Create a visible drop indicator that appears when dragging
       const dropIndicator = document.createElement('div');
-      dropIndicator.className = 'folder-dropzone';
+      dropIndicator.className = 'central-dropzone'; // Using our enhanced central dropzone style
       dropIndicator.innerHTML = `
         <div class="flex items-center justify-center mb-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
             <path d="M12 11v6"></path>
             <path d="m9 14 3 3 3-3"></path>
           </svg>
         </div>
-        <p class="text-green-700 font-medium text-sm text-center">Drop files here</p>
+        <p class="text-green-700 font-medium text-sm text-center mb-1">Drop files here</p>
+        <p class="text-green-600/75 text-xs text-center">Files will be moved to this folder</p>
       `;
       
       // Add the drop indicator to the folder window
