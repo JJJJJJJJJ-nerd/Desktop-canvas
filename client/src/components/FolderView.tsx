@@ -1156,6 +1156,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
             {files.map((file) => (
               <div 
                 key={file.id} 
+                data-file-id={file.id}
                 className="file-item flex flex-col items-center justify-center p-2 rounded hover:bg-gray-100 cursor-pointer transition-colors"
                 onClick={() => onSelectFile(file)}
                 draggable="true"
@@ -1214,14 +1215,51 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                         if (fileIndex >= 0) {
                           // Get a copy of the file
                           const removedFile = {...folderContents.files[fileIndex]};
-                          // Remove from folder view immediately
-                          const updatedFolderFiles = [...folderContents.files];
-                          updatedFolderFiles.splice(fileIndex, 1);
+                          // Voeg animatie klasse toe aan het element voor het verdwijnen
+                          try {
+                            // Find the DOM element for this file using its ID
+                            const fileElement = document.querySelector(`[data-file-id="${file.id}"]`);
+                            if (fileElement) {
+                              // Add the teleport-out animation class
+                              fileElement.classList.add('file-teleport-out');
+                              
+                              // Give animation time to play (shorter than actual animation time)
+                              setTimeout(() => {
+                                // Remove from folder view after short animation
+                                const updatedFolderFiles = [...folderContents.files];
+                                updatedFolderFiles.splice(fileIndex, 1);
+                                
+                                // Update folder contents cache after animation starts
+                                queryClient.setQueryData(folderFilesKey, {
+                                  files: updatedFolderFiles
+                                });
+                              }, 150);
+                            } else {
+                              // Fallback - no animation
+                              const updatedFolderFiles = [...folderContents.files];
+                              updatedFolderFiles.splice(fileIndex, 1);
+                              
+                              // Update folder contents cache immediately
+                              queryClient.setQueryData(folderFilesKey, {
+                                files: updatedFolderFiles
+                              });
+                            }
+                          } catch (error) {
+                            console.error("Animation error:", error);
+                            // Fallback - no animation
+                            const updatedFolderFiles = [...folderContents.files];
+                            updatedFolderFiles.splice(fileIndex, 1);
+                            
+                            // Update folder contents cache immediately
+                            queryClient.setQueryData(folderFilesKey, {
+                              files: updatedFolderFiles
+                            });
+                          }
                           
-                          // Update folder contents cache immediately
-                          queryClient.setQueryData(folderFilesKey, {
-                            files: updatedFolderFiles
-                          });
+                          // Force refetch the folder files to ensure UI is updated
+                          setTimeout(() => {
+                            fetchFiles();
+                          }, 50);
                           
                           // 2. Add file back to desktop with the correct position
                           const desktopFiles = queryClient.getQueryData<{files: DesktopFile[]}>(['/api/files']);
@@ -1245,12 +1283,14 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                               duration: 2000
                             });
                             
-                            // THEN update the database
-                            removeFileFromFolderMutation.mutate({
-                              fileId: file.id, 
-                              position: mousePosition,
-                              parentId: folder.id
-                            });
+                            // THEN update the database via API
+                            removeFileFromFolder(file.id, mousePosition)
+                              .then(() => {
+                                console.log(`✅ Database synchronized: File ${file.name} moved to desktop`);
+                              })
+                              .catch(error => {
+                                console.error('Error syncing database after UI update:', error);
+                              });
                           }
                         }
                       }
