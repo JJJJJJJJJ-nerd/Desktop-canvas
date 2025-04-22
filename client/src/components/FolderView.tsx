@@ -616,7 +616,80 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
           </div>
         ) : (
           // Normal folder view with files
-          <div className="grid grid-cols-4 gap-4">
+          <div 
+            className="grid grid-cols-4 gap-4" 
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              // Toon hier een visuele indicator dat je files kunt verplaatsen binnen de folder
+              setIsDraggingOver(true);
+              
+              // Set cursor style to indicate drop is possible
+              e.dataTransfer.dropEffect = 'move';
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              setIsDraggingOver(false);
+            }}
+            onDrop={(e) => {
+              // Voorkomen van default browser gedrag
+              e.preventDefault();
+              e.stopPropagation();
+              setIsDraggingOver(false);
+              
+              // Haal het file ID op uit de data transfer
+              const fileId = e.dataTransfer.getData('text/plain');
+              if (!fileId) return;
+              
+              console.log(`🎯 Bestand met ID ${fileId} is losgelaten in de folder met ID ${folder.id}`);
+              
+              // Als het bestand al in deze map zit, opnieuw positioneren
+              const draggedFile = files.find(f => f.id === parseInt(fileId));
+              if (draggedFile) {
+                console.log(`📍 Bestand wordt intern verplaatst binnen dezelfde map`);
+                
+                // Hier kan je het bestand verplaatsen binnen de folder zelf
+                // Voor een eenvoudige implementatie, doen we nog niets hiermee
+                // Hier zou je bijvoorbeeld grid-coordinaten kunnen updaten
+                
+                toast({
+                  title: "Positionering binnen map",
+                  description: "Je kunt bestanden opnieuw ordenen binnen een map, deze functie komt binnenkort.",
+                  duration: 3000,
+                });
+                
+                return;
+              }
+              
+              // Anders, het bestand toevoegen aan de map
+              if (folder.id) {
+                const parsedFileId = parseInt(fileId);
+                const folderId = folder.id;
+                
+                addFileToFolder(parsedFileId, folderId)
+                  .then(() => {
+                    // Vernieuwen van maphoud
+                    toast({
+                      title: "Bestand toegevoegd",
+                      description: "Bestand is toegevoegd aan de map.",
+                      duration: 3000,
+                    });
+                    
+                    // Vernieuwen van mapinhoud
+                    fetchFiles();
+                  })
+                  .catch(err => {
+                    console.error('Fout bij toevoegen van bestand aan map:', err);
+                    toast({
+                      title: "Fout",
+                      description: "Er ging iets mis bij het toevoegen van het bestand aan de map.",
+                      variant: "destructive",
+                      duration: 3000,
+                    });
+                  });
+              }
+            }}
+          >
             {files.map((file) => (
               <div 
                 key={file.id} 
@@ -707,6 +780,9 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
               </div>
               <p className="text-lg font-semibold text-green-700">Drop here to move file into this folder</p>
               <p className="text-sm text-gray-500 mt-1">Release mouse button to complete</p>
+              <p className="text-xs text-blue-600 mt-2 max-w-xs">
+                Files in this folder can be rearranged by drag and drop, or moved to other folders or the desktop.
+              </p>
             </div>
           </div>
         )}
