@@ -48,6 +48,9 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   // Tijdelijke variabele om bij te houden of een bestand recent is gedropt
   const recentlyDroppedRef = useRef<boolean>(false);
   
+  // Debounce het instellen van isDraggingOver om flikkering te voorkomen
+  const debounceTimeoutRef = useRef<number | null>(null);
+  
   // Handle drag over events
   const handleDragOver = (e: React.DragEvent) => {
     // Als recent een bestand is gedropt, negeer dan dragover events voor korte tijd
@@ -61,33 +64,6 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     
     // Set dropEffect to 'move' to indicate this is a valid drop target
     e.dataTransfer.dropEffect = 'move';
-
-    console.log('🔍 Open folder drag over event triggered', { 
-      folderId: folder.id, 
-      folderName: folder.name,
-      x: e.clientX,
-      y: e.clientY,
-      dataTypes: e.dataTransfer.types,
-      eventType: 'dragover',
-      element: 'FolderView'
-    });
-    
-    // BELANGRIJK: Check of de dataTransfer informatie bevat
-    console.log('🔄 DATA TRANSFER TYPES:', Array.from(e.dataTransfer.types));
-    
-    // Probeer de text/plain data te lezen tijdens drag
-    try {
-      // Let op: dit kan alleen in de drop handler, niet in dragover
-      // Maar we kunnen wel de draggedFileInfo global gebruiken
-      
-      // @ts-ignore - Custom property
-      if (window.draggedFileInfo && window.draggedFileInfo.id) {
-        // @ts-ignore - Custom property
-        console.log(`🔍 DESKTOP → FOLDER: Bestand met ID ${window.draggedFileInfo.id} (${window.draggedFileInfo.name}) wordt over map ${folder.name} gesleept`);
-      }
-    } catch (error) {
-      console.error('Error tijdens dragover event:', error);
-    }
 
     // Setup global tracking of open folder - this is the MOST IMPORTANT part
     if (folder.id) {
@@ -103,12 +79,18 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       // @ts-ignore - Custom property for backward compatibility
       window._openFolderHoverId = folder.id;
       
-      console.log(`✓ FOLDER READY: Open folder ${folder.name} (ID: ${folder.id}) is now ready to receive files`);
-      
       // Force the dragging over state to true when ANY drag happens over the folder
+      // Maar gebruik debouncing om flikkering te voorkomen
       if (!isDraggingOver) {
-        setIsDraggingOver(true);
-        console.log(`🎯 DROP TARGET ACTIVE: Folder ${folder.name} is now highlighted as drop target`);
+        // Clear any existing timeout
+        if (debounceTimeoutRef.current) {
+          window.clearTimeout(debounceTimeoutRef.current);
+        }
+        
+        // Stel isDraggingOver in met een vertraging van 50ms
+        debounceTimeoutRef.current = window.setTimeout(() => {
+          setIsDraggingOver(true);
+        }, 50);
       }
     }
   };
@@ -120,23 +102,30 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     
     // We need to check if we're truly leaving the dropzone or just entering a child element
     // This helps prevent flickering when moving over child elements
-    setTimeout(() => {
-      // If the related target is not a child of the folder content area
-      if (!dropAreaRef.current?.contains(e.relatedTarget as Node)) {
-        console.log(`⬅️ DRAG LEAVE: File being dragged has left folder ${folder.name}`);
+    
+    // Clear any pending timeout for setting isDraggingOver to true
+    if (debounceTimeoutRef.current) {
+      window.clearTimeout(debounceTimeoutRef.current);
+      debounceTimeoutRef.current = null;
+    }
+    
+    // Only set isDraggingOver to false if we're truly leaving the folder
+    // Instead of using setTimeout, we check if the relatedTarget is outside the folder
+    if (!dropAreaRef.current?.contains(e.relatedTarget as Node)) {
+      // Use debouncing om flikkering te voorkomen
+      setTimeout(() => {
         setIsDraggingOver(false);
-        
+          
         // Clear the folder hover ID when truly leaving
         // @ts-ignore - Custom property
         if (window._activeDropFolder?.id === folder.id) {
-          console.log(`❌ CLEARING DROP TARGET: Folder ${folder.name} is no longer a drop target`);
           // @ts-ignore - Custom property
           window._activeDropFolder = undefined;
           // @ts-ignore - Custom property for backward compatibility
           window._openFolderHoverId = undefined;
         }
-      }
-    }, 50); // Small delay to ensure we're not just moving between child elements
+      }, 100);
+    }
   };
 
   // Handle drop events
@@ -1020,16 +1009,19 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       {/* Window content */}
       <div 
         ref={dropAreaRef}
-        className={`p-4 h-[calc(100%-40px)] overflow-auto ${
-          isDraggingOver ? 'bg-green-100/60 ring-2 ring-green-500/60 ring-inset backdrop-blur-sm transition-all duration-200' : 'transition-all duration-200'
-        }`}
+        className={`p-4 h-[calc(100%-40px)] overflow-auto`}
         onDragOver={!isSelectMode ? handleDragOver : undefined}
         onDragLeave={!isSelectMode ? handleDragLeave : undefined}
         onDrop={!isSelectMode ? handleDrop : undefined}
         style={{ 
           // zIndex blijft laag om bestanden zichtbaar te houden tijdens sleep
           zIndex: 10, // Lagere z-index zodat bestanden zichtbaar blijven tijdens sleep
-          boxShadow: isDraggingOver ? 'inset 0 0 20px rgba(34, 197, 94, 0.4)' : 'none'
+          backgroundColor: isDraggingOver ? 'rgba(220, 252, 231, 0.6)' : 'transparent',
+          boxShadow: isDraggingOver ? 'inset 0 0 20px rgba(34, 197, 94, 0.4)' : 'none',
+          transition: 'box-shadow 0.5s ease-in-out',
+          borderWidth: isDraggingOver ? '2px' : '0',
+          borderStyle: 'solid',
+          borderColor: 'rgba(34, 197, 94, 0.3)'
         }}
       >
         {isLoading ? (
