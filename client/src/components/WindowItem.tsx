@@ -937,8 +937,8 @@ export function WindowItem({
       ref={fileRef}
       className={cn(
         "window-item absolute rounded-lg shadow-lg overflow-hidden bg-white",
-        isSelected && "z-40 ring-1 ring-primary shadow-md",
-        dragging && "z-50 opacity-90"
+        isSelected && "ring-1 ring-primary shadow-md",
+        dragging ? "z-50 opacity-90" : "z-30"
       )}
       style={{
         left: `${localPosition.x}px`,

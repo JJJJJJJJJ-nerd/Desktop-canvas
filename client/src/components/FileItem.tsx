@@ -612,8 +612,8 @@ export function FileItem({
               top: `${localPosition.y}px`,
               width: isImage && file.dimensions ? `${file.dimensions.width}px` : 'auto',
               transition: dragging ? 'none' : 'all 0.15s ease',
-              // Hogere z-index voor elementen die geselecteerd of versleept worden, maar lagere waarde dan open mappen
-              zIndex: dragging ? 900 : (isSelected ? 100 : 10)
+              // Hogere z-index voor elementen die geselecteerd of versleept worden, ALTIJD hoger dan open mappen
+              zIndex: dragging ? 9999 : (isSelected ? 100 : 10)
             }}
             onMouseDown={handleMouseDown}
             onDoubleClick={handleDoubleClick}
