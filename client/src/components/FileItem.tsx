@@ -606,7 +606,7 @@ export function FileItem({
               top: `${localPosition.y}px`,
               width: isImage && file.dimensions ? `${file.dimensions.width}px` : 'auto',
               transition: dragging ? 'none' : 'all 0.15s ease',
-              zIndex: dragging ? 100 : (isSelected ? 50 : 10) // Ensure dragging files are above everything
+              zIndex: dragging ? 900 : (isSelected ? 100 : 10) // Higher z-index when dragging but still below open folders
             }}
             onMouseDown={handleMouseDown}
             onDoubleClick={handleDoubleClick}
