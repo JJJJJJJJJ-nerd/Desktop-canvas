@@ -183,17 +183,65 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
             }
             
             console.log(`Toevoegen van bestand ${draggedFile.name} aan map ${folder.name} (${folder.id})`);
-            const result = await addFileToFolder(fileId, folder.id);
             
+            // DIRECT UI UPDATE BEFORE API CALL
+            try {
+              // 1. Update desktop files to remove the file
+              const currentDesktopFiles = queryClient.getQueryData<{files: DesktopFile[]}>(['/api/files']);
+              if (currentDesktopFiles?.files) {
+                // Clone the files array
+                const updatedDesktopFiles = [...currentDesktopFiles.files];
+                
+                // Find and remove the file from desktop display
+                const fileIndex = updatedDesktopFiles.findIndex(f => f.id === fileId);
+                if (fileIndex >= 0) {
+                  // Get file copy for adding to folder
+                  const fileCopy = {...updatedDesktopFiles[fileIndex]};
+                  
+                  // Remove from desktop
+                  updatedDesktopFiles.splice(fileIndex, 1);
+                  
+                  // Update desktop cache
+                  queryClient.setQueryData(['/api/files'], {
+                    files: updatedDesktopFiles
+                  });
+                  
+                  // 2. Update folder files to add the file
+                  // Get current folder files
+                  const folderFilesKey = [`/api/folders/${folder.id}/files`];
+                  const folderFiles = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey) || {files: []};
+                  
+                  // Add the file to folder with proper parent ID and animation class
+                  const fileForFolder = {
+                    ...fileCopy,
+                    parentId: folder.id,
+                    className: 'file-teleport-in'
+                  };
+                  
+                  // Update folder cache
+                  queryClient.setQueryData(folderFilesKey, {
+                    files: [...folderFiles.files, fileForFolder]
+                  });
+                  
+                  // Set the folder files state to immediately show the change
+                  setFiles(prev => [...prev, fileForFolder]);
+                  
+                  console.log(`✅ UI UPDATED: File ${draggedFile.name} moved to folder ${folder.name} in UI`);
+                }
+              }
+            } catch (error) {
+              console.error('Error updating UI before API call:', error);
+            }
+            
+            // Show toast immediately
             toast({
               title: "Bestand toegevoegd aan map",
-              description: `"${draggedFile.name}" is toegevoegd aan map "${folder.name}"`,
+              description: `"${draggedFile.name}" is direct toegevoegd aan map "${folder.name}"`,
               duration: 3000,
             });
             
-            // Refresh both views - this is critical
-            fetchFiles();
-            queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+            // THEN make the API call
+            const result = await addFileToFolder(fileId, folder.id);
             
             return;
           }
