@@ -499,8 +499,65 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     document.removeEventListener('mouseup', handleHeaderMouseUp);
   };
 
+  // DIRECTE OPLOSSING: Gebruik mouseover/mouseout in plaats van drag events
+  const [isMouseOver, setIsMouseOver] = useState(false);
+  
+  // Global mouse tracking
+  useEffect(() => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (!isMouseOver) return;
+      
+      // @ts-ignore - Custom property
+      if (window.draggedFileInfo && window.draggedFileInfo.id) {
+        const folderElement = document.getElementById(`folder-window-${folder.id}`);
+        if (!folderElement) return;
+        
+        const rect = folderElement.getBoundingClientRect();
+        const isInside = 
+          e.clientX >= rect.left && 
+          e.clientX <= rect.right && 
+          e.clientY >= rect.top && 
+          e.clientY <= rect.bottom;
+        
+        if (isInside) {
+          console.log(`🔥 BELANGRIJKE DETECTIE: Muis bevindt zich boven open map ${folder.name} (ID: ${folder.id})`);
+          // @ts-ignore - Custom property
+          console.log(`Gesleept bestand: ${window.draggedFileInfo.name} (ID: ${window.draggedFileInfo.id})`);
+          
+          setIsDraggingOver(true);
+          
+          // Set global folder info
+          // @ts-ignore - Custom property
+          window._activeDropFolder = {
+            id: folder.id,
+            name: folder.name,
+            element: folderElement,
+            timestamp: Date.now()
+          };
+          
+          // @ts-ignore - Custom property for backward compatibility
+          window._openFolderHoverId = folder.id;
+        } else {
+          setIsDraggingOver(false);
+          
+          // @ts-ignore - Custom property
+          if (window._activeDropFolder?.id === folder.id) {
+            // @ts-ignore - Custom property
+            window._activeDropFolder = undefined;
+            // @ts-ignore - Custom property for backward compatibility
+            window._openFolderHoverId = undefined;
+          }
+        }
+      }
+    };
+    
+    document.addEventListener('mousemove', handleGlobalMouseMove);
+    return () => document.removeEventListener('mousemove', handleGlobalMouseMove);
+  }, [folder.id, folder.name, isMouseOver]);
+
   return (
     <div 
+      id={`folder-window-${folder.id}`}
       className={`absolute bg-white/95 backdrop-blur-md rounded-lg shadow-xl overflow-hidden ${
         isDraggingOver ? 'folder-highlight-dragover' : ''
       }`}
@@ -512,6 +569,8 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         zIndex: dragging ? 1000 : 30, // Higher when dragging, lower when static but still allow files to be visible above
         transition: dragging ? 'none' : 'all 0.15s ease'
       }}
+      onMouseEnter={() => setIsMouseOver(true)}
+      onMouseLeave={() => setIsMouseOver(false)}
       onDragOver={!isSelectMode ? handleDragOver : undefined}
       onDragLeave={!isSelectMode ? handleDragLeave : undefined}
       onDrop={!isSelectMode ? handleDrop : undefined}
