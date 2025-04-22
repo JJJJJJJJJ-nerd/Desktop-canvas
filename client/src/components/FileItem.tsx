@@ -457,14 +457,6 @@ export function FileItem({
     // Prevent any default browser behavior
     e.preventDefault();
     
-    // Debug console log voor mouse move during drag
-    console.log(`🐭 MOUSE MOVE tijdens DRAG: x=${e.clientX}, y=${e.clientY}, file=${file.name}`);
-    
-    // Add debug visual class 
-    if (fileRef.current) {
-      fileRef.current.classList.add('debug-drag-active');
-    }
-    
     // If we moved enough to consider this a drag (not a click)
     if (initialClick.current) {
       const moveThreshold = 2; // pixels - reduced threshold for more responsive dragging

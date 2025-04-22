@@ -358,70 +358,6 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       fetchFiles();
     }
   }, [folder.id]);
-  
-  // Extra effect voor drag tracking
-  useEffect(() => {
-    // Functie voor het tracken van drag over de map
-    const trackDragMove = (e: MouseEvent) => {
-      // Check if we're currently dragging a file (using our global variable)
-      // @ts-ignore - Custom property
-      if (window.draggedFileInfo && window.draggedFileInfo.id) {
-        // Get both the whole folder and the content area
-        const folderRect = dropAreaRef.current?.getBoundingClientRect();
-        const wholeMapRect = dropAreaRef.current?.parentElement?.getBoundingClientRect();
-        
-        if (wholeMapRect) {
-          // Check if mouse is within folder bounds (inclusief de header)
-          if (
-            e.clientX >= wholeMapRect.left && 
-            e.clientX <= wholeMapRect.right &&
-            e.clientY >= wholeMapRect.top && 
-            e.clientY <= wholeMapRect.bottom
-          ) {
-            // We're over the folder!
-            // Toon dit in de UI - voeg een debug element toe
-            const debugMsg = document.createElement('div');
-            debugMsg.style.position = 'fixed';
-            debugMsg.style.top = (e.clientY + 20) + 'px'; 
-            debugMsg.style.left = (e.clientX) + 'px';
-            debugMsg.style.backgroundColor = 'rgba(34, 197, 94, 0.9)';
-            debugMsg.style.color = 'white';
-            debugMsg.style.padding = '3px 5px';
-            debugMsg.style.borderRadius = '3px';
-            debugMsg.style.fontSize = '10px';
-            debugMsg.style.zIndex = '9999';
-            debugMsg.style.pointerEvents = 'none';
-            debugMsg.textContent = `Over map: ${folder.name}`;
-            
-            // Verwijder na korte tijd
-            document.body.appendChild(debugMsg);
-            setTimeout(() => {
-              document.body.removeChild(debugMsg);
-            }, 500);
-            
-            if (!isDraggingOver) {
-              setIsDraggingOver(true);
-            }
-          } else {
-            // We're outside the folder
-            if (isDraggingOver) {
-              setIsDraggingOver(false);
-            }
-          }
-        }
-      }
-    };
-    
-    // Luister naar muis bewegingen als we een map hebben
-    if (folder.id) {
-      document.addEventListener('mousemove', trackDragMove);
-    }
-    
-    // Cleanup function
-    return () => {
-      document.removeEventListener('mousemove', trackDragMove);
-    };
-  }, [folder.id, isDraggingOver]);
 
   // State and refs for dragging folder
   const [dragging, setDragging] = useState(false);
@@ -539,7 +475,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   return (
     <div 
       className={`absolute bg-white/95 backdrop-blur-md rounded-lg shadow-xl overflow-hidden ${
-        isDraggingOver ? 'ring-4 ring-green-500 bg-green-50/40' : ''
+        isDraggingOver ? 'ring-2 ring-green-500 bg-green-50/40' : ''
       }`}
       style={{
         width: folder.dimensions?.width || 600,
@@ -553,14 +489,6 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       onDragLeave={!isSelectMode ? handleDragLeave : undefined}
       onDrop={!isSelectMode ? handleDrop : undefined}
     >
-      {/* Visuele indicator wanneer er een bestand over deze map wordt gesleept */}
-      {isDraggingOver && (
-        <div className="absolute inset-0 pointer-events-none z-50 flex items-center justify-center">
-          <div className="animate-pulse bg-green-500/90 text-white px-3 py-2 rounded-full shadow-lg">
-            <span>Laat los om het bestand toe te voegen</span>
-          </div>
-        </div>
-      )}
       {/* Window header */}
       <div 
         ref={headerRef}
