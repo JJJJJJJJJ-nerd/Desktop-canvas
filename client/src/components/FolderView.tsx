@@ -45,27 +45,28 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     // Set dropEffect to 'move' to indicate this is a valid drop target
     e.dataTransfer.dropEffect = 'move';
 
-    // Add this folder to the window object so Desktop component can identify it
-    if (folder.id) {
-      // @ts-ignore - Custom property
-      window._openFolderHoverId = folder.id;
-      console.log(`🗂️ Folder hover detected in open folder: ${folder.id}`);
-    }
+    console.log('🔍 Open folder drag over event triggered', { folderId: folder.id, folderName: folder.name });
 
-    // Check if dragging a file (not from file system upload)
-    const hasFileId = e.dataTransfer.types.includes('text/plain');
-    if (hasFileId) {
-      // Get the dragged file info
-      // @ts-ignore - Using custom window property
-      const draggedInfo = window.draggedFileInfo;
+    // Setup global tracking of open folder - this is the MOST IMPORTANT part
+    if (folder.id) {
+      // Set this folder ID globally so it can be detected by other components
+      // @ts-ignore - Custom property
+      window._activeDropFolder = {
+        id: folder.id,
+        name: folder.name,
+        element: dropAreaRef.current,
+        timestamp: Date.now()
+      };
       
-      if (draggedInfo && folder.id) {
-        // Only set drag over if not already set
-        if (!isDraggingOver) {
-          console.log(`📁 OPEN FOLDER DRAG OVER: File ${draggedInfo.name} (ID: ${draggedInfo.id}) is hovering over open folder ${folder.name} (ID: ${folder.id})`);
-          // Highlight the drop area to indicate it's a valid drop target
-          setIsDraggingOver(true);
-        }
+      // @ts-ignore - Custom property for backward compatibility
+      window._openFolderHoverId = folder.id;
+      
+      console.log(`✓ FOLDER READY: Open folder ${folder.name} (ID: ${folder.id}) is now ready to receive files`);
+      
+      // Force the dragging over state to true when ANY drag happens over the folder
+      if (!isDraggingOver) {
+        setIsDraggingOver(true);
+        console.log(`🎯 DROP TARGET ACTIVE: Folder ${folder.name} is now highlighted as drop target`);
       }
     }
   };
@@ -74,14 +75,26 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDraggingOver(false);
     
-    // Clear the folder hover ID when leaving
-    // @ts-ignore - Custom property
-    if (window._openFolderHoverId === folder.id) {
-      // @ts-ignore - Custom property
-      window._openFolderHoverId = undefined;
-    }
+    // We need to check if we're truly leaving the dropzone or just entering a child element
+    // This helps prevent flickering when moving over child elements
+    setTimeout(() => {
+      // If the related target is not a child of the folder content area
+      if (!dropAreaRef.current?.contains(e.relatedTarget as Node)) {
+        console.log(`⬅️ DRAG LEAVE: File being dragged has left folder ${folder.name}`);
+        setIsDraggingOver(false);
+        
+        // Clear the folder hover ID when truly leaving
+        // @ts-ignore - Custom property
+        if (window._activeDropFolder?.id === folder.id) {
+          console.log(`❌ CLEARING DROP TARGET: Folder ${folder.name} is no longer a drop target`);
+          // @ts-ignore - Custom property
+          window._activeDropFolder = undefined;
+          // @ts-ignore - Custom property for backward compatibility
+          window._openFolderHoverId = undefined;
+        }
+      }
+    }, 50); // Small delay to ensure we're not just moving between child elements
   };
 
   // Handle drop events
@@ -90,12 +103,13 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     e.stopPropagation();
     setIsDraggingOver(false);
     
-    // Clear the folder hover ID when dropped
+    console.log(`🎯 DROP SUCCESS: File dropped into folder ${folder.name} (ID: ${folder.id})`);
+    
+    // Clear all folder hover tracking
     // @ts-ignore - Custom property
-    if (window._openFolderHoverId === folder.id) {
-      // @ts-ignore - Custom property
-      window._openFolderHoverId = undefined;
-    }
+    window._activeDropFolder = undefined;
+    // @ts-ignore - Custom property for backward compatibility
+    window._openFolderHoverId = undefined;
     
     console.log("Drop event in folder view:", folder.name, folder.id);
     console.log("Drop data types:", e.dataTransfer.types);

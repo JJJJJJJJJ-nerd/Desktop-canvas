@@ -372,23 +372,28 @@ export default function Desktop() {
     }
     
     // Check if we're over an open folder window
+    // Check if there's an active drop folder (new implementation)
     // @ts-ignore - Custom property
-    const openFolderHoverId = window._openFolderHoverId;
-    if (openFolderHoverId && fileId) {
+    const activeDropFolder = window._activeDropFolder;
+    
+    // If we have an active drop folder target and a valid file ID
+    if (activeDropFolder?.id && fileId) {
       try {
-        console.log(`📂 Moving file ${fileId} into open folder window ${openFolderHoverId}`);
+        console.log(`📂 Moving file ${fileId} into folder ${activeDropFolder.name} (ID: ${activeDropFolder.id})`);
         
         // Call the API to add the file to the folder
-        await addFileToFolder(fileId, openFolderHoverId);
+        await addFileToFolder(fileId, activeDropFolder.id);
         
-        // Clear the open folder hover ID
+        // Clear the active drop folder reference
         // @ts-ignore - Custom property
+        window._activeDropFolder = undefined;
+        // @ts-ignore - Custom property for backward compatibility
         window._openFolderHoverId = undefined;
         
-        // Show success message
+        // Show success message with folder name
         toast({
           title: "File moved",
-          description: "File was moved to folder successfully.",
+          description: `File was moved to "${activeDropFolder.name}" folder successfully.`,
         });
         
         return; // Skip position update since file is now in a folder
