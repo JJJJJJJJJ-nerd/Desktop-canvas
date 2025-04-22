@@ -669,9 +669,28 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                   // Remove the opacity class when drag ends
                   e.currentTarget.classList.remove('opacity-50');
                   
+                  // Als het bestand boven het desktop gebied werd losgelaten, verwijderen we het uit de map
+                  // @ts-ignore - Custom property
+                  if (window._draggingFileToDesktop && file.id) {
+                    console.log(`📤 DRAG TO DESKTOP: File ${file.name} (ID: ${file.id}) wordt naar bureaublad gesleept`);
+                    
+                    // Verwijderen uit huidige map
+                    removeFileFromFolder(file.id)
+                      .then(() => {
+                        // Vernieuwen van desktop bestanden
+                        queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+                        
+                        // Ook de mapinhoud vernieuwen
+                        fetchFiles();
+                      })
+                      .catch(err => console.error('Fout bij verplaatsen bestand naar bureaublad:', err));
+                  }
+                  
                   // Clear global tracking
                   // @ts-ignore - Custom property
                   window.draggedFileInfo = undefined;
+                  // @ts-ignore - Custom property
+                  window._draggingFileToDesktop = false;
                 }}
               >
                 <FileItemPreview file={file} />

@@ -124,11 +124,22 @@ export default function Desktop() {
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDraggingOver(true);
+    
+    // Signaleer dat we over het bureaublad zweven - zodat bestanden uit open mappen naar hier gesleept kunnen worden
+    // @ts-ignore - Custom property
+    window._draggingFileToDesktop = true;
+    
+    // Set cursor to indicate we can drop here
+    e.dataTransfer.dropEffect = 'move';
   };
   
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDraggingOver(false);
+    
+    // Reset desktop drag indicator when cursor leaves desktop area
+    // @ts-ignore - Custom property
+    window._draggingFileToDesktop = false;
   };
   
   const handleDrop = async (e: React.DragEvent) => {
@@ -147,6 +158,12 @@ export default function Desktop() {
     if (fileIdText) {
       const fileId = parseInt(fileIdText);
       if (!isNaN(fileId)) {
+        console.log(`🖥️ DESKTOP DROP: Bestand met ID ${fileId} op bureaublad geplaatst`);
+        
+        // Bevestig dat we op het bureaublad slepen
+        // @ts-ignore - Custom property
+        window._draggingFileToDesktop = true;
+        
         // We found a valid file ID, so this must be a file from a folder
         // Remove from folder and place on desktop
         try {
