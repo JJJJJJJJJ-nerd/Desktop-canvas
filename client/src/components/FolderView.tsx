@@ -471,7 +471,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         height: folder.dimensions?.height || 400,
         left: localPosition.x,
         top: localPosition.y,
-        zIndex: dragging ? 1000 : 500, // Much higher z-index to ensure it stays above dragged items
+        zIndex: dragging ? 1000 : 200, // Higher when dragging, lower when static but still above regular items
         transition: dragging ? 'none' : 'all 0.15s ease'
       }}
     >
