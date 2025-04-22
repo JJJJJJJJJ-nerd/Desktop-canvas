@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { queryClient } from "@/lib/queryClient";
 import { DesktopToolbar } from "@/components/DesktopToolbar";
 import { FileItem } from "@/components/FileItem";
@@ -88,6 +88,8 @@ export default function Desktop() {
   const [openWindowFiles, setOpenWindowFiles] = useState<number[]>([]);
   const [activeOverlap, setActiveOverlap] = useState<FileOverlap | null>(null);
   const [draggingFileId, setDraggingFileId] = useState<number | null>(null);
+  const [folderRefs, setFolderRefs] = useState<{[key: number]: HTMLElement}>({});
+  const [dragPosition, setDragPosition] = useState<{x: number, y: number} | null>(null);
   
   // Folder naming dialog state
   const [isFolderDialogOpen, setIsFolderDialogOpen] = useState(false);
@@ -335,10 +337,68 @@ export default function Desktop() {
     if (id && element) {
       fileElementsRef.current[`file-${id}`] = element;
       console.log(`Registered file element for ID: ${id}`);
+      
+      // Als dit een map is, houdt die bij in folderRefs
+      const fileObj = files.find(f => f.id === id);
+      if (fileObj && (fileObj.isFolder === 'true' || fileObj.type === 'folder' || fileObj.type === 'application/folder')) {
+        setFolderRefs(prev => ({...prev, [id]: element}));
+      }
     } else if (id) {
       delete fileElementsRef.current[`file-${id}`];
+      setFolderRefs(prev => {
+        const newRefs = {...prev};
+        delete newRefs[id];
+        return newRefs;
+      });
     }
   };
+  
+  // Track mouse movement for checking overlap with folders during drag
+  const handleGlobalMouseMove = useCallback((e: MouseEvent) => {
+    if (draggingFileId) {
+      setDragPosition({x: e.clientX, y: e.clientY});
+      
+      // Check if dragging over any folder
+      Object.entries(folderRefs).forEach(([folderId, element]) => {
+        if (Number(folderId) === draggingFileId) return; // Skip self
+        
+        const rect = element.getBoundingClientRect();
+        const isInside = 
+          e.clientX >= rect.left && 
+          e.clientX <= rect.right && 
+          e.clientY >= rect.top && 
+          e.clientY <= rect.bottom;
+        
+        if (isInside) {
+          console.log(`🔍 GLOBAL TRACKING: Bestand ${draggingFileId} bevindt zich boven map ${folderId}`);
+          // Show visual feedback - add highlight class
+          element.classList.add('folder-highlight-dragover');
+          
+          // Set this folder as active drop target
+          // @ts-ignore - Custom property
+          window._hoverFolderId = Number(folderId);
+        } else {
+          // Remove highlight when not hovering
+          element.classList.remove('folder-highlight-dragover');
+          
+          // Clear hover state if this was the active folder
+          // @ts-ignore - Custom property
+          if (window._hoverFolderId === Number(folderId)) {
+            // @ts-ignore - Custom property
+            window._hoverFolderId = undefined;
+          }
+        }
+      });
+    }
+  }, [draggingFileId, folderRefs]);
+  
+  // Listen for global mouse movement when dragging
+  useEffect(() => {
+    if (draggingFileId) {
+      window.addEventListener('mousemove', handleGlobalMouseMove);
+      return () => window.removeEventListener('mousemove', handleGlobalMouseMove);
+    }
+  }, [draggingFileId, handleGlobalMouseMove]);
   
   // Function to check if two elements are overlapping
   const checkFileOverFolder = (movingFileId: number | undefined) => {
