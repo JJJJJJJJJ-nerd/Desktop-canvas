@@ -41,6 +41,9 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    
+    // Set dropEffect to 'move' to indicate this is a valid drop target
+    e.dataTransfer.dropEffect = 'move';
 
     // Add this folder to the window object so Desktop component can identify it
     if (folder.id) {
@@ -52,8 +55,18 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     // Check if dragging a file (not from file system upload)
     const hasFileId = e.dataTransfer.types.includes('text/plain');
     if (hasFileId) {
-      // Highlight the drop area to indicate it's a valid drop target
-      setIsDraggingOver(true);
+      // Get the dragged file info
+      // @ts-ignore - Using custom window property
+      const draggedInfo = window.draggedFileInfo;
+      
+      if (draggedInfo && folder.id) {
+        // Only set drag over if not already set
+        if (!isDraggingOver) {
+          console.log(`📁 OPEN FOLDER DRAG OVER: File ${draggedInfo.name} (ID: ${draggedInfo.id}) is hovering over open folder ${folder.name} (ID: ${folder.id})`);
+          // Highlight the drop area to indicate it's a valid drop target
+          setIsDraggingOver(true);
+        }
+      }
     }
   };
 
@@ -400,7 +413,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       {/* Window content */}
       <div 
         ref={dropAreaRef}
-        className={`p-4 h-[calc(100%-40px)] overflow-auto ${isDraggingOver ? 'bg-green-100/80 ring-2 ring-green-500/50 ring-inset' : ''}`}
+        className={`p-4 h-[calc(100%-40px)] overflow-auto ${isDraggingOver ? 'bg-green-100/80 ring-2 ring-green-500/50 ring-inset animate-pulse' : ''}`}
         onDragOver={!isSelectMode ? handleDragOver : undefined}
         onDragLeave={!isSelectMode ? handleDragLeave : undefined}
         onDrop={!isSelectMode ? handleDrop : undefined}
@@ -519,15 +532,16 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
           </div>
         )}
         
-        {/* Drag overlay */}
+        {/* Drag overlay - even more visible */}
         {isDraggingOver && !isSelectMode && (
-          <div className="absolute inset-0 bg-primary/20 backdrop-blur-sm flex items-center justify-center pointer-events-none">
-            <div className="bg-white p-4 rounded-lg shadow-lg text-center">
-              <div className="flex gap-2 justify-center mb-2">
-                <MoveRight className="w-10 h-10 text-primary" />
-                <Upload className="w-10 h-10 text-primary" />
+          <div className="absolute inset-0 bg-green-200/40 backdrop-blur-sm flex items-center justify-center pointer-events-none z-50 animate-pulse">
+            <div className="bg-white p-6 rounded-lg shadow-xl text-center border-2 border-green-500">
+              <div className="flex gap-3 justify-center mb-3">
+                <MoveRight className="w-12 h-12 text-green-600" />
+                <FolderOpen className="w-12 h-12 text-green-600" />
               </div>
-              <p className="text-sm font-medium text-gray-700">Drop files to move them into this folder</p>
+              <p className="text-lg font-semibold text-green-700">Drop here to move file into this folder</p>
+              <p className="text-sm text-gray-500 mt-1">Release mouse button to complete</p>
             </div>
           </div>
         )}
