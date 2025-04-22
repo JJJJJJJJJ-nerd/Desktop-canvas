@@ -356,25 +356,70 @@ export default function Desktop() {
     }
   };
   
-  // Function to check if two elements are overlapping
+  // Functie om te controleren of een bestand over een map wordt gesleept (gesloten en open mappen)
   const checkFileOverFolder = (movingFileId: number | undefined) => {
     if (!movingFileId) return null;
     
+    // Het gesleepte bestand element ophalen
     const movingElementKey = `file-${movingFileId}`;
     const movingElement = fileElementsRef.current[movingElementKey];
     if (!movingElement) return null;
     
+    // Rechthoek van het gesleepte bestand
     const movingRect = movingElement.getBoundingClientRect();
     
-    // Find all folder IDs
-    const folderFiles = files.filter(f => f.isFolder === 'true' || f.type === 'folder' || f.type === 'application/folder');
-    
-    // Clear any previous hover state
+    // Reset van de vorige hover state
     // @ts-ignore - Custom window property
     window._hoverFolderId = undefined;
     
+    // Eerst controleren op overlapping met open map-vensters (via openFolderRefs)
+    // Open mappen hebben prioriteit omdat ze zichtbaar en actief zijn
+    const openFolderIds = Object.keys(openFolderRefs.current);
+    
+    if (openFolderIds.length > 0) {
+      console.log(`🔍 Controleren op overlap met ${openFolderIds.length} open mappen`);
+      
+      for (const folderId of openFolderIds) {
+        // Skip als het dezelfde is als het bestand dat we slepen
+        if (parseInt(folderId) === movingFileId) continue;
+        
+        const folderElement = openFolderRefs.current[folderId];
+        if (!folderElement) continue;
+        
+        const folderRect = folderElement.getBoundingClientRect();
+        
+        // Controle op overlap - merk op dat we hier een grotere marge gebruiken
+        // omdat het hele venster een drop zone is
+        const overlap = !(
+          movingRect.right < folderRect.left || 
+          movingRect.left > folderRect.right || 
+          movingRect.bottom < folderRect.top || 
+          movingRect.top > folderRect.bottom
+        );
+        
+        if (overlap) {
+          const numericFolderId = parseInt(folderId);
+          
+          // Opslaan in activeDragRef om consistent bij te houden
+          activeDragRef.current.overFolderId = numericFolderId;
+          
+          // Store the folder ID in a global variable so FileItem can access it
+          // @ts-ignore - Custom window property
+          window._hoverFolderId = numericFolderId;
+          
+          console.log(`🎯 OPEN MAP OVERLAP: Bestand ${movingFileId} is boven open map ${folderId}`);
+          return { fileId: movingFileId, folderId: numericFolderId, isOpen: true };
+        }
+      }
+    }
+    
+    // Als we geen open map hebben gevonden, controleer op gesloten mappen op het bureaublad
+    // Find all folder IDs
+    const folderFiles = files.filter(f => f.isFolder === 'true' || f.type === 'folder' || f.type === 'application/folder');
+    
     for (const folder of folderFiles) {
       if (!folder.id || folder.id === movingFileId) continue; // Skip if same file or invalid id
+      if (openFolderIds.includes(String(folder.id))) continue; // Skip already open folders
       
       const folderElementKey = `file-${folder.id}`;
       const folderElement = fileElementsRef.current[folderElementKey];
@@ -391,15 +436,20 @@ export default function Desktop() {
       );
       
       if (overlap) {
+        // Opslaan in activeDragRef om consistent bij te houden
+        activeDragRef.current.overFolderId = folder.id;
+        
         // Store the folder ID in a global variable so FileItem can access it
         // @ts-ignore - Custom window property
         window._hoverFolderId = folder.id;
         
-        console.log(`🎯 OVERLAP DETECTED: File ${movingFileId} is overlapping with folder ${folder.id}`);
-        return { fileId: movingFileId, folderId: folder.id };
+        console.log(`🎯 GESLOTEN MAP OVERLAP: Bestand ${movingFileId} overlapt met map ${folder.id}`);
+        return { fileId: movingFileId, folderId: folder.id, isOpen: false };
       }
     }
     
+    // Als we hier komen, is er geen overlap
+    activeDragRef.current.overFolderId = null;
     return null;
   };
   
@@ -407,6 +457,25 @@ export default function Desktop() {
   const handleFileDragStart = (fileId: number | undefined) => {
     if (fileId) {
       setDraggingFileId(fileId);
+      // Sla ook op in de active drag reference
+      activeDragRef.current.fileId = fileId;
+      
+      // Alle bestanden ophalen uit de cache
+      const allFiles = queryClient.getQueryData<any>(['/api/files'])?.files || [];
+      const draggedFile = allFiles.find((f: any) => f.id === fileId);
+      
+      if (draggedFile) {
+        // Bewaar informatie over het bestand dat wordt gesleept in een globale variabele
+        // @ts-ignore - Custom property
+        window.draggedFileInfo = {
+          id: fileId,
+          name: draggedFile.name,
+          type: draggedFile.type,
+          startTime: Date.now()
+        };
+        
+        console.log(`🚀 START DRAG: Bestand ${draggedFile.name} (ID: ${fileId}) wordt gesleept`);
+      }
     }
   };
   
@@ -416,6 +485,14 @@ export default function Desktop() {
     
     // Clear dragging state
     setDraggingFileId(null);
+    activeDragRef.current.fileId = null;
+    activeDragRef.current.overFolderId = null;
+    
+    // Opschonen van de globale draggedFileInfo variabele
+    // @ts-ignore - Custom property
+    window.draggedFileInfo = undefined;
+    
+    console.log(`🛑 END DRAG: Bestand ${fileId} is losgelaten op positie ${x}, ${y}`);
     
     // Clear any active overlap timeout
     if (dragTimeoutRef.current) {
@@ -603,6 +680,19 @@ export default function Desktop() {
     };
   }, []);
   
+  // Registreer de registerOpenFolder functie in het window object zodat andere componenten er gebruik van kunnen maken
+  useEffect(() => {
+    // @ts-ignore - Custom property om te registreren van open map referenties
+    window.registerOpenFolder = registerOpenFolder;
+    
+    console.log('🌟 Desktop heeft registerOpenFolder functie geregistreerd in window object');
+    
+    return () => {
+      // @ts-ignore - Verwijder de functie bij unmount
+      delete window.registerOpenFolder;
+    };
+  }, []);
+
   // Clean up any timeouts on unmount
   useEffect(() => {
     return () => {

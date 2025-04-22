@@ -539,6 +539,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
 
   return (
     <div 
+      ref={folderContainerRef}
       className={`absolute bg-white/95 backdrop-blur-md rounded-lg shadow-xl overflow-hidden ${
         isDraggingOver ? 'ring-2 ring-green-500 bg-green-50/40' : ''
       }`}
