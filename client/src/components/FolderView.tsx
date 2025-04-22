@@ -45,8 +45,17 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   
   const dropAreaRef = useRef<HTMLDivElement>(null);
 
+  // Tijdelijke variabele om bij te houden of een bestand recent is gedropt
+  const recentlyDroppedRef = useRef<boolean>(false);
+  
   // Handle drag over events
   const handleDragOver = (e: React.DragEvent) => {
+    // Als recent een bestand is gedropt, negeer dan dragover events voor korte tijd
+    if (recentlyDroppedRef.current) {
+      e.preventDefault();
+      return;
+    }
+    
     e.preventDefault();
     e.stopPropagation();
     
@@ -135,6 +144,14 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingOver(false);
+    
+    // Zet de recentlyDropped vlag op true om tijdelijk dragover events te blokkeren
+    recentlyDroppedRef.current = true;
+    
+    // Reset de vlag na 1.5 seconde
+    setTimeout(() => {
+      recentlyDroppedRef.current = false;
+    }, 1500);
     
     console.log(`🎯 DROP SUCCESS: File dropped into folder ${folder.name} (ID: ${folder.id})`);
     
