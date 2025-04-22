@@ -652,13 +652,21 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                   if (window._draggingFileToDesktop && file.id) {
                     console.log(`📤 DRAG TO DESKTOP: File ${file.name} (ID: ${file.id}) wordt naar bureaublad gesleept`);
                     
-                    // Verwijderen uit huidige map
-                    removeFileFromFolder(file.id)
+                    // Bepaal de positie waar het bestand zou moeten komen op basis van de muispositie
+                    const mousePosition = {
+                      x: e.clientX,
+                      y: e.clientY
+                    };
+                    
+                    console.log(`🖱️ Muispositie bij loslaten: ${mousePosition.x}, ${mousePosition.y}`);
+                    
+                    // Verwijderen uit huidige map en positie doorgeven
+                    removeFileFromFolder(file.id, mousePosition)
                       .then(() => {
                         // Toast melding tonen
                         toast({
                           title: "Bestand verplaatst",
-                          description: `"${file.name}" is verplaatst naar het bureaublad.`,
+                          description: `"${file.name}" is verplaatst naar het bureaublad op de exacte positie waar je het losliet.`,
                         });
                         
                         // Vernieuwen van desktop bestanden

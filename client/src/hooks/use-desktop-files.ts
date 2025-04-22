@@ -150,11 +150,40 @@ export function useDesktopFiles() {
   
   // Remove file from folder mutation
   const removeFileFromFolderMutation = useMutation({
-    mutationFn: async (fileId: number) => {
+    mutationFn: async ({ 
+      fileId, 
+      position 
+    }: { 
+      fileId: number; 
+      position?: { x: number; y: number } 
+    }) => {
       const response = await fetch(`/api/folders/files/${fileId}`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: position ? JSON.stringify({ position }) : undefined,
       });
-      return response.json();
+      
+      const result = await response.json();
+      
+      // Als er een positie is opgegeven, direct de bestandspositie ook updaten
+      if (position && result.file?.id) {
+        try {
+          await fetch(`/api/files/${result.file.id}/position`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ position }),
+          });
+          console.log(`Bestand positie direct bijgewerkt naar: ${position.x}, ${position.y}`);
+        } catch (err) {
+          console.error('Fout bij direct updaten van bestandspositie:', err);
+        }
+      }
+      
+      return result;
     },
     onSuccess: () => {
       // Force invalidation of both desktop files and folder contents
@@ -279,10 +308,13 @@ export function useDesktopFiles() {
     }
   };
   
-  // Remove a file from a folder
-  const removeFileFromFolder = async (fileId: number) => {
+  // Remove a file from a folder, optionally with a new desktop position
+  const removeFileFromFolder = async (
+    fileId: number, 
+    position?: { x: number; y: number }
+  ) => {
     try {
-      return await removeFileFromFolderMutation.mutateAsync(fileId);
+      return await removeFileFromFolderMutation.mutateAsync({ fileId, position });
     } catch (error) {
       console.error('Error removing file from folder:', error);
     }
