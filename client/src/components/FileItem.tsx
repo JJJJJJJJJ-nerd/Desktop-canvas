@@ -204,8 +204,13 @@ export function FileItem({
       if (file.id) {
         console.log(`🖱️ DRAG START: Started dragging ${file.isFolder === 'true' ? 'folder' : 'file'} ${file.name} (ID: ${file.id})`);
         
+        // Zeer belangrijke stap: Markeer globaal dat we aan het slepen zijn
+        // @ts-ignore - Adding custom properties to window
+        window._isDraggingFile = true;
+        // @ts-ignore
+        window._lastDraggedFile = file.id;
+        
         // Belangrijk: zet een ghost image voor de drag-operatie
-        // Dit zorgt ervoor dat er altijd iets zichtbaar is tijdens het slepen
         const dragGhost = document.createElement('div');
         dragGhost.classList.add('drag-ghost');
         dragGhost.innerHTML = `
@@ -226,30 +231,44 @@ export function FileItem({
         `;
         
         document.body.appendChild(dragGhost);
-        
-        // Zet de drag ghost op een onzichtbare plek
         dragGhost.style.position = 'absolute';
         dragGhost.style.top = '-1000px';
         dragGhost.style.left = '-1000px';
-        
-        // Stel de drag ghost in als beeld
         e.dataTransfer.setDragImage(dragGhost, 75, 25);
         
         setTimeout(() => {
           document.body.removeChild(dragGhost);
         }, 0);
         
-        // Set the dragged file ID as data
+        // ZEER BELANGRIJK: Zet diverse dataformaten voor maximale compatibiliteit
+        // Dit is cruciaal voor de drop detection
+        
+        // 1. Simpel text format met het file ID
         e.dataTransfer.setData('text/plain', file.id.toString());
+        
+        // 2. JSON format met alle relevante details
+        const jsonData = JSON.stringify({
+          id: file.id,
+          name: file.name,
+          isFolder: file.isFolder === 'true',
+          parentId: file.parentId,
+          timestamp: Date.now()
+        });
+        e.dataTransfer.setData('application/json', jsonData);
+        
+        // 3. Aangepast format specifiek voor onze app
+        e.dataTransfer.setData('application/x-file-id', file.id.toString());
+        
+        // 4. Stel de drop effect in
         e.dataTransfer.effectAllowed = 'move';
         
-        // Store the currently dragged file ID in a global object for folder detection
-        // Enhanced with more information to improve folder drop detection
+        // Globale tracking object voor folder detection en cross-component communicatie
         // @ts-ignore - Adding custom property to window
         window.draggedFileInfo = {
           id: file.id,
           name: file.name,
           isFolder: file.isFolder === 'true',
+          parentId: file.parentId,
           startTime: Date.now(),
           element: e.currentTarget, // Store the dragged element
           initialPosition: { 
@@ -260,13 +279,15 @@ export function FileItem({
         };
         
         console.log(`⭐ GLOBALE DRAG DATA INGESTELD: Bestand ${file.name} (ID: ${file.id}) wordt nu gesleept`);
+        console.log('Drag data beschikbare formats:', e.dataTransfer.types);
         
-        // Add class to show we're dragging
+        // Voeg visuele feedback toe aan het element
         if (e.currentTarget) {
-          e.currentTarget.classList.add('opacity-50');
+          e.currentTarget.classList.add('opacity-50', 'dragging-element');
+          document.body.classList.add('dragging-in-progress');
         }
         
-        // For our custom drag logic
+        // Notify parent component that we've started dragging
         if (onDragStart) {
           onDragStart(file.id);
         }
@@ -275,18 +296,32 @@ export function FileItem({
     onDragEnd: (e: React.DragEvent) => {
       console.log(`🖱️ DRAG END: Stopped dragging ${file.isFolder === 'true' ? 'folder' : 'file'} ${file.name}`);
       
-      // Remove the opacity class when drag ends
+      // Verwijder alle visuele klassen die toegevoegd zijn tijdens slepen
       if (e.currentTarget) {
-        e.currentTarget.classList.remove('opacity-50');
+        e.currentTarget.classList.remove('opacity-50', 'dragging-element');
       }
       
-      // Clear the global drag references
+      // Verwijder class van document.body
+      document.body.classList.remove('dragging-in-progress');
+      
+      // Reset alle globale drag tracking variabelen
       // @ts-ignore - Clearing custom property
       window.draggedFileInfo = undefined;
-      
-      // Reset the flag indicating file from folder
+      // @ts-ignore - Clearing custom property
+      window._isDraggingFile = false;
+      // @ts-ignore - Clearing custom property
+      window._lastDraggedFile = null;
       // @ts-ignore - Clearing custom property
       window._draggingFileFromFolder = false;
+      // @ts-ignore - Clearing custom property
+      window._draggingFileToDesktop = false;
+      // @ts-ignore - Clearing custom property
+      window._hoverFolderId = undefined;
+      // @ts-ignore - Clearing custom property
+      window._activeDropFolder = undefined;
+      
+      // Log het einde van de drag operatie
+      console.log(`✓ DRAG COMPLETE: Alle drag & drop tracking is gereset`);
     }
   };
   
