@@ -3,8 +3,8 @@
 interface DraggedFileInfo {
   id: number;
   name: string;
-  parentId?: number;
-  startTime: number;
+  parentId?: number | null;
+  startTime?: number;
   position?: { x: number; y: number };
   updateTime?: number;
 }

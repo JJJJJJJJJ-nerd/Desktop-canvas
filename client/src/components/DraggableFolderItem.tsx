@@ -1,18 +1,31 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { DesktopFile } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useDesktopFiles } from '@/hooks/use-desktop-files';
-import { FileText, Folder, Image } from 'lucide-react';
+import { FileText, Folder, Image, GripVertical } from 'lucide-react';
 
 interface DraggableFolderItemProps {
   file: DesktopFile;
   parentFolderId?: number;
 }
 
+// Helper type voor de positie
+interface Position {
+  x: number;
+  y: number;
+}
+
 export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderItemProps) {
   const { toast } = useToast();
   const { removeFileFromFolder } = useDesktopFiles();
-
+  
+  // States voor de manual drag functionaliteit
+  const [isDragging, setIsDragging] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [wasDroppedOnDesktop, setWasDroppedOnDesktop] = useState(false);
+  const dragElementRef = useRef<HTMLDivElement>(null);
+  
   // Bepaal het juiste icoon op basis van het bestandstype
   const getIcon = () => {
     if (file.isFolder === 'true' || file.type === 'folder' || file.type === 'application/folder') {
@@ -56,9 +69,9 @@ export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderIte
       // Stel de global drag state in - BELANGRIJK voor communicatie tussen componenten
       window._draggingFileFromFolder = true;
       window.draggedFileInfo = {
-        id: file.id,
+        id: file.id || 0,
         name: file.name,
-        parentId: parentFolderId,
+        parentId: parentFolderId || null,
         startTime: Date.now()
       };
       
@@ -281,127 +294,216 @@ export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderIte
     console.log('=================================================');
   };
 
-  // Handmatig drag-event starten bij mousedown
-  const handleMouseDown = (e: React.MouseEvent) => {
-    // Voorkom standaard tekstselectie gedrag
+  // Nieuwe drag functionaliteit
+  const startDrag = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     
-    // Als het niet de linker muisknop is, doe niets
-    if (e.button !== 0) return;
+    if (e.button !== 0) return; // Alleen linker muisknop
     
-    // Markeer dat we beginnen met een muisbeweging
-    // @ts-ignore - Custom property
-    window._mouseDownInfo = {
-      fileId: file.id,
-      startX: e.clientX,
-      startY: e.clientY,
-      timestamp: Date.now(),
-      element: e.currentTarget,
-      isDragging: false
-    };
+    // Start positie opslaan
+    const offsetX = e.clientX - (e.currentTarget as HTMLElement).getBoundingClientRect().left;
+    const offsetY = e.clientY - (e.currentTarget as HTMLElement).getBoundingClientRect().top;
+    setDragOffset({ x: offsetX, y: offsetY });
     
-    console.log('🖱️ MOUSEDOWN EVENT op bestand:', {
-      id: file.id,
-      naam: file.name,
-      inMap: parentFolderId,
-      positie: { x: e.clientX, y: e.clientY }
-    });
+    // Maak een visuele "ghost" element voor het slepen
+    if (dragElementRef.current) {
+      const rect = dragElementRef.current.getBoundingClientRect();
+      setPosition({ 
+        x: e.clientX - offsetX, 
+        y: e.clientY - offsetY 
+      });
+      
+      // Maak een clone van het element om te slepen
+      const clone = document.createElement('div');
+      clone.id = "drag-clone";
+      clone.innerHTML = `
+        <div style="
+          position: fixed;
+          left: ${e.clientX - offsetX}px;
+          top: ${e.clientY - offsetY}px;
+          width: ${rect.width}px;
+          padding: 8px;
+          background: white;
+          border: 2px solid #3b82f6;
+          border-radius: 6px;
+          box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+          opacity: 0.8;
+          z-index: 9999;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          pointer-events: none;
+        ">
+          <div>${getIcon() ? "<span class='text-blue-500'>" + getIcon() + "</span>" : ""}</div>
+          <div style="font-weight: 500; font-size: 14px;">${file.name}</div>
+        </div>
+      `;
+      document.body.appendChild(clone);
+    }
     
-    // Stel in dat dit element draggable is (soms werkt dit beter dan via het attribuut)
-    const element = e.currentTarget as HTMLElement;
-    element.draggable = true;
-    
-    // Directe visuele feedback dat je het bestand kunt slepen
-    document.body.style.cursor = 'grabbing';
-    element.style.cursor = 'grabbing';
-    
-    // Zet ook een visueel teken dat dit element sleepbaar is
-    element.classList.add('item-ready-to-drag');
-    
-    // Extra fix voor het voorkomen van tekstselectie
     document.body.classList.add('no-select');
+    document.body.style.cursor = 'grabbing';
     
-    // Stel een timer in die de cursor verandert om aan te geven dat je kunt slepen
-    const timer = setTimeout(() => {
-      element.style.cursor = 'grab';
-    }, 100);
-    
-    // Volg muisbewegingen om te bepalen of het een klik of sleep is
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      // Bereken de afstand die de muis heeft afgelegd
-      const dx = moveEvent.clientX - e.clientX;
-      const dy = moveEvent.clientY - e.clientY;
-      const distance = Math.sqrt(dx*dx + dy*dy);
-      
-      // Als de afstand groter is dan 5px, beschouwen we het als een drag operatie
-      if (distance > 5) {
-        // @ts-ignore - Custom property
-        if (window._mouseDownInfo) window._mouseDownInfo.isDragging = true;
-      }
+    window._draggingFileFromFolder = true;
+    window.draggedFileInfo = {
+      id: file.id || 0,
+      name: file.name,
+      parentId: parentFolderId || null,
+      position: { x: e.clientX, y: e.clientY }
     };
     
-    // Schoonmaak wanneer de muis wordt losgelaten
-    const cleanup = () => {
-      clearTimeout(timer);
-      element.classList.remove('item-ready-to-drag');
-      element.style.cursor = '';
-      
-      // Ook cursor van het document resetten
-      document.body.style.cursor = '';
-      
-      // Verwijder de no-select class van body
-      document.body.classList.remove('no-select');
-      
-      // Verwijder alle event listeners
-      window.removeEventListener('mouseup', cleanup);
-      window.removeEventListener('mousemove', handleMouseMove);
-      
-      // Reset de mouseDown info na korte vertraging (zodat click handler het nog kan gebruiken)
-      setTimeout(() => {
-        // @ts-ignore - Custom property
-        window._mouseDownInfo = undefined;
-      }, 50);
-    };
+    setIsDragging(true);
     
-    window.addEventListener('mouseup', cleanup);
-    window.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
   };
   
-  return (
-    <div className="folder-item-container relative group">
-      {/* Drag handle (zichtbaar op hover) */}
-      <div 
-        className="absolute left-0 inset-y-0 flex items-center justify-center w-10 bg-blue-100/50 cursor-move opacity-0 group-hover:opacity-100 transition-all rounded-l-md z-10"
-        draggable="true"
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-        onMouseDown={handleMouseDown}
-        data-file-id={file.id}
-        data-parent-folder={parentFolderId}
-        data-drag-handle="true"
-        title="Sleep om te verplaatsen"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600">
-          <circle cx="8" cy="8" r="1.5"/>
-          <circle cx="8" cy="16" r="1.5"/>
-          <circle cx="16" cy="8" r="1.5"/>
-          <circle cx="16" cy="16" r="1.5"/>
-        </svg>
-      </div>
+  // Verplaats de "ghost" tijdens het slepen
+  const handleMouseMove = (e: MouseEvent) => {
+    if (isDragging) {
+      setPosition({ 
+        x: e.clientX - dragOffset.x, 
+        y: e.clientY - dragOffset.y 
+      });
       
-      {/* Bestandsitem (klikbaar maar niet sleepbaar) */}
-      <div
-        className="folder-item flex items-center p-3 pl-10 rounded-md hover:bg-gray-100 border border-gray-200 mb-1 transition-all duration-150 bg-white"
-        onClick={handleFileClick}
-        data-file-id={file.id}
-        data-parent-folder={parentFolderId}
-        title={file.name}
-      >
-        <div className="flex items-center gap-3 w-full">
-          <div>
-            {getIcon()}
+      // Update de positie van de ghost
+      const clone = document.getElementById('drag-clone');
+      if (clone && clone.firstElementChild) {
+        (clone.firstElementChild as HTMLElement).style.left = `${e.clientX - dragOffset.x}px`;
+        (clone.firstElementChild as HTMLElement).style.top = `${e.clientY - dragOffset.y}px`;
+      }
+      
+      // Definieer het desktopgebied 
+      const minY = 60; // Ongeveer de hoogte van de toolbar
+      const isOverDesktop = e.clientY > minY;
+      
+      // Geef visuele indicatie of we boven desktop zijn
+      if (isOverDesktop) {
+        document.body.classList.add('can-drop-on-desktop');
+        // Sla huidige positie op voor als we loslaten
+        window._desktopDragPosition = { x: e.clientX, y: e.clientY };
+      } else {
+        document.body.classList.remove('can-drop-on-desktop');
+        window._desktopDragPosition = undefined;
+      }
+    }
+  };
+  
+  // Beëindig het slepen en bepaal of het bestand verplaatst moet worden
+  const handleMouseUp = async (e: MouseEvent) => {
+    if (isDragging) {
+      setIsDragging(false);
+      
+      document.body.classList.remove('no-select', 'can-drop-on-desktop');
+      document.body.style.cursor = '';
+      
+      // Verwijder listeners
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      
+      // Verwijder de ghost
+      const clone = document.getElementById('drag-clone');
+      if (clone) document.body.removeChild(clone);
+      
+      // Bepaal of we boven het bureaublad hebben losgelaten
+      const minY = 60; // Ongeveer de hoogte van de toolbar
+      const isOverDesktop = e.clientY > minY;
+      
+      if (isOverDesktop && parentFolderId) {
+        try {
+          // Probeer het bestand uit de map te verplaatsen naar het bureaublad
+          setWasDroppedOnDesktop(true);
+          
+          // Zet de global sleepcondities terug
+          window._draggingFileFromFolder = false;
+          
+          // Roep de API aan om het bestand uit de map te verwijderen
+          if (file.id !== undefined) {
+            await removeFileFromFolder(file.id, { 
+              x: e.clientX, 
+              y: e.clientY 
+            });
+          }
+          
+          toast({
+            title: "Bestand verplaatst",
+            description: `${file.name} is naar het bureaublad verplaatst.`,
+            duration: 3000,
+          });
+          
+        } catch (error) {
+          console.error('Fout bij verplaatsen bestand:', error);
+          setWasDroppedOnDesktop(false);
+          
+          toast({
+            title: "Fout",
+            description: `Kon ${file.name} niet verplaatsen.`,
+            variant: "destructive"
+          });
+        }
+      }
+      
+      // Reset alle globale variabelen
+      window._draggingFileFromFolder = false;
+      window.draggedFileInfo = undefined;
+      window._desktopDragPosition = undefined;
+    }
+  };
+  
+  // Effect om component op te ruimen als deze verwijderd wordt
+  useEffect(() => {
+    return () => {
+      // Clean-up als de component unmount
+      if (isDragging) {
+        document.body.classList.remove('no-select', 'can-drop-on-desktop');
+        document.body.style.cursor = '';
+        
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        
+        // Verwijder drag clone als die bestaat
+        const clone = document.getElementById('drag-clone');
+        if (clone) document.body.removeChild(clone);
+        
+        window._draggingFileFromFolder = false;
+        window.draggedFileInfo = undefined;
+      }
+    };
+  }, [isDragging]);
+  
+  // Als het bestand naar het bureaublad is verplaatst, toon dan niets
+  if (wasDroppedOnDesktop) {
+    return null;
+  }
+  
+  return (
+    <div 
+      className={`folder-item-container ${isDragging ? 'opacity-50' : ''}`} 
+      ref={dragElementRef}
+    >
+      <div className="flex items-center mb-1 rounded-md overflow-hidden">
+        {/* Grip handle voor slepen */}
+        <div 
+          className="bg-blue-50 hover:bg-blue-100 p-2 cursor-grab active:cursor-grabbing flex-shrink-0"
+          onMouseDown={startDrag}
+        >
+          <GripVertical size={16} className="text-blue-600" />
+        </div>
+        
+        {/* Bestandsitem (alleen klikbaar) */}
+        <div
+          className="folder-item flex-grow flex items-center p-3 pl-3 hover:bg-gray-100 border-y border-r border-gray-200 bg-white"
+          onClick={handleFileClick}
+          data-file-id={file.id}
+          data-parent-folder={parentFolderId}
+        >
+          <div className="flex items-center gap-3 w-full">
+            <div>
+              {getIcon()}
+            </div>
+            <div className="truncate font-medium text-sm">{file.name}</div>
           </div>
-          <div className="truncate font-medium text-sm">{file.name}</div>
         </div>
       </div>
     </div>
