@@ -122,11 +122,47 @@ export function FileItem({
   };
   
   // Remove file from folder (place back on desktop)
-  const removeFileFromFolder = async (fileId: number) => {
+  const removeFileFromFolder = async (fileId: number, position?: { x: number; y: number }, parentId?: number) => {
     try {
       console.log(`Removing file ${fileId} from its current folder`);
+      
+      // Update UI FIRST before API call for instant feedback
+      if (parentId) {
+        try {
+          // 1. Get and update folder contents
+          const folderFilesKey = [`/api/folders/${parentId}/files`];
+          const folderContents = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey);
+          
+          if (folderContents?.files) {
+            // Find the file being removed
+            const fileIndex = folderContents.files.findIndex(f => f.id === fileId);
+            
+            if (fileIndex >= 0) {
+              // Get a copy of the file
+              const removedFile = {...folderContents.files[fileIndex]};
+              // Remove from folder view immediately
+              const updatedFolderFiles = [...folderContents.files];
+              updatedFolderFiles.splice(fileIndex, 1);
+              
+              // Update folder contents cache
+              queryClient.setQueryData(folderFilesKey, {
+                files: updatedFolderFiles
+              });
+              
+              console.log(`✨ FILE ITEM: UI Updated to remove file ${fileId} from folder ${parentId}`);
+            }
+          }
+        } catch (error) {
+          console.error('Error updating UI before API call:', error);
+        }
+      }
+      
       const response = await fetch(`/api/folders/files/${fileId}`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: position ? JSON.stringify({ position }) : undefined,
       });
       
       if (!response.ok) {
@@ -135,6 +171,22 @@ export function FileItem({
       
       const result = await response.json();
       console.log('File removed from folder successfully:', result);
+      
+      // Als er een positie is opgegeven, direct de bestandspositie ook updaten
+      if (position && result.file?.id) {
+        try {
+          await fetch(`/api/files/${result.file.id}/position`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ position }),
+          });
+          console.log(`✅ Positie van bestand ${result.file.name} succesvol bijgewerkt naar (${position.x}, ${position.y})`);
+        } catch (err) {
+          console.error('Fout bij direct updaten van bestandspositie:', err);
+        }
+      }
       
       // Force refresh the desktop files - this is crucial to make files appear on desktop again
       queryClient.invalidateQueries({ queryKey: ['/api/files'] });
