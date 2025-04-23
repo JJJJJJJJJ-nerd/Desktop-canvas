@@ -191,7 +191,7 @@ export function DraggableFolderWindow({ folder, onClose, onDragEnd }: DraggableF
       <div style={styles.header} className="folder-header">
         <div style={styles.title}>
           <Folder size={16} />
-          <span>{folder.name} (ID: {folder.id})</span>
+          <span>{folder.name}</span>
         </div>
         
         <div style={styles.controls}>
