@@ -25,6 +25,19 @@ interface FolderViewProps {
 }
 
 export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderViewProps) {
+  // Globale loading overlay component voor hergebruik
+  const LoadingOverlay = ({ message }: { message: string }) => (
+    <div className="fixed top-0 left-0 w-screen h-screen bg-black/40 backdrop-blur-sm flex items-center justify-center z-[9999]" style={{
+      animation: "fadeIn 0.2s ease-out",
+      position: "fixed"
+    }}>
+      <div className="bg-white p-8 rounded-xl shadow-2xl border-2 border-primary flex flex-col items-center transform scale-110">
+        <div className="h-16 w-16 animate-spin text-primary mb-6 border-4 border-primary/20 border-t-primary rounded-full"></div>
+        <h3 className="text-2xl font-bold text-gray-900 mb-2">{message}</h3>
+        <p className="text-lg text-gray-500">Een ogenblik geduld...</p>
+      </div>
+    </div>
+  );
   const [files, setFiles] = useState<DesktopFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -1256,26 +1269,9 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
           boxShadow: isDraggingOver ? 'inset 0 0 20px rgba(34, 197, 94, 0.4)' : 'none'
         }}
       >
-        {/* Loading overlay for file drag operations, appears for 0.5 seconds */}
-        {isRefreshing && (
-          <div className="fixed top-0 left-0 w-screen h-screen bg-black/40 backdrop-blur-sm flex items-center justify-center z-[9999]" style={{
-            animation: "fadeIn 0.2s ease-out",
-            position: "fixed"
-          }}>
-            <div className="bg-white p-8 rounded-xl shadow-2xl border-2 border-primary flex flex-col items-center transform scale-110">
-              <div className="h-16 w-16 animate-spin text-primary mb-6 border-4 border-primary/20 border-t-primary rounded-full"></div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Map Wordt Bijgewerkt</h3>
-              <p className="text-lg text-gray-500">Een ogenblik geduld...</p>
-            </div>
-          </div>
-        )}
+
         
-        {isLoading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="animate-spin border-2 border-primary/20 border-t-primary rounded-full w-6 h-6"></div>
-            <span className="ml-2 text-gray-600">Loading folder contents...</span>
-          </div>
-        ) : error ? (
+        {error ? (
           <div className="text-red-500 text-center py-4">
             <p>Error loading folder contents.</p>
             <button 
