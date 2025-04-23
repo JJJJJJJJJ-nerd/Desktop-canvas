@@ -23,15 +23,43 @@ export function useDesktopFiles() {
   // Upload files mutation
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
-      const response = await fetch('/api/files/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      return response.json();
+      console.log('🚀 UPLOAD MUTATION START');
+      console.log('Sending FormData to server...');
+      
+      try {
+        const response = await fetch('/api/files/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        
+        console.log('📥 Response received:', { 
+          status: response.status, 
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ Server rejected the upload:', errorText);
+          throw new Error(`Upload failed: ${response.status} ${response.statusText} - ${errorText}`);
+        }
+        
+        const data = await response.json();
+        console.log('✅ Upload successful, received data:', data);
+        return data;
+      } catch (error) {
+        console.error('❌ ERROR IN UPLOAD MUTATION:', error);
+        throw error;
+      }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('🎉 Upload mutation success! Invalidating queries...');
       queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+      console.log('✨ Queries invalidated, UI should refresh');
     },
+    onError: (error) => {
+      console.error('💥 Upload mutation ERROR:', error);
+    }
   });
 
   // Update file position mutation
@@ -316,15 +344,49 @@ export function useDesktopFiles() {
 
   // Add uploaded files
   const addFiles = async (fileList: FileList) => {
-    const formData = new FormData();
-    Array.from(fileList).forEach(file => {
-      formData.append('files', file);
-    });
+    console.log('=== addFiles function called ===');
+    console.log(`Received ${fileList.length} files`);
+    
+    if (fileList.length === 0) {
+      console.warn('FileList is empty, aborting upload');
+      return;
+    }
     
     try {
-      await uploadMutation.mutateAsync(formData);
+      const formData = new FormData();
+      
+      console.log('Creating FormData object with files:');
+      Array.from(fileList).forEach((file, index) => {
+        console.log(`- File ${index + 1}: ${file.name} (${file.type}, ${file.size} bytes)`);
+        formData.append('files', file);
+      });
+      
+      console.log('FormData created successfully, starting upload...');
+      
+      // Verify FormData content
+      console.log('FormData entries:');
+      // @ts-ignore - FormData.entries() may not be recognized by TypeScript
+      for (let pair of formData.entries()) {
+        console.log(`- ${pair[0]}: ${pair[1] instanceof File ? `${pair[1].name} (${pair[1].type})` : pair[1]}`);
+      }
+      
+      console.log('Calling uploadMutation.mutateAsync...');
+      const result = await uploadMutation.mutateAsync(formData);
+      console.log('Upload successful!', result);
+      
+      return result;
     } catch (error) {
       console.error('Error uploading files:', error);
+      console.error('Stack trace:', (error as Error).stack);
+      
+      // If there's a response object in the error, log it
+      if ((error as any).response) {
+        console.error('Response:', (error as any).response);
+      }
+      
+      throw error; // Re-throw to allow caller to handle
+    } finally {
+      console.log('=== addFiles function completed ===');
     }
   };
 

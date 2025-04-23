@@ -105,20 +105,39 @@ export default function Desktop() {
 
   // Handle upload button click
   const handleUploadClick = () => {
+    console.log('Upload button clicked!');
     if (fileInputRef.current) {
+      console.log('Clicking the file input element');
       fileInputRef.current.click();
+    } else {
+      console.error('fileInputRef.current is null or undefined');
     }
   };
 
   // Handle file selection from file input
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
+    console.log('File input change event triggered!');
+    
+    if (!e.target.files || e.target.files.length === 0) {
+      console.log('No files selected in input');
+      return;
+    }
+    
+    console.log(`Files selected: ${e.target.files.length}`, {
+      files: Array.from(e.target.files).map(f => ({
+        name: f.name,
+        type: f.type,
+        size: f.size
+      }))
+    });
     
     // Pass the FileList to addFiles, which will handle uploading to server
+    console.log('Calling addFiles function...');
     addFiles(e.target.files);
     
     // Reset the file input
     if (fileInputRef.current) {
+      console.log('Resetting file input value');
       fileInputRef.current.value = '';
     }
   };
@@ -835,14 +854,28 @@ export default function Desktop() {
               onClose={closePreview}
             />
             
-            {/* Hidden file input */}
-            <input
-              type="file"
-              ref={fileInputRef}
-              className="hidden"
-              onChange={handleFileInputChange}
-              multiple
-            />
+            {/* Hidden file input - tijdelijke directe knop voor testen */}
+            <div className="absolute bottom-2 right-2 p-3 bg-white shadow rounded-md z-50 flex flex-col gap-2">
+              <p className="text-xs">Debug Controls</p>
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="text-xs w-full"
+                onChange={handleFileInputChange}
+                multiple
+              />
+              <button 
+                onClick={() => {
+                  console.log("Direct testing file input...");
+                  if (fileInputRef.current) {
+                    fileInputRef.current.click();
+                  }
+                }}
+                className="text-xs bg-blue-500 text-white p-1 rounded"
+              >
+                Test File Input
+              </button>
+            </div>
           </div>
         </ContextMenuTrigger>
         
