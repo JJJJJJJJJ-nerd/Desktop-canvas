@@ -880,9 +880,9 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         
         // Verminder logboek om flikkeren te voorkomen
         const now = Date.now();
-        if (!lastDragOverTime || now - lastDragOverTime > 250) {
+        if (!lastDragOverTimeRef.current || now - lastDragOverTimeRef.current > 250) {
           console.log(`🟢 DRAG OVER OPEN MAP: ${folder.name} (ID: ${folder.id})`);
-          lastDragOverTime = now;
+          lastDragOverTimeRef.current = now;
         }
         
         // Voorkom flikkeren door niet constant de state te updaten
@@ -973,6 +973,9 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                 queryClient.setQueryData(folderFilesKey, {
                   files: [...folderContents.files, movedFile]
                 });
+                
+                // Update component state voor directe UI feedback
+                setFiles(prev => [...prev, movedFile]);
                 
                 // Show success toast
                 toast({

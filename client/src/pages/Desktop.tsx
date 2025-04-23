@@ -625,6 +625,15 @@ export default function Desktop() {
               files: [...folderContents.files, movedFile]
             });
             
+            // Trigger visuele updates in alle openstaande FolderView componenten
+            // @ts-ignore - Custom event
+            window.dispatchEvent(new CustomEvent('folder-contents-updated', {
+              detail: { 
+                folderId: activeDropFolder.id,
+                addedFile: movedFile
+              }
+            }));
+            
             // Show success message with folder name
             toast({
               title: "File moved",
@@ -721,6 +730,15 @@ export default function Desktop() {
             queryClient.setQueryData(folderFilesKey, {
               files: [...folderContents.files, movedFile]
             });
+            
+            // Trigger visuele updates in alle openstaande FolderView componenten
+            // @ts-ignore - Custom event
+            window.dispatchEvent(new CustomEvent('folder-contents-updated', {
+              detail: { 
+                folderId: hoverFolderId,
+                addedFile: movedFile
+              }
+            }));
             
             // Show success message
             toast({
