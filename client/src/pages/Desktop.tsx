@@ -470,29 +470,39 @@ export default function Desktop() {
     // Voeg event listener toe en ruim op - ALTIJD ACTIEF
     document.addEventListener('mousemove', handleGlobalMouseTracking);
     
-    // Extra event listener voor mouseup om highlighting te resetten
+    // Extra event listener voor mouseup om highlighting te resetten, maar ALLEEN nadat drop is verwerkt
     const resetHighlighting = () => {
-      // We moeten even wachten voordat we de draggedFileInfo resetten
-      // Dit is belangrijk omdat handlers voor drop events deze info nog nodig hebben
+      // Gebruik een ruime timeout zodat eerst de drop events worden afgehandeld
+      // Dit is essentieel voor het correct werken van drag & drop naar mappen
       setTimeout(() => {
+        console.log('Reset highlighting after drop/mouseup...');
+        
+        // Reset visuele feedback
         document.querySelectorAll('.folder-highlight-dragover').forEach((el) => {
           el.classList.remove('folder-highlight-dragover');
         });
         
-        // @ts-ignore - Custom window property
-        window._openFolderHoverId = undefined;
+        // Reset alleen de tracking variabelen als er GEEN drop target actief is
+        // Dit is cruciaal - we willen niet resetten terwijl een drop wordt verwerkt
         
-        // We resetten de '_hoverFolderId' en '_activeDropFolder' NIET hier
-        // omdat die gebruikt worden door de drop handler methoden in handleFileDragEnd
-        // Die zullen op hun beurt deze waarden resetten na gebruik
+        // Check of we niet in een actieve drop operatie zitten
+        // @ts-ignore - Custom window property 
+        const isActiveDropOngoing = window._activeDropFolder || window._hoverFolderId;
         
-        // Reset de draggedFileInfo alleen als er geen drop target is
-        // @ts-ignore - Custom window property
-        if (!window._activeDropFolder && !window._hoverFolderId) {
+        if (!isActiveDropOngoing) {
+          console.log('Geen actieve drop operatie, resetten van alle tracking...');
+          // @ts-ignore - Custom window property
+          window._openFolderHoverId = undefined;
+          // @ts-ignore - Custom window property 
+          window._hoverFolderId = undefined;
+          // @ts-ignore - Custom window property
+          window._activeDropFolder = undefined;
           // @ts-ignore - Custom window property
           window.draggedFileInfo = undefined;
+        } else {
+          console.log('Actieve drop operatie bezig, tracking blijft behouden voor drop handlers...');
         }
-      }, 50); // Korte timeout om de drop handlers eerst te laten uitvoeren
+      }, 200); // Langere timeout om zeker te zijn dat drop handlers tijd hebben om te verwerken
     };
     
     document.addEventListener('mouseup', resetHighlighting);
