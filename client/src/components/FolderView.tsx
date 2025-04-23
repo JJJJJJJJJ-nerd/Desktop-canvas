@@ -1013,12 +1013,18 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   }, [folder.id, folder.name, addFileToFolder, fetchFiles, onSelectFile, toast]);
 
   return (
-    <div 
-      id={`folder-window-${folder.id}`}
-      className={`absolute bg-white/95 backdrop-blur-md rounded-lg shadow-xl overflow-hidden ${
-        isDraggingOver ? 'folder-highlight-dragover' : ''
-      }`}
-      style={{
+    <>
+      {/* Centraal loading overlay voor alle laadoperaties */}
+      {(isLoading || isRefreshing) && (
+        <LoadingOverlay message={isLoading ? "Map Wordt Geladen" : "Map Wordt Bijgewerkt"} />
+      )}
+      
+      <div 
+        id={`folder-window-${folder.id}`}
+        className={`absolute bg-white/95 backdrop-blur-md rounded-lg shadow-xl overflow-hidden ${
+          isDraggingOver ? 'folder-highlight-dragover' : ''
+        }`}
+        style={{
         width: folder.dimensions?.width || 600,
         height: folder.dimensions?.height || 400,
         left: localPosition.x,
@@ -1748,6 +1754,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 }
 
