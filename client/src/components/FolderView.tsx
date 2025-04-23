@@ -342,6 +342,38 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       setIsLoading(false);
     }
   };
+  
+  // Luister naar custom events voor directe UI updates zonder re-fetching
+  useEffect(() => {
+    // Handler voor updates wanneer bestanden worden verplaatst naar deze map
+    const handleFolderContentsUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent<{folderId: number, addedFile: DesktopFile}>;
+      const { folderId, addedFile } = customEvent.detail;
+      
+      // Alleen de juiste map updaten
+      if (folderId === folder.id) {
+        console.log(`📣 Custom event ontvangen: Map ${folder.name} wordt bijgewerkt met bestand ${addedFile.name}`);
+        
+        // Voeg het bestand toe aan de lokale state voor directe UI update
+        setFiles(prevFiles => {
+          // Controleer of het bestand al bestaat om duplicaten te voorkomen
+          const exists = prevFiles.some(f => f.id === addedFile.id);
+          if (!exists) {
+            return [...prevFiles, {...addedFile, className: 'file-teleport-in'}];
+          }
+          return prevFiles;
+        });
+      }
+    };
+    
+    // Luister naar het custom event
+    window.addEventListener('folder-contents-updated', handleFolderContentsUpdated);
+    
+    // Cleanup handler bij unmount
+    return () => {
+      window.removeEventListener('folder-contents-updated', handleFolderContentsUpdated);
+    };
+  }, [folder.id, folder.name]);
 
   // Fetch all external files (files not in this folder)
   const fetchExternalFiles = async () => {
