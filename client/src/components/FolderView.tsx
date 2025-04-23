@@ -836,18 +836,24 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       onDragOver={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        console.log(`🟢 DRAG OVER OPEN MAP: ${folder.name} (ID: ${folder.id})`);
-        setIsDraggingOver(true);
-        e.dataTransfer.dropEffect = 'move';
         
-        // Sla de open map op als actieve drop target
-        // @ts-ignore - Custom property
-        window._activeDropFolder = {
-          id: folder.id,
-          name: folder.name,
-          element: document.getElementById(`folder-window-${folder.id}`),
-          timestamp: Date.now()
-        };
+        // Only apply effects if actually dragging a file (with file ID)
+        const hasFileId = e.dataTransfer.types.includes('text/plain');
+        
+        if (hasFileId) {
+          console.log(`🟢 DRAG OVER OPEN MAP: ${folder.name} (ID: ${folder.id})`);
+          setIsDraggingOver(true);
+          e.dataTransfer.dropEffect = 'move';
+          
+          // Sla de open map op als actieve drop target
+          // @ts-ignore - Custom property
+          window._activeDropFolder = {
+            id: folder.id,
+            name: folder.name,
+            element: document.getElementById(`folder-window-${folder.id}`),
+            timestamp: Date.now()
+          };
+        }
         
         // @ts-ignore - Voor backward compatibility
         window._openFolderHoverId = folder.id;
@@ -855,15 +861,25 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       onDragLeave={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        console.log(`🔴 DRAG LEAVE OPEN MAP: ${folder.name}`);
-        setIsDraggingOver(false);
         
-        // @ts-ignore - Custom property
-        if (window._activeDropFolder?.id === folder.id) {
+        // Only process when we're actually dragging a file
+        const hasFileId = e.dataTransfer.types.includes('text/plain');
+        
+        if (hasFileId) {
+          console.log(`🔴 DRAG LEAVE OPEN MAP: ${folder.name}`);
+          
+          // Small delay to prevent flickering when moving between elements
+          setTimeout(() => {
+            setIsDraggingOver(false);
+          }, 50);
+          
           // @ts-ignore - Custom property
-          window._activeDropFolder = undefined;
-          // @ts-ignore - Custom property
-          window._openFolderHoverId = undefined;
+          if (window._activeDropFolder?.id === folder.id) {
+            // @ts-ignore - Custom property
+            window._activeDropFolder = undefined;
+            // @ts-ignore - Custom property
+            window._openFolderHoverId = undefined;
+          }
         }
       }}
       onDrop={(e) => {
@@ -1108,15 +1124,30 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
             onDragOver={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              // Toon hier een visuele indicator dat je files kunt verplaatsen binnen de folder
-              setIsDraggingOver(true);
               
-              // Set cursor style to indicate drop is possible
-              e.dataTransfer.dropEffect = 'move';
+              // Only apply effect if actually dragging a file
+              const hasFileId = e.dataTransfer.types.includes('text/plain');
+              
+              if (hasFileId) {
+                // Toon hier een visuele indicator dat je files kunt verplaatsen binnen de folder
+                setIsDraggingOver(true);
+                
+                // Set cursor style to indicate drop is possible
+                e.dataTransfer.dropEffect = 'move';
+              }
             }}
             onDragLeave={(e) => {
               e.preventDefault();
-              setIsDraggingOver(false);
+              
+              // Only apply if actually dragging a file
+              const hasFileId = e.dataTransfer.types.includes('text/plain');
+              
+              if (hasFileId) {
+                // Small delay to prevent flickering
+                setTimeout(() => {
+                  setIsDraggingOver(false);
+                }, 50);
+              }
             }}
             onDrop={(e) => {
               // Voorkomen van default browser gedrag

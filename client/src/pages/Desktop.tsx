@@ -355,7 +355,11 @@ export default function Desktop() {
   
   // Track mouse movement for checking overlap with folders during drag
   const handleGlobalMouseMove = useCallback((e: MouseEvent) => {
-    if (draggingFileId) {
+    // Only process if we're actually dragging a file
+    // @ts-ignore - Using custom window property
+    const isDraggingFile = window.draggedFileInfo && window.draggedFileInfo.id;
+    
+    if (draggingFileId && isDraggingFile) {
       setDragPosition({x: e.clientX, y: e.clientY});
       
       // Check if dragging over any folder
@@ -389,14 +393,24 @@ export default function Desktop() {
           }
         }
       });
+    } else if (!isDraggingFile) {
+      // Clear all folder highlights if we're not dragging
+      Object.values(folderRefs).forEach(element => {
+        element.classList.remove('folder-highlight-dragover');
+      });
+      
+      // Clear the hover folder ID
+      // @ts-ignore - Custom property
+      window._hoverFolderId = undefined;
     }
   }, [draggingFileId, folderRefs]);
   
   // ENHANCED GLOBAL MOUSE POSITION TRACKER - IMPROVED FOLDER DETECTION
   useEffect(() => {
     const handleGlobalMouseTracking = (e: MouseEvent) => {
+      // Only process when mouse button is pressed (active dragging)
       // @ts-ignore - Custom window property
-      if (window.draggedFileInfo && window.draggedFileInfo.id) {
+      if (window.draggedFileInfo && window.draggedFileInfo.id && e.buttons > 0) {
         // Store current mouse position and update global tracking object
         // @ts-ignore - Custom property
         window.draggedFileInfo.position = { x: e.clientX, y: e.clientY };
@@ -458,6 +472,13 @@ export default function Desktop() {
         if (foundOverlappingFolder) {
           console.log('🎯 Overlap gedetecteerd met open map!');
         }
+      } else if (!e.buttons) {
+        // When not dragging (no mouse buttons pressed), clear all folder highlights
+        document.querySelectorAll('[id^="folder-window-"].folder-highlight-dragover').forEach((element) => {
+          if (element instanceof HTMLElement) {
+            element.classList.remove('folder-highlight-dragover');
+          }
+        });
       }
       
       // We verplaatsen de reset-logica naar mouseup event
