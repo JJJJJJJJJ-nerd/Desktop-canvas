@@ -298,7 +298,26 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   // We gebruiken nu de addFileToFolder functie uit de hook
 
   // Fetch files in the folder
+  // Deze variabele voorkomt oneindige lussen
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isAlreadyFetchingRef = useRef(false);
+  
   const fetchFiles = async () => {
+    // Voorkom herhaalde fetchFiles calls, wat een oneindige lus veroorzaakt
+    if (isAlreadyFetchingRef.current) {
+      console.log("🛑 Voorkom dubbele fetchFiles call");
+      return;
+    }
+    
+    // Cancel vorige timer als die er is
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
+      fetchTimeoutRef.current = null;
+    }
+    
+    // Markeer dat we aan het fetchen zijn
+    isAlreadyFetchingRef.current = true;
+    
     try {
       setIsLoading(true);
       const response = await fetch(`/api/folders/${folder.id}/files`);
@@ -312,6 +331,12 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       console.error('Error fetching folder contents:', err);
     } finally {
       setIsLoading(false);
+      
+      // Zet de flag weer uit na een kleine vertraging
+      // Dit voorkomt het te snel herhaaldelijk aanroepen
+      fetchTimeoutRef.current = setTimeout(() => {
+        isAlreadyFetchingRef.current = false;
+      }, 300);
     }
   };
 
@@ -436,27 +461,8 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     }
   }, [folder.id]);
   
-  // Setup a listener for the query cache to reload folder contents when they change
-  useEffect(() => {
-    if (folder.id) {
-      // Set up a cache watcher to refresh when folder contents change
-      const unsubscribe = queryClient.getQueryCache().subscribe(() => {
-        const folderFilesKey = [`/api/folders/${folder.id}/files`];
-        const wasInvalidated = queryClient.getQueryState(folderFilesKey)?.isInvalidated;
-        
-        // If this folder's query was invalidated, fetch fresh data
-        if (wasInvalidated) {
-          console.log(`🔄 FolderView: Cache voor map ${folder.name} is gewijzigd, inhoud wordt opnieuw opgehaald`);
-          fetchFiles();
-        }
-      });
-      
-      // Cleanup the subscription when the component unmounts
-      return () => {
-        unsubscribe();
-      };
-    }
-  }, [folder.id, folder.name, fetchFiles]);
+  // Deze code is verwijderd omdat het een oneindige loop veroorzaakte
+  // We hebben dit niet nodig omdat we fetchFiles() rechtstreeks aanroepen na elke actie
 
   // State and refs for dragging folder
   const [dragging, setDragging] = useState(false);
@@ -1437,18 +1443,13 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                             removeFileFromFolder(file.id, mousePosition, folder.id)
                               .then(() => {
                                 console.log(`✅ Database synchronized: File ${file.name} moved to desktop`);
-                                // Force refresh folder contents to ensure it's synced with database
-                                setTimeout(() => {
-                                  // Forceer een COMPLETE refresh
-                                  queryClient.invalidateQueries({ queryKey: ['/api/files'] });
-                                  queryClient.invalidateQueries({ queryKey: folderFilesKey });
-                                  
-                                  // En dan nog eens de folder content vernieuwen
-                                  fetchFiles();
-                                  
-                                  // Zorgen dat het bestand ook echt verwijderd is uit de UI
-                                  setFiles(currentFiles => currentFiles.filter(f => f.id !== file.id));
-                                }, 200);
+                                
+                                // Direct de UI updaten voor betere UX zonder server call
+                                setFiles(currentFiles => currentFiles.filter(f => f.id !== file.id));
+                                
+                                // Forceer alleen de nodige cache updates
+                                queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+                                queryClient.invalidateQueries({ queryKey: folderFilesKey });
                               })
                               .catch(error => {
                                 console.error('Error syncing database after UI update:', error);
@@ -1483,17 +1484,25 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                             description: `"${file.name}" is verplaatst naar het bureaublad.`,
                           });
                           
-                          // Refresh both the desktop files and folder contents
+                          // Direct de UI updaten zonder fetchFiles aan te roepen
+                          setFiles(currentFiles => currentFiles.filter(f => f.id !== file.id));
+                          
+                          // Refresh both the desktop files and folder contents via cache
                           queryClient.invalidateQueries({ queryKey: ['/api/files'] });
                           queryClient.invalidateQueries({ queryKey: [`/api/folders/${folder.id}/files`] });
-                          fetchFiles();
                         })
                         .catch(err => {
                           console.error('Fout bij verplaatsen bestand naar bureaublad:', err);
                           
-                          // Als er een fout optreedt, dan de bestandenlijst opnieuw ophalen
-                          // om eventuele verkeerde state te herstellen
-                          fetchFiles();
+                          // Toon foutmelding aan gebruiker
+                          toast({
+                            title: "Fout bij verplaatsen",
+                            description: "Er is een probleem opgetreden bij het verplaatsen van het bestand.",
+                            variant: "destructive",
+                          });
+                          
+                          // Cache invalideren (geen directe fetchFiles call)
+                          queryClient.invalidateQueries({ queryKey: [`/api/folders/${folder.id}/files`] });
                         });
                     }
                   }
