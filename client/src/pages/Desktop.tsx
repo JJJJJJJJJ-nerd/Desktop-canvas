@@ -4,10 +4,8 @@ import { DesktopToolbar } from "@/components/DesktopToolbar";
 import { FileItem } from "@/components/FileItem";
 import { FilePreviewModal } from "@/components/FilePreviewModal";
 import { WindowItem } from "@/components/WindowItem";
-import { FolderView } from "@/components/FolderView";
-import { BasicFolderView } from "@/components/BasicFolderView"; 
-import { SimpleFolderView } from "@/components/SimpleFolderView"; 
-import { SuperSimpleFolderView } from "@/components/SuperSimpleFolderView"; // NIEUW: Volledig vereenvoudigde mapweergave
+// Vervang alle oudere implementaties door de nieuwe
+import { FolderWindow } from "@/components/FolderWindow"; // NIEUWE IMPLEMENTATIE
 import { EmptyState } from "@/components/EmptyState";
 import { useDesktopFiles } from "@/hooks/use-desktop-files";
 import { DesktopFile } from "@/types";
@@ -1092,46 +1090,14 @@ export default function Desktop() {
                   
                   // Check if this is a folder 
                   if (file.isFolder === 'true') {
-                    // Gebruik de direct-approach mapweergave
+                    // Gebruik de compleet nieuwe mapweergave
                     return (
-                      <SuperSimpleFolderView
+                      <FolderWindow
                         key={`folder-${fileId}`}
                         folder={file}
                         onClose={() => closeWindowFile(fileId)}
                       />
                     );
-                    
-                    // Andere implementaties (uitgecommentarieerd)
-                    /*
-                    // iframe-gebaseerde mapweergave
-                    return (
-                      <SimpleFolderView
-                        key={`folder-${fileId}`}
-                        folder={file}
-                        onClose={() => closeWindowFile(fileId)}
-                      />
-                    );
-                    
-                    // BasicFolderView implementatie
-                    return (
-                      <BasicFolderView
-                        key={`folder-${fileId}`}
-                        folder={file}
-                        onClose={() => closeWindowFile(fileId)}
-                      />
-                    );
-                    
-                    // Oorspronkelijke implementatie
-                    return (
-                      <FolderView
-                        key={`folder-${fileId}`}
-                        folder={file}
-                        onClose={() => closeWindowFile(fileId)}
-                        onSelectFile={handlePreviewFile}
-                        onRename={updateFileName}
-                      />
-                    );
-                    */
                   }
                   
                   // Regular file window
