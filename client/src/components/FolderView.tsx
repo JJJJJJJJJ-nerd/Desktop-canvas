@@ -1018,6 +1018,15 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                     onDragEnd={(id, x, y) => {
                       // Handle dragging inside folder (rearrangement) if needed
                     }}
+                    onDragStart={(fileId) => {
+                      console.log(`🔄 Drag started for file ${fileId} in folder ${folder.id}`);
+                      // Set the global dragging state to allow desktop to know it's from a folder
+                      // @ts-ignore - Custom property
+                      window._draggingFileFromFolder = true;
+                    }}
+                    onDragMove={(fileId) => {
+                      // Optional: handle any drag move logic if needed
+                    }}
                     onPreview={() => {
                       // Handle previewing file
                       onSelectFile(file);
