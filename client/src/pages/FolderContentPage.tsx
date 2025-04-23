@@ -17,99 +17,33 @@ export default function FolderContentPage() {
       return;
     }
     
-    // WebSocket voor real-time updates opzetten indien beschikbaar
-    let ws: WebSocket | null = null;
-    
-    try {
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
-      ws = new WebSocket(wsUrl);
-      
-      ws.onopen = () => {
-        console.log('[FolderPage] WebSocket verbinding geopend');
-      };
-      
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'mapupdate' && data.folderId === parseInt(folderId)) {
-            console.log('[FolderPage] WebSocket update ontvangen voor map', folderId);
-            fetchFiles(false); // Herlaad bestanden zonder spinners opnieuw te tonen
-          }
-        } catch (e) {
-          console.error('[FolderPage] Fout bij verwerken WebSocket bericht:', e);
-        }
-      };
-      
-      ws.onerror = (error) => {
-        console.error('[FolderPage] WebSocket fout:', error);
-      };
-    } catch (e) {
-      console.error('[FolderPage] Fout bij opzetten WebSocket:', e);
-      // Continue with polling fallback
-    }
-    
-    // Verbeterde bestandsophaalfunctie met cache-busting en optionele laadstatus
-    const fetchFiles = async (showLoading = true) => {
-      if (showLoading) {
-        setLoading(true);
-      }
-      
+    // Bestanden ophalen
+    const fetchFiles = async () => {
       try {
-        // Cache busting met timestamp
-        const cacheParam = `_t=${Date.now()}`;
-        const response = await fetch(`/api/folders/${folderId}/files?${cacheParam}`);
-        
-        if (!response.ok) {
-          throw new Error(`Server antwoordde met status ${response.status}`);
-        }
-        
+        const response = await fetch(`/api/folders/${folderId}/files?t=${Date.now()}`);
         const data = await response.json();
         
         if (data && Array.isArray(data.files)) {
-          // Alleen bestanden instellen als ze veranderd zijn (geen onnodige re-renders)
-          const currentFileIds = files.map(f => f.id).sort().join(',');
-          const newFileIds = data.files.map((f: any) => f.id).sort().join(',');
-          
-          if (currentFileIds !== newFileIds || files.length !== data.files.length) {
-            setFiles(data.files);
-          }
+          setFiles(data.files);
         } else {
           setError('Ongeldig antwoord van server');
         }
       } catch (err) {
-        console.error('[FolderPage] Fout bij ophalen bestanden:', err);
+        console.error('Fout bij ophalen bestanden:', err);
         setError(`Fout: ${err instanceof Error ? err.message : String(err)}`);
       } finally {
-        if (showLoading) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     };
     
-    // Initiële ophaling
     fetchFiles();
     
-    // Fallback polling - elke 10 seconden verversen als geen WebSocket
-    const interval = setInterval(() => fetchFiles(false), 10000);
+    // Ververs elke 5 seconden
+    const interval = setInterval(fetchFiles, 5000);
     
     // Cleanup
-    return () => {
-      clearInterval(interval);
-      if (ws) {
-        ws.close();
-      }
-    };
-  }, [files.length]);
-
-  // Intelligente weergavemodus kiezen op basis van aantal bestanden
-  const getDisplayMode = (fileCount: number) => {
-    if (fileCount === 0) return 'empty';
-    if (fileCount <= 15) return 'grid';
-    return 'list'; // Efficiëntere lijst voor veel bestanden
-  };
-  
-  const displayMode = getDisplayMode(files.length);
+    return () => clearInterval(interval);
+  }, []);
   
   // Styling - puur inline CSS
   const styles = {
@@ -312,7 +246,7 @@ export default function FolderContentPage() {
       
       {loading ? (
         <div style={styles.loading}>
-          <div style={{...styles.loadingSpinner, animation: 'spin 1s linear infinite'}}></div>
+          <div style={{width: '40px', height: '40px', border: '3px solid #f3f3f3', borderRadius: '50%', borderTop: '3px solid #3b82f6', animation: 'spin 1s linear infinite', marginBottom: '16px'}}></div>
           <style>
             {`
               @keyframes spin {
@@ -330,7 +264,7 @@ export default function FolderContentPage() {
         </div>
       ) : files.length === 0 ? (
         <div style={styles.empty}>
-          <div style={styles.emptyIcon}>
+          <div style={{width: '48px', height: '48px', marginBottom: '16px', opacity: 0.5}}>
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1">
               <path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zM6 14c0-.55.45-1 1-1s1 .45 1 1-.45 1-1 1-1-.45-1-1zm3 0c0-.55.45-1 1-1s1 .45 1 1-.45 1-1 1-1-.45-1-1zm3 0c0-.55.45-1 1-1s1 .45 1 1-.45 1-1 1-1-.45-1-1z"/>
             </svg>
@@ -342,48 +276,25 @@ export default function FolderContentPage() {
         </div>
       ) : (
         <>
-          <div style={styles.fileCount}>
+          <div style={{ marginBottom: '16px' }}>
             <strong>{files.length}</strong> {files.length === 1 ? 'bestand' : 'bestanden'} in deze map
           </div>
           
-          {displayMode === 'grid' ? (
-            <div style={styles.grid}>
-              {files.map((file) => (
-                <div key={file.id} style={styles.fileCard}>
-                  <div style={styles.fileIcon}>
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2">
-                      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path>
-                      <polyline points="14 2 14 8 20 8"></polyline>
-                    </svg>
-                  </div>
-                  <div style={styles.fileName} title={file.name}>
-                    {file.name}
-                  </div>
+          <div style={styles.grid}>
+            {files.map((file) => (
+              <div key={file.id} style={styles.fileCard}>
+                <div style={styles.fileIcon}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                  </svg>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div style={styles.list}>
-              {files.map((file) => (
-                <div 
-                  key={file.id} 
-                  style={styles.listItem}
-                  onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#f9fafb')}
-                  onMouseOut={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                >
-                  <div style={styles.listIcon}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2">
-                      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path>
-                      <polyline points="14 2 14 8 20 8"></polyline>
-                    </svg>
-                  </div>
-                  <div style={styles.listName} title={file.name}>
-                    {file.name}
-                  </div>
+                <div style={styles.fileName} title={file.name}>
+                  {file.name}
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            ))}
+          </div>
         </>
       )}
     </div>
