@@ -1160,17 +1160,53 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                 const parsedFileId = parseInt(fileId);
                 const folderId = folder.id;
                 
-                addFileToFolder(parsedFileId, folderId)
-                  .then(() => {
-                    // Vernieuwen van maphoud
-                    toast({
-                      title: "Bestand toegevoegd",
-                      description: "Bestand is toegevoegd aan de map.",
-                      duration: 3000,
+                // Direct de UI updaten voordat de API call wordt gedaan
+                try {
+                  // Haal het bestand op uit de desktop bestanden
+                  const desktopFiles = queryClient.getQueryData<{files: DesktopFile[]}>(['/api/files']);
+                  const draggedFile = desktopFiles?.files.find(f => f.id === parsedFileId);
+                  
+                  if (draggedFile) {
+                    // 1. Update desktop files cache (verwijder het bestand van bureaublad)
+                    const updatedDesktopFiles = desktopFiles!.files.filter(f => f.id !== parsedFileId);
+                    queryClient.setQueryData(['/api/files'], {
+                      files: updatedDesktopFiles
                     });
                     
-                    // Vernieuwen van mapinhoud
-                    fetchFiles();
+                    // 2. Update folder files cache (voeg bestand toe aan map)
+                    const folderFilesKey = [`/api/folders/${folder.id}/files`];
+                    const folderFiles = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey) || {files: []};
+                    
+                    // Kopieer het bestand en stel het parentId in
+                    const fileForFolder = {
+                      ...draggedFile,
+                      parentId: folder.id
+                    };
+                    
+                    // Update de folder cache
+                    const updatedFolderFiles = [...folderFiles.files, fileForFolder];
+                    queryClient.setQueryData(folderFilesKey, {
+                      files: updatedFolderFiles
+                    });
+                    
+                    // 3. Direct lokale state bijwerken zodat bestand meteen verschijnt in de UI
+                    setFiles(updatedFolderFiles);
+                    
+                    // Toon meteen een toast
+                    toast({
+                      title: "Bestand toegevoegd",
+                      description: `"${draggedFile.name}" is direct toegevoegd aan map "${folder.name}"`,
+                      duration: 3000,
+                    });
+                  }
+                } catch (error) {
+                  console.error('Fout bij direct bijwerken van UI:', error);
+                }
+                
+                // Dan de database bijwerken via de API
+                addFileToFolder(parsedFileId, folderId)
+                  .then(() => {
+                    console.log(`✅ Database gesynchroniseerd: Bestand met ID ${parsedFileId} toegevoegd aan map ${folderId}`);
                   })
                   .catch(err => {
                     console.error('Fout bij toevoegen van bestand aan map:', err);
@@ -1180,6 +1216,9 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                       variant: "destructive",
                       duration: 3000,
                     });
+                    
+                    // Bij fout toch even de gegevens verversen
+                    fetchFiles();
                   });
               }
             }}
