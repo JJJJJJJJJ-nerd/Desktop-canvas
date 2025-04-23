@@ -1276,12 +1276,13 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                 draggable="true"
                 onDragStart={(e) => {
                   if (file.id) {
+                    // Set the file ID for the drag operation
                     e.dataTransfer.setData('text/plain', file.id.toString());
                     e.dataTransfer.effectAllowed = 'move';
+                    console.log(`🔄 Start sleepactie voor bestand ${file.name} (ID: ${file.id})`);
                     
                     // Add classes to show we're dragging with consistent styling
                     e.currentTarget.classList.add('opacity-50');
-                    e.currentTarget.classList.add('file-teleport-out');
                     
                     // Store a reference to the dragged file for the desktop to use
                     // @ts-ignore - Custom property
@@ -1297,37 +1298,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                       element: e.currentTarget
                     };
                     
-                    // IMMEDIATE UI UPDATE - Remove file from folder view instantly
-                    try {
-                      // 1. Update the folder's files cache to remove this file
-                      const folderFilesKey = [`/api/folders/${folder.id}/files`];
-                      const folderContents = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey);
-                      
-                      if (folderContents?.files) {
-                        // Find the file that's being moved
-                        const fileIndex = folderContents.files.findIndex(f => f.id === file.id);
-                        
-                        if (fileIndex >= 0) {
-                          // Make a copy of the files array
-                          const updatedFolderFiles = [...folderContents.files];
-                          
-                          // Remove the file from the array
-                          updatedFolderFiles.splice(fileIndex, 1);
-                          
-                          // Update the cache immediately
-                          queryClient.setQueryData(folderFilesKey, {
-                            files: updatedFolderFiles
-                          });
-                          
-                          // Update component state to reflect this change instantly
-                          setFiles(updatedFolderFiles);
-                          
-                          console.log(`📤 Bestand ${file.name} is direct verwijderd uit map ${folder.name} (UI update)`);
-                        }
-                      }
-                    } catch (error) {
-                      console.error('Error updating UI while dragging file from folder:', error);
-                    }
+                    console.log('🔵 Bestand sleep info opgeslagen in globale window.draggedFileInfo');
                   }
                 }}
                 onDragEnd={(e) => {
