@@ -788,6 +788,10 @@ export default function Desktop() {
         onUploadClick={handleUploadClick}
         onClearClick={handleClearClick}
         onSearch={handleSearch}
+        onFilesSelected={(files) => {
+          console.log('Files geselecteerd in DesktopToolbar:', files.length);
+          addFiles(files);
+        }}
       />
       
       {/* Desktop area with folders and files */}

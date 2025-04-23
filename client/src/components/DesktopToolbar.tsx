@@ -10,9 +10,10 @@ interface DesktopToolbarProps {
   onUploadClick: () => void;
   onClearClick: () => void;
   onSearch?: (query: string) => void;
+  onFilesSelected?: (files: FileList) => void;
 }
 
-export function DesktopToolbar({ fileCount, onUploadClick, onClearClick, onSearch }: DesktopToolbarProps) {
+export function DesktopToolbar({ fileCount, onUploadClick, onClearClick, onSearch, onFilesSelected }: DesktopToolbarProps) {
   const [, setLocation] = useLocation();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -22,11 +23,24 @@ export function DesktopToolbar({ fileCount, onUploadClick, onClearClick, onSearc
   const handleDirectUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     console.log("DesktopToolbar: Direct file handling");
     if (e.target.files?.length) {
-      // Roep de externe handler aan die werd meegegeven
-      onUploadClick();
+      console.log(`Geselecteerde bestanden: ${e.target.files.length}`);
       
-      // Reset de input
-      e.target.value = '';
+      // Als de onFilesSelected handler bestaat, geef de bestanden door
+      if (onFilesSelected) {
+        console.log("Bestanden doorgeven aan parent component");
+        onFilesSelected(e.target.files);
+      } else {
+        // Anders, gebruik de standaard upload knop handler
+        console.log("Fallback naar standaard upload knop handler");
+        onUploadClick();
+      }
+      
+      // Reset de input voor toekomstig gebruik
+      setTimeout(() => {
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }, 100);
     }
   };
 
@@ -63,19 +77,24 @@ export function DesktopToolbar({ fileCount, onUploadClick, onClearClick, onSearc
   return (
     <div className="bg-white/80 backdrop-blur-md border-b border-gray-200 px-3 py-1 flex justify-between items-center shadow-sm">
       <div className="flex items-center space-x-1">
-        <Button
-          onClick={onUploadClick}
-          size="sm"
-          className="bg-primary hover:bg-primary/90 text-white flex items-center h-8 relative"
-        >
-          <UploadIcon className="h-3.5 w-3.5 mr-1" />
-          Upload
-          <span className="absolute inset-0 z-10" onClick={(e) => {
-            e.stopPropagation(); // Voorkom doorklikken naar de parent
-            onUploadClick(); // Roep dezelfde functie aan
-            console.log("Extra upload handler");
-          }}></span>
-        </Button>
+        <div className="relative">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleDirectUpload}
+            multiple
+            className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-20"
+            title="Upload bestanden"
+          />
+          <Button
+            type="button"
+            size="sm"
+            className="bg-primary hover:bg-primary/90 text-white flex items-center h-8 relative pointer-events-none"
+          >
+            <UploadIcon className="h-3.5 w-3.5 mr-1" />
+            Upload
+          </Button>
+        </div>
         
         <Separator orientation="vertical" className="h-5 mx-1" />
         
