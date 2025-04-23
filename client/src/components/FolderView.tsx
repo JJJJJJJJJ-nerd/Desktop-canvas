@@ -1280,6 +1280,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                     e.dataTransfer.effectAllowed = 'move';
                     // Add class to show we're dragging with consistent styling
                     e.currentTarget.classList.add('opacity-50');
+                    e.currentTarget.classList.add('file-teleport-out');
                     
                     // Set up global drag tracking
                     // @ts-ignore - Custom property
@@ -1288,8 +1289,37 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                       name: file.name,
                       isFolder: false,
                       fromFolder: true,  // Markeer dat dit bestand uit een map komt
-                      parentFolderId: folder.id  // Bewaar de huidige map ID
+                      parentFolderId: folder.id,  // Bewaar de huidige map ID
+                      element: e.currentTarget
                     };
+                    
+                    // Direct UI update: bestand alvast verwijderen uit huidige folder view
+                    try {
+                      // Update folder contents cache
+                      const folderFilesKey = [`/api/folders/${folder.id}/files`];
+                      const folderContents = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey);
+                      
+                      if (folderContents?.files) {
+                        // Find the file being removed
+                        const fileIndex = folderContents.files.findIndex(f => f.id === file.id);
+                        
+                        if (fileIndex >= 0) {
+                          // Direct verwijderen uit de UI
+                          const updatedFolderFiles = [...folderContents.files];
+                          updatedFolderFiles.splice(fileIndex, 1);
+                          
+                          // Update folder contents cache immediately
+                          queryClient.setQueryData(folderFilesKey, {
+                            files: updatedFolderFiles
+                          });
+                          
+                          // Direct bijwerken van de lokale state zodat het bestand meteen verdwijnt
+                          setFiles(updatedFolderFiles);
+                        }
+                      }
+                    } catch (error) {
+                      console.error('Fout bij onmiddellijke UI update:', error);
+                    }
                     
                     console.log(`📤 DRAG START vanuit map: Bestand ${file.name} (ID: ${file.id}) wordt gesleept uit map ${folder.name}`);
                   }
@@ -1297,6 +1327,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                 onDragEnd={(e) => {
                   // Remove the opacity class when drag ends
                   e.currentTarget.classList.remove('opacity-50');
+                  e.currentTarget.classList.remove('file-teleport-out');
                   
                   // Als het bestand boven het desktop gebied werd losgelaten, verwijderen we het uit de map
                   // @ts-ignore - Custom property
@@ -1316,92 +1347,40 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                     
                     console.log(`🖱️ Positie voor bestand: ${mousePosition.x}, ${mousePosition.y}`);
                     
-                    // Directe UI update, dan pas database aanpassen
-                    try {
-                      // 1. Update folder contents cache
-                      const folderFilesKey = [`/api/folders/${folder.id}/files`];
-                      const folderContents = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey);
+                    // Get a copy of the file
+                    const draggedFile = {
+                      id: file.id,
+                      name: file.name,
+                      type: file.type,
+                      size: file.size,
+                      dataUrl: file.dataUrl,
+                      position: mousePosition,
+                      parentId: undefined  // Remove from folder
+                    };
+                    
+                    // Add to desktop files cache
+                    const desktopFiles = queryClient.getQueryData<{files: DesktopFile[]}>(['/api/files']);
+                    if (desktopFiles?.files) {
+                      // Update desktop files cache immediately
+                      queryClient.setQueryData(['/api/files'], {
+                        files: [...desktopFiles.files, draggedFile]
+                      });
                       
-                      if (folderContents?.files) {
-                        // Find the file being removed
-                        const fileIndex = folderContents.files.findIndex(f => f.id === file.id);
-                        
-                        if (fileIndex >= 0) {
-                          // Get a copy of the file
-                          const removedFile = {...folderContents.files[fileIndex]};
-                          
-                          // Direct verwijderen uit de UI
-                          const updatedFolderFiles = [...folderContents.files];
-                          updatedFolderFiles.splice(fileIndex, 1);
-                          
-                          // Update folder contents cache immediately
-                          queryClient.setQueryData(folderFilesKey, {
-                            files: updatedFolderFiles
-                          });
-                          
-                          // Direct bijwerken van de lokale state zodat het bestand meteen verdwijnt
-                          setFiles(updatedFolderFiles);
-                          
-                          // Visuele indicatie voor de gebruiker
-                          toast({
-                            title: "Bestand verplaatst",
-                            description: `"${file.name}" is verplaatst naar het bureaublad`,
-                            duration: 2000,
-                          });
-                          
-                          // Force refetch the folder files to ensure UI is updated
-                          setTimeout(() => {
-                            fetchFiles();
-                          }, 50);
-                          
-                          // 2. Add file back to desktop with the correct position
-                          const desktopFiles = queryClient.getQueryData<{files: DesktopFile[]}>(['/api/files']);
-                          if (desktopFiles?.files) {
-                            // Add to desktop with new position and no parentId
-                            const updatedFile = {
-                              ...removedFile,
-                              position: mousePosition,
-                              parentId: undefined
-                            };
-                            
-                            // Update desktop files cache immediately
-                            queryClient.setQueryData(['/api/files'], {
-                              files: [...desktopFiles.files, updatedFile]
-                            });
-                            
-                            // Show toast immediately
-                            toast({
-                              title: "Bestand verplaatst",
-                              description: `"${file.name}" is direct verplaatst naar het bureaublad.`,
-                              duration: 2000
-                            });
-                            
-                            // THEN update the database via API
-                            removeFileFromFolder(file.id, mousePosition)
-                              .then(() => {
-                                console.log(`✅ Database synchronized: File ${file.name} moved to desktop`);
-                              })
-                              .catch(error => {
-                                console.error('Error syncing database after UI update:', error);
-                              });
-                          }
-                        }
-                      }
-                    } catch (error) {
-                      console.error("Error updating UI before database:", error);
+                      // Show toast immediately
+                      toast({
+                        title: "Bestand verplaatst",
+                        description: `"${file.name}" is direct verplaatst naar het bureaublad.`,
+                        duration: 2000
+                      });
                       
-                      // Fallback to direct API call if cache update fails
+                      // THEN update the database via API
                       removeFileFromFolder(file.id, mousePosition)
                         .then(() => {
-                          toast({
-                            title: "Bestand verplaatst",
-                            description: `"${file.name}" is verplaatst naar het bureaublad.`,
-                          });
-                          
-                          queryClient.invalidateQueries({ queryKey: ['/api/files'] });
-                          fetchFiles();
+                          console.log(`✅ Database synchronized: File ${file.name} moved to desktop`);
                         })
-                        .catch(err => console.error('Fout bij verplaatsen bestand naar bureaublad:', err));
+                        .catch((error) => {
+                          console.error('Error syncing database after UI update:', error);
+                        });
                     }
                   }
                   
