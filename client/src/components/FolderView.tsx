@@ -230,33 +230,46 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     let startPos = { x: localPosition.x, y: localPosition.y };
     let isFolderHeaderDrag = false;
     
+    // Handle mouse down op folder header
     const handleHeaderMouseDown = (e: MouseEvent) => {
-      // Voorkom slepen als het een button of input element is
+      // Skip als we klikken op buttons of interactieve elementen
       if ((e.target as HTMLElement).tagName === 'BUTTON' || 
-          (e.target as HTMLElement).tagName === 'INPUT') {
+          (e.target as HTMLElement).tagName === 'INPUT' ||
+          (e.target as HTMLElement).closest('button')) {
         return;
       }
       
-      // Only proceed if target is folder header
-      const target = e.target as HTMLElement;
-      const folderHeader = folderWindowEl.querySelector('.folder-header') as HTMLElement;
+      // Vind de folder header - direct element reference
+      const folderHeader = folderWindowEl.querySelector('.folder-header');
+      const targetElement = e.target as HTMLElement;
       
-      // Check if click was in folder header or its children
-      if (folderHeader && (folderHeader === target || folderHeader.contains(target))) {
-        // Sla de huidige positie op voordat we gaan slepen
+      // Check of we in de folder header hebben geklikt (direct of kind)
+      const isHeaderOrChild = folderHeader && (
+        folderHeader === targetElement || 
+        folderHeader.contains(targetElement)
+      );
+      
+      if (isHeaderOrChild) {
+        console.log(`🖱️ Mouse DOWN op folder header ${folder.id}`);
+        
+        // Start drag operatie
         startPos = { ...localPosition };
         isFolderHeaderDrag = true;
         setDragging(true);
         
-        // Calculate offset zo dat we vanaf dezelfde positie blijven slepen
+        // Bereken de offset voor de drag (waar klikken we t.o.v. window corner)
         const rect = folderWindowEl.getBoundingClientRect();
-        setDragOffset({
+        const newOffset = {
           x: e.clientX - rect.left,
           y: e.clientY - rect.top
-        });
+        };
+        setDragOffset(newOffset);
         
-        console.log(`🖐️ Start dragging folder from position: (${startPos.x}, ${startPos.y})`);
+        console.log(`🖐️ START drag folder from (${startPos.x}, ${startPos.y}), offset: (${newOffset.x}, ${newOffset.y})`);
+        
+        // Voorkom dat andere elementen de event stelen
         e.preventDefault();
+        e.stopPropagation();
       }
     };
     
@@ -354,15 +367,27 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       }
     };
     
-    document.addEventListener('mousedown', handleHeaderMouseDown);
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    // Direct event registratie op het folder header element voor betere performance
+    const folderHeader = folderWindowEl.querySelector('.folder-header') as HTMLElement;
+    if (folderHeader) {
+      folderHeader.addEventListener('mousedown', handleHeaderMouseDown);
+      
+      // Globale events voor moving en mouseup (want je kunt buiten de header slepen)
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      
+      console.log('🔌 Drag handlers geregistreerd voor folder', folder.id);
+      
+      return () => {
+        folderHeader.removeEventListener('mousedown', handleHeaderMouseDown);
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        console.log('🔌 Drag handlers verwijderd voor folder', folder.id);
+      };
+    }
     
-    return () => {
-      document.removeEventListener('mousedown', handleHeaderMouseDown);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
+    // Fallback voor als de header niet bestaat
+    return () => {};
   }, [folder.id, folder.name, dragging, dragOffset]);
   
   // Handle file drag-and-drop functionality
