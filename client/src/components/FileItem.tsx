@@ -299,30 +299,34 @@ export function FileItem({
       e.preventDefault();
       e.stopPropagation();
       
-      // Only highlight if dragging a file element (via data transfer, not upload)
-      const hasFileId = e.dataTransfer.types.includes('text/plain');
+      // Print de beschikbare data types voor debug
+      console.log('DragOver data types:', e.dataTransfer.types);
       
-      if (hasFileId) {
+      // Controleer of we een bestand slepen (File API of onze custom text/plain)
+      const hasFileId = e.dataTransfer.types.includes('text/plain');
+      const hasFiles = e.dataTransfer.types.includes('Files');
+      
+      if (hasFileId || hasFiles) {
         // Show that we can drop here (visual cursor feedback)
         e.dataTransfer.dropEffect = 'move';
         
-        // Use our global tracking object to see which file is being dragged
+        // Verbeterde detectie: gebruik eerst onze global tracking object of anders direct de dataTransfer
         // @ts-ignore - Using custom window property
         const draggedInfo = window.draggedFileInfo;
         
-        // Only apply drag-over highlight if we're actually dragging a file (not just hovering)
-        if (draggedInfo && file.id && draggedInfo.id !== file.id) {
-          // Only set drag over if not already set and we're actually dragging something
+        // Als er bestanden worden gesleept vanaf bureaublad (met onze globale info) of van buitenaf
+        if ((draggedInfo && file.id && draggedInfo.id !== file.id) || hasFiles) {
+          // Zet de map-hover status aan als die nog niet aan stond
           if (!isDragOver) {
             setIsDragOver(true);
-            console.log(`📂 DRAG OVER: File ${draggedInfo.name} (ID: ${draggedInfo.id}) is hovering over folder ${file.name} (ID: ${file.id})`);
+            console.log(`📂 DRAG OVER: ${draggedInfo ? `File ${draggedInfo.name}` : 'Externe bestanden'} hovering over folder ${file.name} (ID: ${file.id})`);
             
-            // Also set up the global folder tracking
+            // Globale tracking bijwerken voor onze drag & drop implementatie
             if (file.isFolder === 'true') {
               // @ts-ignore - Custom property
               window._hoverFolderId = file.id;
               
-              // Also update the activeDropFolder property for consistency with open folders
+              // Consistente activeDropFolder eigenschap bijwerken voor alle foldervensters
               // @ts-ignore - Custom property
               window._activeDropFolder = {
                 id: file.id,
@@ -332,6 +336,11 @@ export function FileItem({
               };
               
               console.log(`✓ FOLDER READY: Closed folder ${file.name} (ID: ${file.id}) is now ready to receive files`);
+              
+              // Voeg een duidelijke visuele feedback toe (CSS klasse is al toegevoegd via className)
+              if (fileRef.current) {
+                fileRef.current.classList.add('folder-highlight-dragover');
+              }
             }
           }
         }
@@ -341,18 +350,24 @@ export function FileItem({
       e.preventDefault();
       e.stopPropagation();
       
+      // Controleer of we de juiste elementen verlaten
       // @ts-ignore - Using custom window property
       const draggedInfo = window.draggedFileInfo;
+      const hasFiles = e.dataTransfer.types.includes('Files');
       
-      // Only process drag leave if we're actually dragging a file
-      if (draggedInfo && draggedInfo.id) {
-        // We need to check if we're truly leaving the folder or just entering a child element
-        // to prevent flickering when moving around
+      // Alleen verwerken als we echt een bestand slepen of externe bestanden
+      if ((draggedInfo && draggedInfo.id) || hasFiles) {
+        // Kleine vertraging om te voorkomen dat we flikkeren bij het bewegen over subelementen
         setTimeout(() => {
           setIsDragOver(false);
-          console.log(`📂 DRAG LEFT: Cursor left folder ${file.name}`);
+          console.log(`📂 DRAG LEFT: Cursor verlaat map ${file.name}`);
           
-          // Clear the hover folder IDs when truly leaving
+          // Verwijder CSS klasse voor visuele feedback
+          if (fileRef.current) {
+            fileRef.current.classList.remove('folder-highlight-dragover');
+          }
+          
+          // Leeg de hover tracking als we echt de map verlaten
           if (file.isFolder === 'true' && file.id) {
             // @ts-ignore - Custom property
             if (window._hoverFolderId === file.id) {
@@ -360,15 +375,15 @@ export function FileItem({
               window._hoverFolderId = undefined;
             }
             
-            // Also clear the activeDropFolder property
+            // Leeg ook de activeDropFolder eigenschap
             // @ts-ignore - Custom property
             if (window._activeDropFolder?.id === file.id) {
-              console.log(`❌ CLEARING DROP TARGET: Folder ${file.name} is no longer a drop target`);
+              console.log(`❌ CLEARING DROP TARGET: Map ${file.name} is niet langer een drop target`);
               // @ts-ignore - Custom property
               window._activeDropFolder = undefined;
             }
           }
-        }, 50); // Small delay to ensure we're not just moving between child elements
+        }, 50); // Kleine vertraging om te zorgen dat we niet gewoon tussen child elementen bewegen
       }
     },
     onDrop: async (e: React.DragEvent) => {
@@ -376,109 +391,127 @@ export function FileItem({
       e.stopPropagation();
       setIsDragOver(false);
       
-      console.log(`🎯 DROP SUCCESS: File dropped into folder ${file.name} (ID: ${file.id})`);
+      console.log(`🎯 DROP SUCCESS: Bestand(en) gedropt in map ${file.name} (ID: ${file.id})`);
+      console.log('DropEvent beschikbare datatypes:', e.dataTransfer.types);
       
-      // Clear all folder hover tracking
+      // Voeg extra debug logs toe
+      if (e.dataTransfer.files.length > 0) {
+        console.log(`DropEvent bevat ${e.dataTransfer.files.length} bestanden:`, 
+          Array.from(e.dataTransfer.files).map(f => f.name));
+      }
+      
+      // Verwijder visuele stijlen voor drop target
+      if (fileRef.current) {
+        fileRef.current.classList.remove('folder-highlight-dragover', 'folder-receive');
+      }
+      
+      // Verwijder alle hovering tracking
       // @ts-ignore - Custom property
       window._activeDropFolder = undefined;
       // @ts-ignore - Custom property
       window._hoverFolderId = undefined;
-      // @ts-ignore - Custom property for backward compatibility
+      // @ts-ignore - Custom property voor compatibiliteit
       window._openFolderHoverId = undefined;
       
-      if (file.id) {
+      // Controleer of de folder een geldig ID heeft
+      if (!file.id) {
+        console.error("Folder heeft geen geldig ID voor drop operatie");
+        return;
+      }
+      
+      try {
+        // CASE 1: Controleer eerst op bestanden van bureaublad (intern versleept)
         const data = e.dataTransfer.getData('text/plain');
         if (data) {
-          try {
-            const fileId = parseInt(data);
-            if (!isNaN(fileId)) {
-              // Get info about the dragged file
-              const allDesktopFiles = queryClient.getQueryData<any>(['/api/files'])?.files || [];
-              const droppedFile = allDesktopFiles.find((f: any) => f.id === fileId);
-              
-              console.log(`📁 DROP DETECTED: File ${fileId} dropped into folder ${file.id} (${file.name})`);
-              console.log(`📁 TELEPORTING: Beginning teleport animation for ${droppedFile?.name || 'unknown file'}...`);
-              
-              // Don't allow dropping a folder into itself (circular reference prevention)
-              if (fileId === file.id) {
-                console.log('Cannot drop a folder into itself');
-                return;
-              }
-              
-              // Alleen niet toestaan als de gesleepte item een map is (maar WEL bestanden in mappen toestaan)
-              if (droppedFile?.isFolder === 'true') {
-                console.log('Cannot drop a folder into another folder at this time');
-                return;
-              }
-              
-              // Find the dragged file's DOM element
-              const draggedFileElement = document.querySelector(`[data-file-id="${fileId}"]`);
-              if (draggedFileElement) {
-                // Add teleport animation class
-                draggedFileElement.classList.add('teleport-out');
-              }
-              
-              // Add receiving animation to folder
-              if (fileRef.current) {
-                fileRef.current.classList.add('folder-receive');
-                setTimeout(() => {
-                  if (fileRef.current) {
-                    fileRef.current.classList.remove('folder-receive');
-                  }
-                }, 500);
-              }
-              
-              if (droppedFile && droppedFile.parentId) {
-                // First remove from current folder
-                await removeFileFromFolder(fileId);
-              }
-              
-              // Now add to this folder - slight delay for animation to complete
-              setTimeout(async () => {
-                if (file.id !== undefined && typeof file.id === 'number') {
-                  await addFileToFolder(fileId, file.id);
-                  
-                  // Refresh desktop files - this is crucial to make files disappear from desktop
-                  queryClient.invalidateQueries({ queryKey: ['/api/files'] });
-                  
-                  // Explicitly refresh the folder contents to show the newly added file
-                  queryClient.invalidateQueries({ queryKey: [`/api/folders/${file.id}/files`] });
-                  
-                  // Also try to get cached folder data and update it immediately (for instant UI feedback)
-                  try {
-                    const folderFilesKey = [`/api/folders/${file.id}/files`];
-                    const folderContents = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey);
-                    const desktopFiles = queryClient.getQueryData<{files: DesktopFile[]}>(['/api/files'])?.files || [];
-                    
-                    if (desktopFiles) {
-                      // Find the dragged file by ID
-                      const draggedFile = desktopFiles.find(f => f.id === fileId);
-                      
-                      if (draggedFile && folderContents) {
-                        // Add this file to folder contents (with parentId updated)
-                        const updatedFile = {
-                          ...draggedFile,
-                          parentId: file.id
-                        };
-                        
-                        // Update the folder contents cache
-                        queryClient.setQueryData(folderFilesKey, {
-                          files: [...folderContents.files, updatedFile]
-                        });
-                        
-                        console.log(`✅ UI INSTANT UPDATE: Bestand ${draggedFile.name} direct zichtbaar gemaakt in map ${file.name}`);
-                      }
-                    }
-                  } catch (error) {
-                    console.error('Error updating folder UI cache:', error);
-                  }
-                }
-              }, 300);
+          const fileId = parseInt(data);
+          if (!isNaN(fileId)) {
+            // Info ophalen over het gesleepte bestand
+            const allDesktopFiles = queryClient.getQueryData<any>(['/api/files'])?.files || [];
+            const droppedFile = allDesktopFiles.find((f: any) => f.id === fileId);
+            
+            console.log(`📁 DROP DETECTED: Bestand ${fileId} (${droppedFile?.name || 'onbekend'}) gedropt in map ${file.id} (${file.name})`);
+            
+            // Voorkom dat een map in zichzelf wordt gesleept (circulaire referentie)
+            if (fileId === file.id) {
+              console.log('Kan een map niet in zichzelf plaatsen');
+              return;
             }
-          } catch (error) {
-            console.error('Error dropping file into folder:', error);
+            
+            // Voorkom dat mappen in mappen worden geplaatst (feature restricties)
+            if (droppedFile?.isFolder === 'true') {
+              console.log('Het plaatsen van mappen in andere mappen is momenteel niet ondersteund');
+              return;
+            }
+            
+            // Animatie toevoegen aan het gesleepte element
+            const draggedFileElement = document.querySelector(`[data-file-id="${fileId}"]`);
+            if (draggedFileElement) {
+              draggedFileElement.classList.add('teleport-out');
+            }
+            
+            // Ontvangst animatie toevoegen aan de map
+            if (fileRef.current) {
+              fileRef.current.classList.add('folder-receive');
+              setTimeout(() => {
+                if (fileRef.current) {
+                  fileRef.current.classList.remove('folder-receive');
+                }
+              }, 500);
+            }
+            
+            // Als het bestand in een andere map was, eerst verwijderen
+            if (droppedFile && droppedFile.parentId) {
+              await removeFileFromFolder(fileId);
+            }
+            
+            // Met vertraging toevoegen voor betere visuele feedback
+            setTimeout(async () => {
+              try {
+                // Toevoegen aan de map met de API
+                await addFileToFolder(fileId, file.id);
+                
+                // Desktop bestanden verversen
+                queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+                
+                // Expliciet de inhoud van de map verversen
+                queryClient.invalidateQueries({ queryKey: [`/api/folders/${file.id}/files`] });
+                
+                // Direct UI update voor instant feedback (zonder wachten op API)
+                try {
+                  const folderFilesKey = [`/api/folders/${file.id}/files`];
+                  const folderContents = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey);
+                  const desktopFiles = queryClient.getQueryData<{files: DesktopFile[]}>(['/api/files'])?.files || [];
+                  
+                  if (desktopFiles) {
+                    // Zoek het gesleepte bestand op ID
+                    const draggedFile = desktopFiles.find(f => f.id === fileId);
+                    
+                    if (draggedFile && folderContents) {
+                      // Voeg het bestand toe aan de map cache (met bijgewerkte parentId)
+                      const updatedFile = {
+                        ...draggedFile,
+                        parentId: file.id
+                      };
+                      
+                      // Update de map inhoud cache
+                      queryClient.setQueryData(folderFilesKey, {
+                        files: [...folderContents.files, updatedFile]
+                      });
+                      
+                      console.log(`✅ UI INSTANT UPDATE: Bestand ${draggedFile.name} direct zichtbaar gemaakt in map ${file.name}`);
+                    }
+                  }
+                } catch (error) {
+                  console.error('Fout bij updaten map UI cache:', error);
+                }
+              } catch (error) {
+                console.error(`Fout bij toevoegen bestand ${fileId} aan map ${file.id}:`, error);
+              }
+            }, 300);
           }
         }
+      } catch (error) {
+        console.error('Fout bij slepen bestand naar map:', error);
       }
     }
   } : {};
@@ -772,7 +805,8 @@ export function FileItem({
               dragging && "z-50 shadow-xl", // Z-index voor sleepbeweging
               isSearchMatch && "animate-pulse shadow-xl shadow-primary/20",
               isSearchMatch && !isSelected && "ring-2 ring-yellow-400 z-10",
-              isFolder && (isDragOver || file.id === (window as any)._hoverFolderId) && "ring-2 ring-green-500 shadow-lg bg-green-50/90 folder-highlight"
+              isFolder && "folder-drop-zone", // Voeg folder-drop-zone class toe aan alle mappen
+              isFolder && (isDragOver || file.id === (window as any)._hoverFolderId) && "ring-2 ring-green-500 shadow-lg bg-green-50/90 folder-highlight drop-target-active"
             )}
             style={{
               left: `${localPosition.x}px`,
