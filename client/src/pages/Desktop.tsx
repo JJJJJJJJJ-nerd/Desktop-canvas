@@ -190,8 +190,14 @@ export default function Desktop() {
           
           console.log(`⬇️ DESKTOP DROP POSITIE: ${dropPosition.x}, ${dropPosition.y}`);
           
+          // Verkrijg het parent ID uit de draggedFileInfo (indien beschikbaar)
+          // @ts-ignore - Custom property
+          const parentFolderId = window.draggedFileInfo?.parentId;
+          
+          console.log(`🔄 REMOVING FILE ${fileId} FROM FOLDER ${parentFolderId || 'unknown'}`);
+          
           // Verwijderen uit map en direct op bureaubladpositie plaatsen
-          await removeFileFromFolder(fileId, dropPosition);
+          await removeFileFromFolder(fileId, dropPosition, parentFolderId);
           console.log('File removed from folder and placed on desktop at position:', dropPosition);
           
           // Toon een toast-melding
