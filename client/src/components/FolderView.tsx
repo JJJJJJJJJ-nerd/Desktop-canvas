@@ -136,9 +136,9 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     e.stopPropagation();
     setIsDraggingOver(false);
     
-    // Toon centraal laadscherm voor betere gebruikerservaring
+    // Toon laadanimatie voor 0.5 seconden
     setIsRefreshing(true);
-    // Timer om na 0.5 seconden het laadscherm te verbergen
+    // Instellen van een timer om de laadanimatie te verbergen na 0.5 seconden
     setTimeout(() => {
       setIsRefreshing(false);
     }, 500);
@@ -378,15 +378,10 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     // Reset fetch counter bij expliciet aanroepen (niet bij auto-refresh)
     console.log(`🔢 FetchCounter: ${fetchCountRef.current}`);
     
-    // Activeer de refresh animatie voor betere gebruikerservaring
-    setIsRefreshing(true);
-    // Uitgestelde timer om de animatie te stoppen na data is opgehaald
-    
     // Voeg deze check alleen toe voor auto-refreshes
     if (fetchCountRef.current > MAX_FETCH_CALLS && !window._lastFolderUpdateRequest) {
       console.log(`⛔ NOODSTOP: Te veel fetchFiles calls (${fetchCountRef.current}), blokkeert verder calls`);
       setIsLoading(false);
-      setIsRefreshing(false); // Stop de animatie
       
       // HARD FIX: Toon bericht dat er een probleem was
       toast({
@@ -439,16 +434,12 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         console.log(`📂 Map ${folder.name} (ID: ${folder.id}) bevat ${data.files?.length || 0} bestanden`);
         setFiles(data.files || []);
         setIsLoading(false);
-        // Stop de laadanimatie nadat we data hebben ontvangen
-        setTimeout(() => setIsRefreshing(false), 300); // Korte vertraging voor visueel effect
       }
     } catch (err) {
       if (isMountedRef.current) {
         setError(err instanceof Error ? err : new Error('Unknown error'));
         console.error('Error fetching folder contents:', err);
         setIsLoading(false);
-        // Stop de laadanimatie ook bij fouten
-        setIsRefreshing(false);
       }
     } finally {
       // Zet de flag weer uit direct - geen timeout meer
@@ -736,7 +727,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         // Reset de counter zodat we opnieuw data kunnen ophalen
         fetchCountRef.current = 0;
         
-        // Toon het centrale laadscherm 
+        // Toon laadanimatie gedurende 0.5 seconden
         setIsRefreshing(true);
         
         // Forceer een herlading van map-inhoud (BELANGRIJKE FIX)
@@ -749,7 +740,11 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         // Direct ophalen na korte vertraging om cache tijd te geven
         setTimeout(() => {
           fetchFiles();
-          // We hebben geen aparte timeout nodig, fetchFiles zorgt nu voor het correct sluiten van de animatie
+          
+          // Verberg laadanimatie na 0.5 seconden (totale duur van de animatie)
+          setTimeout(() => {
+            setIsRefreshing(false);
+          }, 500);
         }, 50);
       }
     };
@@ -1397,8 +1392,12 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
               e.stopPropagation();
               setIsDraggingOver(false);
               
-              // Laadanimatie wordt nu centraal geregeld via useState hook, 
-              // dus we hebben deze niet meer nodig
+              // Toon laadanimatie voor 0.5 seconden
+              setIsRefreshing(true);
+              // Instellen van een timer om de laadanimatie te verbergen na 0.5 seconden
+              setTimeout(() => {
+                setIsRefreshing(false);
+              }, 500);
               
               // Haal het file ID op uit de data transfer
               const fileId = e.dataTransfer.getData('text/plain');
@@ -1520,9 +1519,9 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                   if (window._draggingFileToDesktop && file.id) {
                     console.log(`📤 DRAG TO DESKTOP: File ${file.name} (ID: ${file.id}) wordt naar bureaublad gesleept`);
                     
-                    // Toon de centrale laadanimatie voor 0.5 seconden
+                    // Toon laadanimatie voor 0.5 seconden
                     setIsRefreshing(true);
-                    // Timer om de laadanimatie te verbergen na 0.5 seconden
+                    // Instellen van een timer om de laadanimatie te verbergen na 0.5 seconden
                     setTimeout(() => {
                       setIsRefreshing(false);
                     }, 500);
