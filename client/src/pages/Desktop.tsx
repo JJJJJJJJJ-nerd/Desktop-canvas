@@ -4,8 +4,8 @@ import { DesktopToolbar } from "@/components/DesktopToolbar";
 import { FileItem } from "@/components/FileItem";
 import { FilePreviewModal } from "@/components/FilePreviewModal";
 import { WindowItem } from "@/components/WindowItem";
-// Gebruik de iframe versie - de meest betrouwbare aanpak
-import { FolderIframe } from "@/components/FolderIframe"; // IFRAME VOOR GEGARANDEERDE WERKING
+// Gebruik de verplaatsbare iframe venster versie
+import { DraggableFolderWindow } from "@/components/DraggableFolderWindow"; // Versleepbaar venster met iframe
 import { EmptyState } from "@/components/EmptyState";
 import { useDesktopFiles } from "@/hooks/use-desktop-files";
 import { DesktopFile } from "@/types";
@@ -1090,13 +1090,17 @@ export default function Desktop() {
                   
                   // Check if this is a folder 
                   if (file.isFolder === 'true') {
-                    console.log('IFRAME MAP VIEWER: Tonen van map', file);
-                    // Gebruik de iframe versie
+                    console.log('DRAGGABLE MAP VIEWER: Tonen van map', file);
+                    // Gebruik het versleepbare map venster
                     return (
-                      <FolderIframe
+                      <DraggableFolderWindow
                         key={`folder-${fileId}`}
                         folder={file}
                         onClose={() => closeWindowFile(fileId)}
+                        onDragEnd={(id, x, y) => {
+                          // Sla de nieuwe positie op
+                          updateFilePosition(id, x, y);
+                        }}
                       />
                     );
                   }
