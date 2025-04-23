@@ -347,15 +347,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const fileId = parseInt(req.params.fileId);
       
       // Controleer of er een positie is meegegeven in de request body
-      const position = req.body?.position;
+      let validPosition = undefined;
       
-      console.log(`📤 API: Verwijderen van bestand ${fileId} uit map`);
-      if (position) {
-        console.log(`🖱️ Met nieuwe positie: x=${position.x}, y=${position.y}`);
+      // Start met positie uit request body als er één is
+      if (req.body?.position) {
+        console.log(`📤 API: Verwijderen van bestand ${fileId} uit map`);
+        console.log(`🖱️ Met aangevraagde positie: x=${req.body.position.x}, y=${req.body.position.y}`);
+        
+        // Valideer de positie
+        const positionSchema = z.object({
+          x: z.number(),
+          y: z.number()
+        });
+        
+        const validationResult = positionSchema.safeParse(req.body.position);
+        if (validationResult.success) {
+          validPosition = req.body.position;
+          console.log(`🖱️ Geldige positie gevalideerd: x=${validPosition.x}, y=${validPosition.y}`);
+        } else {
+          console.error(`⚠️ Ongeldige positie ontvangen:`, req.body.position);
+        }
+      } else {
+        console.log(`📤 API: Verwijderen van bestand ${fileId} uit map zonder positie`);
       }
       
-      // Verwijder het bestand uit de map
-      let updatedFile = await storage.removeFileFromFolder(fileId);
+      // Verwijder het bestand uit de map met de nieuwe positie in één operatie
+      let updatedFile = await storage.removeFileFromFolder(fileId, validPosition);
       
       if (!updatedFile) {
         console.error(`⚠️ Bestand ${fileId} niet gevonden bij verwijderen uit map`);
@@ -363,31 +380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       console.log(`✅ Bestand ${updatedFile.name} (ID: ${updatedFile.id}) succesvol uit map verwijderd`);
-      
-      // Als er een positie is meegegeven en het bestand is gevonden, update dan de positie
-      if (position && updatedFile.id) {
-        console.log(`🖱️ Bijwerken van bestandspositie na verwijdering uit map: ${position.x}, ${position.y}`);
-        // Valideer de positie
-        const positionSchema = z.object({
-          x: z.number(),
-          y: z.number()
-        });
-        
-        const validationResult = positionSchema.safeParse(position);
-        if (validationResult.success) {
-          // Update de positie
-          updatedFile = await storage.updateFile(updatedFile.id, position);
-          
-          if (updatedFile) {
-            console.log(`✅ Positie van bestand ${updatedFile.name} succesvol bijgewerkt naar (${position.x}, ${position.y})`);
-          } else {
-            console.error(`⚠️ Fout bij het updaten van positie na verwijderen uit map`);
-            // We gaan hier geen fout geven, omdat het bestand al uit de map is verwijderd
-          }
-        } else {
-          console.error('⚠️ Ongeldige positiedata ontvangen:', validationResult.error);
-        }
-      }
+      console.log(`   ${validPosition ? `en geplaatst op positie (${validPosition.x}, ${validPosition.y})` : 'zonder positie-update'}`);
       
       return res.status(200).json({ file: updatedFile });
     } catch (error) {

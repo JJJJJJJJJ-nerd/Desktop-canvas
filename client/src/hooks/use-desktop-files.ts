@@ -273,7 +273,10 @@ export function useDesktopFiles() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: position ? JSON.stringify({ position }) : undefined,
+        body: JSON.stringify({ 
+          position: position || undefined,
+          parentId: parentId || undefined
+        }),
       });
       
       const result = await response.json();
