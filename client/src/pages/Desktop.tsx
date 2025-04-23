@@ -777,6 +777,24 @@ export default function Desktop() {
             addFileToFolder(fileId, hoverFolderId)
               .then(() => {
                 console.log("✅ Database updated to match UI changes");
+                
+                // BELANGRIJKE FIX: Roep de fetchContents methode aan indien beschikbaar
+                // @ts-ignore - Custom window property
+                window._lastFolderUpdateRequest = Date.now();
+                
+                // @ts-ignore - Custom window property
+                if (window._openFolders && window._openFolders[hoverFolderId]) {
+                  // @ts-ignore - Fetch contents of folder to update UI
+                  const folderInfo = window._openFolders[hoverFolderId];
+                  if (folderInfo.fetchContents && typeof folderInfo.fetchContents === 'function') {
+                    console.log(`📋 MAPHERLADING STARTEN: Bestanden ophalen voor map ${hoverFolderId}`);
+                    folderInfo.fetchContents();
+                  }
+                }
+                
+                // Forceer ook een directe cache invalidatie voor deze specifieke map
+                const specificFolderKey = [`/api/folders/${hoverFolderId}/files`];
+                queryClient.invalidateQueries({ queryKey: specificFolderKey });
               })
               .catch(error => {
                 console.error('Error moving file to folder:', error);

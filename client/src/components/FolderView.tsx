@@ -346,11 +346,11 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   const MAX_FETCH_CALLS = 2;
   
   const fetchFiles = async () => {
-    // NOODREM: Direct terug als dit te vaak wordt aangeroepen, oneindige lus detectie
-    fetchCountRef.current++;
+    // Reset fetch counter bij expliciet aanroepen (niet bij auto-refresh)
     console.log(`🔢 FetchCounter: ${fetchCountRef.current}`);
     
-    if (fetchCountRef.current > MAX_FETCH_CALLS) {
+    // Voeg deze check alleen toe voor auto-refreshes
+    if (fetchCountRef.current > MAX_FETCH_CALLS && !window._lastFolderUpdateRequest) {
       console.log(`⛔ NOODSTOP: Te veel fetchFiles calls (${fetchCountRef.current}), blokkeert verder calls`);
       setIsLoading(false);
       
@@ -362,6 +362,18 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       
       // WEL files tonen indien ze al aanwezig zijn
       return;
+    }
+    
+    // Aantal fetch calls bijhouden
+    fetchCountRef.current++;
+    
+    // Als dit een expliciete fetchContents aanroep is vanuit Desktop, markeer dit
+    // @ts-ignore - Custom window property
+    if (window._lastFolderUpdateRequest) {
+      console.log('🔄 Expliciet verzoek voor map update, counter gereset en update toegestaan');
+      // @ts-ignore - Custom window property
+      window._lastFolderUpdateRequest = null;
+      fetchCountRef.current = 0; // Reset de counter bij een expliciete aanvraag
     }
     
     // Voorkom herhaalde fetchFiles calls, wat een oneindige lus veroorzaakt
@@ -680,7 +692,24 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       name: folder.name,
       element: document.getElementById(`folder-window-${folder.id}`),
       isOpen: true,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      // Functie toevoegen die inhoud kan verversen wanneer bestanden worden toegevoegd
+      fetchContents: () => {
+        // Reset de counter zodat we opnieuw data kunnen ophalen
+        fetchCountRef.current = 0;
+        
+        // Forceer een herlading van map-inhoud (BELANGRIJKE FIX)
+        console.log(`🔄 DIRECTE HERLAAD: Map ${folder.name} (ID: ${folder.id}) wordt opnieuw geladen`);
+        
+        // Forceer cache invalidatie voor deze specifieke map
+        const folderFilesKey = [`/api/folders/${folder.id}/files`];
+        queryClient.invalidateQueries({ queryKey: folderFilesKey });
+        
+        // Direct ophalen na korte vertraging om cache tijd te geven
+        setTimeout(() => {
+          fetchFiles();
+        }, 50);
+      }
     };
     
     // Toon een grote groene knop onder in de map om als drop zone te dienen
