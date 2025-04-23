@@ -391,6 +391,8 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     });
   };
   
+  // Deze functie is verwijderd omdat hij dubbel was
+  
   // Move selected files to this folder
   const moveSelectedFilesToFolder = async () => {
     if (selectedFileIds.length === 0 || !folder.id) return;

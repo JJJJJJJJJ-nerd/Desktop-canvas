@@ -460,29 +460,11 @@ export default function Desktop() {
         }
       }
       
-      // Voeg globale detectie toe voor dragend event
-      // Dit is belangrijk - als de muisknop is losgelaten, 
-      // moeten we alle highlighting resetten
-      if (e.buttons === 0) { // 0 means no buttons are pressed
-        // Reset alle folder highlighting
-        document.querySelectorAll('.folder-highlight-dragover').forEach((el) => {
-          el.classList.remove('folder-highlight-dragover');
-        });
-        
-        // @ts-ignore - Custom window property
-        window._activeDropFolder = undefined;
-        // @ts-ignore - Custom window property
-        window._openFolderHoverId = undefined;
-        // @ts-ignore - Custom window property
-        window._hoverFolderId = undefined;
-        
-        // Reset ook de draggedFileInfo als die bestaat
-        // @ts-ignore - Custom window property
-        if (window.draggedFileInfo) {
-          // @ts-ignore - Custom window property
-          window.draggedFileInfo = undefined;
-        }
-      }
+      // We verplaatsen de reset-logica naar mouseup event
+      // Als we het hier doen, werkt het slepen niet goed meer
+      // console.log('Mouse buttons state:', e.buttons);
+      
+      // (Verplaatst naar mouseup handler)
     };
     
     // Voeg event listener toe en ruim op - ALTIJD ACTIEF
@@ -490,20 +472,27 @@ export default function Desktop() {
     
     // Extra event listener voor mouseup om highlighting te resetten
     const resetHighlighting = () => {
-      document.querySelectorAll('.folder-highlight-dragover').forEach((el) => {
-        el.classList.remove('folder-highlight-dragover');
-      });
-      
-      // @ts-ignore - Custom window property
-      window._activeDropFolder = undefined;
-      // @ts-ignore - Custom window property
-      window._openFolderHoverId = undefined;
-      // @ts-ignore - Custom window property
-      window._hoverFolderId = undefined;
-      
-      // Reset ook de draggedFileInfo als die bestaat
-      // @ts-ignore - Custom window property
-      window.draggedFileInfo = undefined;
+      // We moeten even wachten voordat we de draggedFileInfo resetten
+      // Dit is belangrijk omdat handlers voor drop events deze info nog nodig hebben
+      setTimeout(() => {
+        document.querySelectorAll('.folder-highlight-dragover').forEach((el) => {
+          el.classList.remove('folder-highlight-dragover');
+        });
+        
+        // @ts-ignore - Custom window property
+        window._openFolderHoverId = undefined;
+        
+        // We resetten de '_hoverFolderId' en '_activeDropFolder' NIET hier
+        // omdat die gebruikt worden door de drop handler methoden in handleFileDragEnd
+        // Die zullen op hun beurt deze waarden resetten na gebruik
+        
+        // Reset de draggedFileInfo alleen als er geen drop target is
+        // @ts-ignore - Custom window property
+        if (!window._activeDropFolder && !window._hoverFolderId) {
+          // @ts-ignore - Custom window property
+          window.draggedFileInfo = undefined;
+        }
+      }, 50); // Korte timeout om de drop handlers eerst te laten uitvoeren
     };
     
     document.addEventListener('mouseup', resetHighlighting);
