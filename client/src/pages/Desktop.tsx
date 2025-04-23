@@ -5,7 +5,9 @@ import { FileItem } from "@/components/FileItem";
 import { FilePreviewModal } from "@/components/FilePreviewModal";
 import { WindowItem } from "@/components/WindowItem";
 import { FolderView } from "@/components/FolderView";
-import { BasicFolderView } from "@/components/BasicFolderView"; // TIJDELIJK: Vereenvoudigde mapweergave voor testen
+import { BasicFolderView } from "@/components/BasicFolderView"; 
+import { SimpleFolderView } from "@/components/SimpleFolderView"; 
+import { SuperSimpleFolderView } from "@/components/SuperSimpleFolderView"; // NIEUW: Volledig vereenvoudigde mapweergave
 import { EmptyState } from "@/components/EmptyState";
 import { useDesktopFiles } from "@/hooks/use-desktop-files";
 import { DesktopFile } from "@/types";
@@ -1090,7 +1092,27 @@ export default function Desktop() {
                   
                   // Check if this is a folder 
                   if (file.isFolder === 'true') {
-                    // TIJDELIJK: Gebruik de eenvoudige mapweergave voor testen
+                    // Gebruik de direct-approach mapweergave
+                    return (
+                      <SuperSimpleFolderView
+                        key={`folder-${fileId}`}
+                        folder={file}
+                        onClose={() => closeWindowFile(fileId)}
+                      />
+                    );
+                    
+                    // Andere implementaties (uitgecommentarieerd)
+                    /*
+                    // iframe-gebaseerde mapweergave
+                    return (
+                      <SimpleFolderView
+                        key={`folder-${fileId}`}
+                        folder={file}
+                        onClose={() => closeWindowFile(fileId)}
+                      />
+                    );
+                    
+                    // BasicFolderView implementatie
                     return (
                       <BasicFolderView
                         key={`folder-${fileId}`}
@@ -1099,8 +1121,7 @@ export default function Desktop() {
                       />
                     );
                     
-                    // Oorspronkelijke implementatie (uitgecommentarieerd)
-                    /*
+                    // Oorspronkelijke implementatie
                     return (
                       <FolderView
                         key={`folder-${fileId}`}
