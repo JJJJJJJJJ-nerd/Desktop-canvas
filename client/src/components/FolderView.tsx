@@ -1283,6 +1283,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                     
                     // Add classes to show we're dragging with consistent styling
                     e.currentTarget.classList.add('opacity-50');
+                    e.currentTarget.style.visibility = 'hidden'; // Verstop het bestand visueel
                     
                     // Store a reference to the dragged file for the desktop to use
                     // @ts-ignore - Custom property
@@ -1298,6 +1299,38 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                       element: e.currentTarget
                     };
                     
+                    // TIJDELIJKE UI UPDATE - Maak het bestand visueel onzichtbaar tijdens slepen
+                    try {
+                      // Update de huidige lijst met bestanden in deze map voor visuele feedback
+                      const folderFilesKey = [`/api/folders/${folder.id}/files`];
+                      const folderContents = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey);
+                      
+                      if (folderContents?.files) {
+                        // Vind het bestand dat wordt verplaatst
+                        const fileIndex = folderContents.files.findIndex(f => f.id === file.id);
+                        
+                        if (fileIndex >= 0) {
+                          // Maak een kopie van de bestanden array
+                          const updatedFiles = [...folderContents.files];
+                          
+                          // Verander het bestand (alleen in de UI) door een className toe te voegen
+                          updatedFiles[fileIndex] = {
+                            ...updatedFiles[fileIndex],
+                            className: 'opacity-0' // Maak bestand onzichtbaar tijdens slepen
+                          };
+                          
+                          // Update de cache direct voor visuele feedback
+                          queryClient.setQueryData(folderFilesKey, {
+                            files: updatedFiles
+                          });
+                          
+                          console.log(`📤 UI-update: Bestand ${file.name} is tijdelijk onzichtbaar gemaakt tijdens slepen`);
+                        }
+                      }
+                    } catch (error) {
+                      console.error('Fout bij UI-update tijdens slepen:', error);
+                    }
+                    
                     console.log('🔵 Bestand sleep info opgeslagen in globale window.draggedFileInfo');
                   }
                 }}
@@ -1305,6 +1338,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                   // Remove the opacity class when drag ends
                   e.currentTarget.classList.remove('opacity-50');
                   e.currentTarget.classList.remove('file-teleport-out');
+                  e.currentTarget.style.visibility = ''; // Reset de zichtbaarheid
                   
                   // Als het bestand boven het desktop gebied werd losgelaten, verwijderen we het uit de map
                   // @ts-ignore - Custom property
@@ -1354,6 +1388,17 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                       removeFileFromFolder(file.id, mousePosition)
                         .then(() => {
                           console.log(`✅ Database synchronized: File ${file.name} moved to desktop`);
+                          
+                          // Ook de lokale UI bijwerken: het bestand verwijderen uit de map in de UI
+                          const folderFilesKey = [`/api/folders/${folder.id}/files`];
+                          const folderContents = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey);
+                          
+                          if (folderContents?.files) {
+                            // Verwijder bestand uit de mapweergave
+                            const updatedFiles = folderContents.files.filter(f => f.id !== file.id);
+                            queryClient.setQueryData(folderFilesKey, { files: updatedFiles });
+                            setFiles(updatedFiles);
+                          }
                         })
                         .catch((error) => {
                           console.error('Error syncing database after UI update:', error);
