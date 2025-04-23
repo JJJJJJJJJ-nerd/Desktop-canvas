@@ -156,69 +156,120 @@ export default function Desktop() {
     e.preventDefault();
     setIsDraggingOver(false);
     
+    console.log('=============================================');
+    console.log('🎯 DESKTOP DROP EVENT GEDETECTEERD');
+    console.log('📋 Drop event details:', {
+      type: e.type,
+      clientX: e.clientX,
+      clientY: e.clientY,
+      target: e.target,
+      currentTarget: e.currentTarget,
+    });
+    
+    // DEBUG: Log alle global flags die we gebruiken
+    console.log('🚩 Global flags status:', {
+      _draggingFileFromFolder: window._draggingFileFromFolder,
+      _draggingFileToDesktop: window._draggingFileToDesktop,
+      draggedFileInfo: window.draggedFileInfo
+    });
+    console.log('=============================================');
+    
     // Check for files first (regular file upload)
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      console.log('📁 Normale bestandsupload gedetecteerd, aantal bestanden:', e.dataTransfer.files.length);
       // Pass files to addFiles function
       addFiles(e.dataTransfer.files);
       return;
     }
     
     // Check for dragged files from folders (which use dataTransfer.getData)
-    const fileIdText = e.dataTransfer.getData('text/plain');
-    if (fileIdText) {
-      const fileId = parseInt(fileIdText);
-      if (!isNaN(fileId)) {
-        console.log(`🖥️ DESKTOP DROP: Bestand met ID ${fileId} op bureaublad geplaatst`);
+    try {
+      console.log('🔍 Controleren op tekst data in dataTransfer...');
+      const fileIdText = e.dataTransfer.getData('text/plain');
+      console.log('📋 dataTransfer text/plain bevat:', fileIdText);
+      
+      if (fileIdText) {
+        const fileId = parseInt(fileIdText);
         
-        // Bevestig dat we op het bureaublad slepen
-        // @ts-ignore - Custom property
-        window._draggingFileToDesktop = true;
-        
-        // Check global flag set by folder items to see if this file came from a folder
-        // @ts-ignore - Custom property
-        const isFromFolder = Boolean(window._draggingFileFromFolder);
-        console.log(`🔄 DESKTOP DROP: Bestand komt ${isFromFolder ? 'WEL' : 'NIET'} uit een map`);
-        
-        // We found a valid file ID, so this must be a file from a folder
-        // Remove from folder and place on desktop at the exact position where dropped
-        try {
-          // Gebruik de exacte muispositie voor het plaatsen van het bestand
-          const dropPosition = {
-            x: e.clientX,
-            y: e.clientY
-          };
+        if (!isNaN(fileId)) {
+          console.log(`✅ Geldig bestand ID gedetecteerd: ${fileId}`);
+          console.log(`🖥️ DESKTOP DROP: Bestand met ID ${fileId} op bureaublad geplaatst`);
           
-          console.log(`⬇️ DESKTOP DROP POSITIE: ${dropPosition.x}, ${dropPosition.y}`);
-          
-          // Verkrijg het parent ID uit de draggedFileInfo (indien beschikbaar)
+          // Bevestig dat we op het bureaublad slepen
           // @ts-ignore - Custom property
-          const parentFolderId = window.draggedFileInfo?.parentId;
+          window._draggingFileToDesktop = true;
           
-          console.log(`🔄 REMOVING FILE ${fileId} FROM FOLDER ${parentFolderId || 'unknown'}`);
-          
-          // Verwijderen uit map en direct op bureaubladpositie plaatsen
-          await removeFileFromFolder(fileId, dropPosition, parentFolderId);
-          console.log('File removed from folder and placed on desktop at position:', dropPosition);
-          
-          // Toon een toast-melding
-          toast({
-            title: "Bestand verplaatst",
-            description: "Bestand is verplaatst naar het bureaublad op de exacte plaats waar je het losliet.",
-            duration: 3000,
-          });
-          
-          // Reset the dragging state
+          // Check global flag set by folder items to see if this file came from a folder
           // @ts-ignore - Custom property
-          window._draggingFileFromFolder = false;
-        } catch (error) {
-          console.error('Error moving file to desktop:', error);
-          toast({
-            title: "Fout",
-            description: "Er ging iets mis bij het verplaatsen van het bestand.",
-            variant: "destructive"
-          });
+          const isFromFolder = Boolean(window._draggingFileFromFolder);
+          console.log(`🔄 DESKTOP DROP: Bestand komt ${isFromFolder ? 'WEL' : 'NIET'} uit een map`);
+          
+          if (!isFromFolder) {
+            console.log('⚠️ Bestand komt niet uit een map, het verplaatsen wordt overgeslagen');
+            toast({
+              title: "Niet verplaatst",
+              description: "Dit bestand komt niet uit een map en kan niet worden verplaatst.",
+              duration: 3000,
+            });
+            return;
+          }
+          
+          // We found a valid file ID from a folder
+          // Remove from folder and place on desktop at the exact position where dropped
+          try {
+            // Gebruik de exacte muispositie voor het plaatsen van het bestand
+            const dropPosition = {
+              x: e.clientX,
+              y: e.clientY
+            };
+            
+            console.log(`⬇️ DESKTOP DROP POSITIE: ${dropPosition.x}, ${dropPosition.y}`);
+            
+            // Verkrijg het parent ID uit de draggedFileInfo (indien beschikbaar)
+            // @ts-ignore - Custom property
+            const parentFolderId = window.draggedFileInfo?.parentId;
+            
+            console.log(`📂 PARENT FOLDER ID: ${parentFolderId || 'niet gevonden'}`);
+            console.log(`🔄 REMOVING FILE ${fileId} FROM FOLDER ${parentFolderId || 'unknown'}`);
+            
+            if (!parentFolderId) {
+              console.warn('⚠️ Geen parent folder ID gevonden, dit kan het verplaatsen beïnvloeden');
+            }
+            
+            // Verwijderen uit map en direct op bureaubladpositie plaatsen
+            const result = await removeFileFromFolder(fileId, dropPosition, parentFolderId);
+            console.log('✅ API resultaat:', result);
+            
+            // Toon een toast-melding
+            toast({
+              title: "Bestand verplaatst",
+              description: "Bestand is verplaatst naar het bureaublad op de exacte plaats waar je het losliet.",
+              duration: 3000,
+            });
+            
+            // Reset the dragging state
+            // @ts-ignore - Custom property
+            window._draggingFileFromFolder = false;
+            // @ts-ignore - Custom property
+            window.draggedFileInfo = undefined;
+            
+            console.log('✅ Verplaatsing voltooid en status gereset');
+          } catch (error) {
+            console.error('❌ FOUT bij verplaatsen van bestand naar bureaublad:', error);
+            toast({
+              title: "Fout",
+              description: "Er ging iets mis bij het verplaatsen van het bestand.",
+              variant: "destructive"
+            });
+          }
+        } else {
+          console.error('❌ Geen geldig bestand ID in dataTransfer:', fileIdText);
         }
+      } else {
+        console.log('ℹ️ Geen tekstdata gevonden in dataTransfer');
       }
+    } catch (error) {
+      console.error('❌ FOUT bij verwerken van drop event:', error);
     }
   };
 
