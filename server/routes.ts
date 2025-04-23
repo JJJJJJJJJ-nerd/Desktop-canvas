@@ -277,9 +277,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Cache voor mapinhoudsresultaten
+  // Cache voor mapinhoudsresultaten met zeer lange levensduur
   const folderContentsCache: {[folderId: number]: { files: any[], timestamp: number }} = {};
-  const CACHE_TTL = 10000; // 10 seconden cache geldigheid
+  const CACHE_TTL = 60000; // 60 seconden cache geldigheid (verhoogd voor betere prestaties)
     
   // Get files in a folder (VERBETERD MET CACHING)
   app.get('/api/folders/:folderId/files', async (req, res) => {

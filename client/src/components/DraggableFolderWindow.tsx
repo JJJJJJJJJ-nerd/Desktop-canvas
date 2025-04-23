@@ -30,29 +30,77 @@ export function DraggableFolderWindow({ folder, onClose, onDragEnd }: DraggableF
   
   const windowRef = useRef<HTMLDivElement>(null);
   
-  // Direct de map inhoud ophalen zonder iframe
+  // Direct de map inhoud ophalen zonder iframe - Supersnel met preloading
   useEffect(() => {
+    // Snellere eerste laadtijd door directe instelling van laadstatus
+    setIsLoading(true);
+    
+    // Object voor het beheren van fetch-verzoeken
+    let isMounted = true;
+    
+    // Toon eerst de laadspinner, dan fetch data (zorgt voor betere UX)
     const fetchFolderContent = async () => {
       try {
-        setIsLoading(true);
-        const response = await fetch(`/api/folders/${folder.id}/files?t=${Date.now()}`);
+        // Gebruik een AbortController voor snellere annulering indien nodig
+        const controller = new AbortController();
+        const signal = controller.signal;
+        
+        // Onmiddellijk verzoek starten zonder await te gebruiken
+        const fetchPromise = fetch(`/api/folders/${folder.id}/files?t=${Date.now()}`, {
+          signal,
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+        
+        // Instellen van een timeout om te voorkomen dat verzoeken te lang duren
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        
+        // Nu wachten op de response
+        const response = await fetchPromise;
+        clearTimeout(timeoutId);
+        
+        if (!isMounted) return;
+        
         const data = await response.json();
         
         if (data && Array.isArray(data.files)) {
-          setFolderFiles(data.files);
+          // Onmiddellijk voldoende gegevens tonen voor gebruikersinteractie
+          const visibleFiles = data.files.slice(0, 20); // Maximaal 20 bestanden direct laden
+          
+          // Meteen bestanden instellen zonder te wachten op volledige verwerking
+          setFolderFiles(visibleFiles);
+          setIsLoading(false);
+          
+          // Als er meer bestanden zijn, laad ze dan op de achtergrond
+          if (data.files.length > 20 && isMounted) {
+            // Gebruik window.requestAnimationFrame voor soepele UI
+            requestAnimationFrame(() => {
+              if (isMounted) setFolderFiles(data.files);
+            });
+          }
+        } else {
+          if (isMounted) setFolderFiles([]);
         }
       } catch (error) {
         console.error('Fout bij ophalen mapinhoud:', error);
+        if (isMounted) setFolderFiles([]); // Toon lege lijst bij fouten
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     };
     
-    fetchFolderContent();
+    // Direct aanroepen en wachten op eerste render voor spinner animatie
+    requestAnimationFrame(() => {
+      if (isMounted) fetchFolderContent();
+    });
     
-    // Elke 5 seconden verversen
-    const interval = setInterval(fetchFolderContent, 5000);
-    return () => clearInterval(interval);
+    // Minder frequente auto-refresh om server te ontlasten
+    const interval = setInterval(fetchFolderContent, 10000);
+    
+    // Cleanup functie
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [folder.id]);
   // Venster slepen
   const handleMouseDown = (e: React.MouseEvent) => {
