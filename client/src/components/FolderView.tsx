@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { FileItem } from './FileItem';
+import { DraggableFolderItem } from './DraggableFolderItem';
 import { DesktopFile } from '@/types';
 import { X, FolderOpen, ArrowLeft, Upload, Check, Folder, MoveRight, FileX, Edit, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -1002,37 +1003,30 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                   // Gebruik console.log buiten JSX
                   console.log(`🔍 RENDERING FILE: ${file.id} - ${file.name}`);
                 }
+                
                 return (
-                  <FileItem
+                  <div 
                     key={file.id}
-                    file={file}
-                    index={file.id || 0}
-                    isSelected={selectedFileIds.includes(file.id || 0)}
-                    onSelect={() => {
+                    className={`file-container rounded-lg p-1 ${selectedFileIds.includes(file.id || 0) ? 'bg-blue-50 border border-blue-200 shadow-sm' : ''}`}
+                    onClick={() => {
+                      // Selecteer het bestand bij klikken
                       setSelectedFileIds(prev => 
                         prev.includes(file.id || 0) 
                           ? prev.filter(id => id !== file.id) 
                           : [...prev, file.id || 0]
                       );
                     }}
-                    onDragEnd={(id, x, y) => {
-                      // Handle dragging inside folder (rearrangement) if needed
-                    }}
-                    onDragStart={(fileId) => {
-                      console.log(`🔄 Drag started for file ${fileId} in folder ${folder.id}`);
-                      // Set the global dragging state to allow desktop to know it's from a folder
-                      // @ts-ignore - Custom property
-                      window._draggingFileFromFolder = true;
-                    }}
-                    onDragMove={(fileId) => {
-                      // Optional: handle any drag move logic if needed
-                    }}
-                    onPreview={() => {
-                      // Handle previewing file
+                    onDoubleClick={() => {
+                      // Preview het bestand bij dubbelklikken
                       onSelectFile(file);
                     }}
-                    onRename={onRename}
-                  />
+                  >
+                    {/* Gebruik onze nieuwe component voor drag & drop binnen mappen */}
+                    <DraggableFolderItem 
+                      file={file} 
+                      parentFolderId={folder.id}
+                    />
+                  </div>
                 );
               })}
             </div>
