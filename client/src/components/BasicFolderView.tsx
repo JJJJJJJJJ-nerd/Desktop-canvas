@@ -1,62 +1,61 @@
-// Een vereenvoudigde versie van de FolderView component
+// Een super-vereenvoudigde versie van de FolderView component - zonder state
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { DesktopFile } from '@/types';
-import { X, FileText } from 'lucide-react';
+import { X, FileText, Folder } from 'lucide-react';
 
 interface BasicFolderViewProps {
   folder: DesktopFile;
   onClose: () => void;
 }
 
+// HARDCODED data rechtstreeks laden in de component
+// Dit is een directe benadering zonder enige complexe state-management
 export function BasicFolderView({ folder, onClose }: BasicFolderViewProps) {
-  const [files, setFiles] = useState<DesktopFile[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Direct functie om data van server te laden (sync)
+  const loadFolderFiles = () => {
+    const id = folder.id;
+    if (!id) return [];
 
-  // DIRECTE fetch zonder caching, complexe logica of websockets
-  useEffect(() => {
-    async function fetchFilesDirectly() {
-      if (!folder.id) return;
+    try {
+      // Controleer of er een fout optreedt
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', `/api/folders/${id}/files?ts=${Date.now()}`, false); // false = synchroon
+      xhr.send();
       
-      setIsLoading(true);
-      try {
-        console.log(`BASIC FOLDER VIEW: Ophalen bestanden voor map ${folder.id}`);
-        const response = await fetch(`/api/folders/${folder.id}/files?nocache=${new Date().getTime()}`);
-        const data = await response.json();
-        
-        console.log(`BASIC FOLDER VIEW: Ontvangen data:`, data);
-        
-        if (data && Array.isArray(data.files)) {
-          console.log(`BASIC FOLDER VIEW: ${data.files.length} bestanden gevonden`);
-          setFiles(data.files);
-        } else {
-          console.error('Onverwachte data structuur:', data);
-          setFiles([]);
-          setError('De server stuurde een onverwachte datastructuur');
-        }
-      } catch (err) {
-        console.error('Fout bij ophalen mapbestanden:', err);
-        setError('Fout bij het ophalen van de bestanden');
-        setFiles([]);
-      } finally {
-        setIsLoading(false);
+      if (xhr.status !== 200) {
+        console.error('Fout bij ophalen bestanden:', xhr.statusText);
+        return [];
       }
+      
+      const data = JSON.parse(xhr.responseText);
+      console.log('>>> SYNCHROON LADEN - DATA ONTVANGEN:', data);
+      
+      if (data && Array.isArray(data.files)) {
+        return data.files;
+      }
+      
+      return [];
+    } catch (err) {
+      console.error('Fout bij synchroon laden bestanden:', err);
+      return [];
     }
-    
-    fetchFilesDirectly();
-  }, [folder.id]);
+  };
+  
+  // Direct laden
+  const folderFiles = loadFolderFiles();
+  console.log('>>> GELADEN BESTANDEN:', folderFiles.length, folderFiles);
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center bg-black/50 z-50"
+      className="fixed inset-0 flex items-center justify-center bg-black/50 z-50" 
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
         className="bg-white rounded-lg shadow-lg w-3/4 h-3/4 max-w-4xl overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
+        style={{ position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}
       >
-        {/* Header */}
+        {/* Header - Eenvoudig en direct */}
         <div className="bg-blue-600 text-white p-3 flex justify-between items-center">
           <h2 className="text-lg font-semibold">Map: {folder.name} (ID: {folder.id})</h2>
           <button onClick={onClose} className="p-1 hover:bg-blue-700 rounded">
@@ -64,42 +63,29 @@ export function BasicFolderView({ folder, onClose }: BasicFolderViewProps) {
           </button>
         </div>
         
-        {/* Content */}
+        {/* Content - Super simpel */}
         <div className="p-4 h-[calc(100%-60px)] overflow-auto">
-          {isLoading && (
-            <div className="flex flex-col items-center justify-center h-full">
-              <div className="animate-spin h-10 w-10 border-4 border-blue-600 border-t-transparent rounded-full"></div>
-              <p className="mt-2">Bestanden laden...</p>
-            </div>
-          )}
-          
-          {!isLoading && error && (
-            <div className="flex flex-col items-center justify-center h-full text-red-600">
-              <p>Fout: {error}</p>
+          {folderFiles.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-gray-500">
+              <Folder size={48} className="text-gray-300 mb-2" />
+              <p>Deze map is leeg</p>
+              <p className="text-sm text-gray-400 mt-1">Map ID: {folder.id}</p>
               <button 
-                className="mt-2 bg-blue-600 text-white px-3 py-1 rounded"
+                className="mt-4 bg-blue-600 text-white px-3 py-1 rounded"
                 onClick={() => window.location.reload()}
               >
-                Vernieuwen
+                Pagina vernieuwen
               </button>
             </div>
-          )}
-          
-          {!isLoading && !error && files.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full text-gray-500">
-              <p>Deze map is leeg</p>
-            </div>
-          )}
-          
-          {!isLoading && !error && files.length > 0 && (
+          ) : (
             <div>
-              <p className="mb-4 text-sm font-semibold">{files.length} bestanden gevonden:</p>
+              <p className="mb-4 text-sm font-semibold">{folderFiles.length} bestanden gevonden:</p>
               <div className="grid grid-cols-4 gap-4">
-                {files.map((file) => (
-                  <div key={file.id} className="border rounded p-2 hover:bg-gray-100">
+                {folderFiles.map((file: any) => (
+                  <div key={file.id} className="border rounded p-3 hover:bg-gray-100">
                     <div className="flex items-center">
                       <FileText className="h-5 w-5 text-blue-600 mr-2" />
-                      <span className="truncate text-sm" title={file.name}>
+                      <span className="truncate text-sm font-medium" title={file.name}>
                         {file.name}
                       </span>
                     </div>
@@ -109,9 +95,11 @@ export function BasicFolderView({ folder, onClose }: BasicFolderViewProps) {
                   </div>
                 ))}
               </div>
+              
+              {/* Debug info */}
               <div className="mt-8 p-4 border rounded bg-gray-50">
-                <p className="font-mono text-xs whitespace-pre-wrap">
-                  {JSON.stringify(files, null, 2)}
+                <p className="font-mono text-xs overflow-auto whitespace-pre-wrap">
+                  {JSON.stringify(folderFiles, null, 2)}
                 </p>
               </div>
             </div>
