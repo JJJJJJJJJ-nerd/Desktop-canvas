@@ -156,23 +156,40 @@ export default function Desktop() {
     e.preventDefault();
     setIsDraggingOver(false);
     
-    console.log('=============================================');
-    console.log('🎯 DESKTOP DROP EVENT GEDETECTEERD');
-    console.log('📋 Drop event details:', {
-      type: e.type,
-      clientX: e.clientX,
-      clientY: e.clientY,
-      target: e.target,
-      currentTarget: e.currentTarget,
+    // Start van uitgebreide logging voor het drop event
+    console.log('++++++++++++++++++++ DROP EVENT ++++++++++++++++++++');
+    console.log('⬇️ Bestand losgelaten op bureaublad:', {
+      positie: { x: e.clientX, y: e.clientY },
+      target: e.target
     });
-    
-    // DEBUG: Log alle global flags die we gebruiken
-    console.log('🚩 Global flags status:', {
+    console.log('📋 DataTransfer inhoud:', {
+      types: Array.from(e.dataTransfer.types),
+      bestanden: e.dataTransfer.files.length,
+      tekstData: e.dataTransfer.getData('text/plain')
+    });
+    console.log('📊 Drag state bij drop:', {
       _draggingFileFromFolder: window._draggingFileFromFolder,
-      _draggingFileToDesktop: window._draggingFileToDesktop,
       draggedFileInfo: window.draggedFileInfo
     });
-    console.log('=============================================');
+    
+    // Visuele debug indicator (tijdelijk element op drop positie)
+    const debugMarker = document.createElement('div');
+    debugMarker.style.position = 'fixed';
+    debugMarker.style.left = `${e.clientX}px`;
+    debugMarker.style.top = `${e.clientY}px`;
+    debugMarker.style.width = '20px';
+    debugMarker.style.height = '20px';
+    debugMarker.style.borderRadius = '50%';
+    debugMarker.style.backgroundColor = 'rgba(255, 0, 0, 0.5)';
+    debugMarker.style.zIndex = '9999';
+    debugMarker.style.pointerEvents = 'none';
+    debugMarker.setAttribute('data-debug', 'drop-marker');
+    document.body.appendChild(debugMarker);
+    
+    // Verwijder de marker na 3 seconden
+    setTimeout(() => {
+      document.body.removeChild(debugMarker);
+    }, 3000);
     
     // Check for files first (regular file upload)
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
@@ -188,19 +205,38 @@ export default function Desktop() {
       const fileIdText = e.dataTransfer.getData('text/plain');
       console.log('📋 dataTransfer text/plain bevat:', fileIdText);
       
+      // Volledige sleepflow logging
+      console.log('📝 SLEEP FLOW DEBUG LOG:');
+      console.log('1. DragStart gedetecteerd in FolderView voor bestand', window.draggedFileInfo?.id);
+      console.log('2. DataTransfer data ingesteld: text/plain =', fileIdText);
+      console.log('3. Window._draggingFileFromFolder flag ingesteld =', window._draggingFileFromFolder);
+      console.log('4. Drop event ontvangen op bureaublad positie', { x: e.clientX, y: e.clientY });
+      
       if (fileIdText) {
         const fileId = parseInt(fileIdText);
         
         if (!isNaN(fileId)) {
           console.log(`✅ Geldig bestand ID gedetecteerd: ${fileId}`);
-          console.log(`🖥️ DESKTOP DROP: Bestand met ID ${fileId} op bureaublad geplaatst`);
+          
+          // Markeer het element visueel om te debuggen
+          const draggedElement = document.querySelector(`[data-file-id="${fileId}"]`);
+          if (draggedElement) {
+            draggedElement.classList.add('debug-dragged-element');
+            draggedElement.setAttribute('data-debug-status', 'being-moved');
+            
+            // Verwijder de markering na 5 seconden
+            setTimeout(() => {
+              draggedElement.classList.remove('debug-dragged-element');
+              draggedElement.removeAttribute('data-debug-status');
+            }, 5000);
+          } else {
+            console.warn('⚠️ Element voor bestand niet gevonden in de DOM');
+          }
           
           // Bevestig dat we op het bureaublad slepen
-          // @ts-ignore - Custom property
           window._draggingFileToDesktop = true;
           
           // Check global flag set by folder items to see if this file came from a folder
-          // @ts-ignore - Custom property
           const isFromFolder = Boolean(window._draggingFileFromFolder);
           console.log(`🔄 DESKTOP DROP: Bestand komt ${isFromFolder ? 'WEL' : 'NIET'} uit een map`);
           
@@ -226,7 +262,6 @@ export default function Desktop() {
             console.log(`⬇️ DESKTOP DROP POSITIE: ${dropPosition.x}, ${dropPosition.y}`);
             
             // Verkrijg het parent ID uit de draggedFileInfo (indien beschikbaar)
-            // @ts-ignore - Custom property
             const parentFolderId = window.draggedFileInfo?.parentId;
             
             console.log(`📂 PARENT FOLDER ID: ${parentFolderId || 'niet gevonden'}`);
@@ -236,9 +271,20 @@ export default function Desktop() {
               console.warn('⚠️ Geen parent folder ID gevonden, dit kan het verplaatsen beïnvloeden');
             }
             
+            console.log('🔌 API AANROEP: Bestand uit map verwijderen:', {
+              bestandId: fileId,
+              mapId: parentFolderId,
+              nieuwePositie: dropPosition
+            });
+            
             // Verwijderen uit map en direct op bureaubladpositie plaatsen
             const result = await removeFileFromFolder(fileId, dropPosition, parentFolderId);
-            console.log('✅ API resultaat:', result);
+            
+            console.log('🔌 API RESPONSE:', {
+              status: 'success',
+              updatedFile: result?.file,
+              parentId: result?.parentId
+            });
             
             // Toon een toast-melding
             toast({
@@ -248,14 +294,18 @@ export default function Desktop() {
             });
             
             // Reset the dragging state
-            // @ts-ignore - Custom property
             window._draggingFileFromFolder = false;
-            // @ts-ignore - Custom property
             window.draggedFileInfo = undefined;
             
             console.log('✅ Verplaatsing voltooid en status gereset');
+            console.log('++++++++++++++++++++++++++++++++++++++++++++++++++++++');
           } catch (error) {
             console.error('❌ FOUT bij verplaatsen van bestand naar bureaublad:', error);
+            console.log('❌ FOUT bij sleepoperatie:', {
+              fase: 'drop',
+              foutmelding: (error as Error).message,
+              details: error
+            });
             toast({
               title: "Fout",
               description: "Er ging iets mis bij het verplaatsen van het bestand.",

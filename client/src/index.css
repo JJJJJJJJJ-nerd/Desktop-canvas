@@ -2,6 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Debug styling voor drag & drop */
+.debug-dragged-element {
+  outline: 3px dashed red !important;
+  position: relative;
+  z-index: 9999;
+  animation: pulse-debug 1.5s infinite;
+}
+
+@keyframes pulse-debug {
+  0% {
+    outline-color: red;
+    box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7);
+  }
+  50% {
+    outline-color: orange;
+    box-shadow: 0 0 0 10px rgba(255, 0, 0, 0);
+  }
+  100% {
+    outline-color: red;
+    box-shadow: 0 0 0 0 rgba(255, 0, 0, 0);
+  }
+}
+
+.folder-highlight-dragover {
+  background-color: rgba(59, 130, 246, 0.1) !important; 
+  border: 2px dashed #3b82f6 !important;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1) !important;
+  transition: all 0.2s ease-in-out;
+}
+
 /* Custom animations */
 @keyframes teleport {
   0% {

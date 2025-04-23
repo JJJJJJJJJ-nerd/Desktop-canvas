@@ -118,12 +118,40 @@ export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderIte
     window.draggedFileInfo = undefined;
   };
 
+  // Nieuwe functie voor het loggen van bestandsselectie
+  const handleFileClick = (e: React.MouseEvent) => {
+    console.log('=================================================');
+    console.log('🖱️ BESTAND GESELECTEERD:', {
+      id: file.id,
+      naam: file.name,
+      type: file.type,
+      grootte: file.size,
+      inMap: parentFolderId,
+      tijdstip: new Date().toLocaleTimeString()
+    });
+    console.log('📋 Event details:', {
+      type: e.type,
+      button: e.button, // 0 = links, 1 = midden, 2 = rechts
+      clientX: e.clientX,
+      clientY: e.clientY,
+      shiftKey: e.shiftKey,
+      ctrlKey: e.ctrlKey,
+      metaKey: e.metaKey  // Command key op Mac
+    });
+    console.log('🔍 Element details:', {
+      target: e.target,
+      currentTarget: e.currentTarget
+    });
+    console.log('=================================================');
+  };
+
   return (
     <div
       className="folder-item flex items-center p-3 rounded-md hover:bg-gray-100 cursor-pointer border border-gray-200 mb-1 transition-all duration-150 bg-white"
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onClick={handleFileClick}
       data-file-id={file.id}
       data-parent-folder={parentFolderId}
       title={`Sleep om dit bestand naar het bureaublad te verplaatsen: ${file.name}`}
