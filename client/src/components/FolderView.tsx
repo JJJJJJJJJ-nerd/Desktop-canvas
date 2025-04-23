@@ -916,7 +916,9 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         e.preventDefault();
         e.stopPropagation();
         
-        folderElement.classList.remove('folder-highlight-dragover');
+        if (folderElement) {
+          folderElement.classList.remove('folder-highlight-dragover');
+        }
         setIsDraggingOver(false);
         
         // Get the file ID from the drag data
