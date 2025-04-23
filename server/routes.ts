@@ -277,7 +277,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Get files in a folder (VERBETERD)
+  // Cache voor mapinhoudsresultaten
+  const folderContentsCache: {[folderId: number]: { files: any[], timestamp: number }} = {};
+  const CACHE_TTL = 10000; // 10 seconden cache geldigheid
+    
+  // Get files in a folder (VERBETERD MET CACHING)
   app.get('/api/folders/:folderId/files', async (req, res) => {
     try {
       const folderId = parseInt(req.params.folderId);
@@ -286,12 +290,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Invalid folder ID', files: [] });
       }
       
+      // Check cache first
+      const now = Date.now();
+      const cachedResult = folderContentsCache[folderId];
+      
+      // Force refresh als er een 'refresh=true' parameter is of als er een timestamp (t) parameter is
+      const forceRefresh = req.query.refresh === 'true' || req.query.t !== undefined;
+      
+      if (cachedResult && !forceRefresh && now - cachedResult.timestamp < CACHE_TTL) {
+        console.log(`🚀 CACHE HIT: Mapinhoud voor map ${folderId} (${cachedResult.files.length} bestanden)`);
+        return res.status(200).json({ 
+          files: cachedResult.files, 
+          message: 'Successfully retrieved files from cache',
+          fromCache: true
+        });
+      }
+      
       console.log(`📂 API REQUEST: Ophalen bestanden voor map ${folderId}`);
       
       // Haal bestanden op
       const files = await storage.getFilesInFolder(folderId);
       console.log(`📄 MAP ${folderId} BEVAT ${files.length} BESTANDEN:`, 
         files.map(f => `${f.name} (ID:${f.id})`).join(', '));
+      
+      // Update de cache
+      folderContentsCache[folderId] = {
+        files,
+        timestamp: now
+      };
       
       // Ververs WebSocket clients met deze data
       try {

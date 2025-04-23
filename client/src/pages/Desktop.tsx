@@ -290,6 +290,38 @@ export default function Desktop() {
   const closeWindowFile = (fileId: number) => {
     setOpenWindowFiles(openWindowFiles.filter(id => id !== fileId));
   };
+  
+  // Preload folder contents voor betere snelheid
+  useEffect(() => {
+    // Alleen folders identificeren
+    const folderIds = files
+      .filter(file => file.type === 'folder')
+      .map(folder => folder.id)
+      .filter((id): id is number => id !== undefined);
+      
+    // Preload folder contents maar slechts één tegelijk met 500ms timeout
+    const preloadFolder = async (index: number) => {
+      if (index >= folderIds.length) return;
+      
+      const folderId = folderIds[index];
+      
+      try {
+        // Voeg cache-busting toe door een timestamp
+        await fetch(`/api/folders/${folderId}/files?t=${Date.now()}`);
+        console.log(`[Preload] Mapinhoud voor map ${folderId} is voorgeladen`);
+      } catch (err) {
+        console.error(`[Preload] Fout bij voorladen map ${folderId}:`, err);
+      }
+      
+      // Laad de volgende map na 500ms
+      setTimeout(() => preloadFolder(index + 1), 500);
+    };
+    
+    // Start het voorladen als er mappen zijn
+    if (folderIds.length > 0) {
+      preloadFolder(0);
+    }
+  }, [files]);
 
   // Setup Fuse.js for fuzzy search
   const fuse = useMemo(() => {
