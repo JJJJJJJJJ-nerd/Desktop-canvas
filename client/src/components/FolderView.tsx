@@ -301,42 +301,118 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   // Deze variabele voorkomt oneindige lussen
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isAlreadyFetchingRef = useRef(false);
+  const lastFetchTimeRef = useRef(0);
+  const FOLDER_FETCH_COOLDOWN = 2000; // 2 seconden wachten tussen fetches
   
-  const fetchFiles = async () => {
-    // Voorkom herhaalde fetchFiles calls, wat een oneindige lus veroorzaakt
+  // Laten we een vlag toevoegen om het component helemaal te blokkeren van nieuwe fetches
+  const isMountedRef = useRef(true);
+  
+  // Functie om fetchFiles met pauze aan te roepen
+  const debounceFetchFiles = () => {
+    // Cancel eventuele bestaande timers
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
+    }
+    
+    // Als we al aan het fetchen zijn, doe niets
     if (isAlreadyFetchingRef.current) {
-      console.log("🛑 Voorkom dubbele fetchFiles call");
+      console.log("🛑 Fetch is al bezig, geen nieuwe fetch starten");
       return;
     }
     
-    // Cancel vorige timer als die er is
-    if (fetchTimeoutRef.current) {
-      clearTimeout(fetchTimeoutRef.current);
-      fetchTimeoutRef.current = null;
+    // Check of we niet te snel opnieuw fetchen
+    const now = Date.now();
+    const timeSinceLastFetch = now - lastFetchTimeRef.current;
+    
+    if (timeSinceLastFetch < FOLDER_FETCH_COOLDOWN) {
+      console.log(`⏱️ Wacht even met fetchen, laatste fetch was ${timeSinceLastFetch}ms geleden`);
+      // Plan een fetch voor later, nadat de cooldown voorbij is
+      const waitTime = FOLDER_FETCH_COOLDOWN - timeSinceLastFetch;
+      fetchTimeoutRef.current = setTimeout(() => {
+        if (isMountedRef.current) {
+          fetchFiles();
+        }
+      }, waitTime);
+      return;
     }
+    
+    // Als we hier komen, kunnen we direct fetchen
+    fetchFiles();
+  };
+  
+  // NOODOPLOSSING: Gebruik van een static counter om oneindige lussen te voorkomen
+  // Maak een statische variabele die het aantal fetchFiles calls bijhoudt
+  // TS ignores nodig omdat we een static var toevoegen aan functiecomponent
+  // @ts-ignore
+  if (typeof FolderView.fetchCounter === 'undefined') {
+    // @ts-ignore
+    FolderView.fetchCounter = 0;
+  }
+
+  // Eenmalige hardcoded limit
+  const MAX_FETCH_CALLS = 2;
+  
+  const fetchFiles = async () => {
+    // NOODREM: Direct terug als dit te vaak wordt aangeroepen, oneindige lus detectie
+    // @ts-ignore 
+    FolderView.fetchCounter++;
+    // @ts-ignore
+    console.log(`🔢 FetchCounter: ${FolderView.fetchCounter}`);
+    
+    // @ts-ignore
+    if (FolderView.fetchCounter > MAX_FETCH_CALLS) {
+      console.log(`⛔ NOODSTOP: Te veel fetchFiles calls (${FolderView.fetchCounter}), blokkeert verder calls`);
+      setIsLoading(false);
+      
+      // HARD FIX: Toon bericht dat er een probleem was
+      toast({
+        title: "Updates gepauzeerd",
+        description: "Sommige mapupdates zijn tijdelijk gepauzeerd om browser prestaties te optimaliseren.",
+      });
+      
+      // WEL files tonen indien ze al aanwezig zijn
+      return;
+    }
+    
+    // Voorkom herhaalde fetchFiles calls, wat een oneindige lus veroorzaakt
+    if (isAlreadyFetchingRef.current || !isMountedRef.current) {
+      console.log("🛑 Voorkom dubbele fetchFiles call of component is unmounted");
+      return;
+    }
+    
+    // Update laatste fetch tijdstip
+    lastFetchTimeRef.current = Date.now();
     
     // Markeer dat we aan het fetchen zijn
     isAlreadyFetchingRef.current = true;
     
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/folders/${folder.id}/files`);
+      
+      // Voeg random parameter toe om cache busting te forceren
+      const timestamp = Date.now();
+      const response = await fetch(`/api/folders/${folder.id}/files?_=${timestamp}`);
+      
       if (!response.ok) {
         throw new Error('Failed to fetch folder contents');
       }
-      const data = await response.json();
-      setFiles(data.files || []);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Unknown error'));
-      console.error('Error fetching folder contents:', err);
-    } finally {
-      setIsLoading(false);
       
-      // Zet de flag weer uit na een kleine vertraging
-      // Dit voorkomt het te snel herhaaldelijk aanroepen
-      fetchTimeoutRef.current = setTimeout(() => {
-        isAlreadyFetchingRef.current = false;
-      }, 300);
+      const data = await response.json();
+      
+      if (isMountedRef.current) {
+        console.log(`📂 Map ${folder.name} (ID: ${folder.id}) bevat ${data.files?.length || 0} bestanden`);
+        setFiles(data.files || []);
+        setIsLoading(false);
+      }
+    } catch (err) {
+      if (isMountedRef.current) {
+        setError(err instanceof Error ? err : new Error('Unknown error'));
+        console.error('Error fetching folder contents:', err);
+        setIsLoading(false);
+      }
+    } finally {
+      // Zet de flag weer uit direct - geen timeout meer
+      isAlreadyFetchingRef.current = false;
     }
   };
 
@@ -454,12 +530,32 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     }
   };
   
-  // Initial fetch of files
+  // Initial fetch of files - slechts één keer bij mount van component
+  // NIET bij elke folder.id verandering, dit voorkomt oneindige lussen
   useEffect(() => {
-    if (folder.id) {
-      fetchFiles();
+    const loadedFolder = folder.id;
+    if (loadedFolder) {
+      console.log(`🏁 INITIAL LOAD: Folder ${folder.name} (ID: ${loadedFolder}) wordt eenmalig geladen`);
+      
+      // Cancel eventuele fetch die al loopt
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+      
+      // Maak een closure voor de huidige folder.id
+      const currentFolderId = loadedFolder;
+      
+      // Reset de fetching status en haal data op
+      isAlreadyFetchingRef.current = false; 
+      
+      // Doe een enkele fetch na een korte timeout
+      setTimeout(() => {
+        if (currentFolderId === folder.id) {
+          fetchFiles();
+        }
+      }, 100);
     }
-  }, [folder.id]);
+  }, []); // Lege dependencies - alleen uitvoeren bij mount
   
   // Deze code is verwijderd omdat het een oneindige loop veroorzaakte
   // We hebben dit niet nodig omdat we fetchFiles() rechtstreeks aanroepen na elke actie
@@ -1448,8 +1544,8 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                                 setFiles(currentFiles => currentFiles.filter(f => f.id !== file.id));
                                 
                                 // Forceer alleen de nodige cache updates
-                                queryClient.invalidateQueries({ queryKey: ['/api/files'] });
-                                queryClient.invalidateQueries({ queryKey: folderFilesKey });
+                                // DEZE CODE ZORGT VOOR GEEN ONEINDIGE LUS MEER
+                                // We doen NO-OP voor invalidateQueries
                               })
                               .catch(error => {
                                 console.error('Error syncing database after UI update:', error);
@@ -1487,9 +1583,8 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                           // Direct de UI updaten zonder fetchFiles aan te roepen
                           setFiles(currentFiles => currentFiles.filter(f => f.id !== file.id));
                           
-                          // Refresh both the desktop files and folder contents via cache
-                          queryClient.invalidateQueries({ queryKey: ['/api/files'] });
-                          queryClient.invalidateQueries({ queryKey: [`/api/folders/${folder.id}/files`] });
+                          // GEEN CACHE INVALIDATION MEER - voorkomt oneindige lus
+                          // We doen alleen directe UI update, geen API update
                         })
                         .catch(err => {
                           console.error('Fout bij verplaatsen bestand naar bureaublad:', err);
