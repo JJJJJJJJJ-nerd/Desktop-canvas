@@ -436,6 +436,38 @@ export function FileItem({
                   
                   // Refresh desktop files - this is crucial to make files disappear from desktop
                   queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+                  
+                  // Explicitly refresh the folder contents to show the newly added file
+                  queryClient.invalidateQueries({ queryKey: [`/api/folders/${file.id}/files`] });
+                  
+                  // Also try to get cached folder data and update it immediately (for instant UI feedback)
+                  try {
+                    const folderFilesKey = [`/api/folders/${file.id}/files`];
+                    const folderContents = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey);
+                    const desktopFiles = queryClient.getQueryData<{files: DesktopFile[]}>(['/api/files'])?.files || [];
+                    
+                    if (desktopFiles) {
+                      // Find the dragged file by ID
+                      const draggedFile = desktopFiles.find(f => f.id === fileId);
+                      
+                      if (draggedFile && folderContents) {
+                        // Add this file to folder contents (with parentId updated)
+                        const updatedFile = {
+                          ...draggedFile,
+                          parentId: file.id
+                        };
+                        
+                        // Update the folder contents cache
+                        queryClient.setQueryData(folderFilesKey, {
+                          files: [...folderContents.files, updatedFile]
+                        });
+                        
+                        console.log(`✅ UI INSTANT UPDATE: Bestand ${draggedFile.name} direct zichtbaar gemaakt in map ${file.name}`);
+                      }
+                    }
+                  } catch (error) {
+                    console.error('Error updating folder UI cache:', error);
+                  }
                 }
               }, 300);
             }

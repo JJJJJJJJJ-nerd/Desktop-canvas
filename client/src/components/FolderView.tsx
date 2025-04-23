@@ -435,6 +435,28 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       fetchFiles();
     }
   }, [folder.id]);
+  
+  // Setup a listener for the query cache to reload folder contents when they change
+  useEffect(() => {
+    if (folder.id) {
+      // Set up a cache watcher to refresh when folder contents change
+      const unsubscribe = queryClient.getQueryCache().subscribe(() => {
+        const folderFilesKey = [`/api/folders/${folder.id}/files`];
+        const wasInvalidated = queryClient.getQueryState(folderFilesKey)?.isInvalidated;
+        
+        // If this folder's query was invalidated, fetch fresh data
+        if (wasInvalidated) {
+          console.log(`🔄 FolderView: Cache voor map ${folder.name} is gewijzigd, inhoud wordt opnieuw opgehaald`);
+          fetchFiles();
+        }
+      });
+      
+      // Cleanup the subscription when the component unmounts
+      return () => {
+        unsubscribe();
+      };
+    }
+  }, [folder.id, folder.name, fetchFiles]);
 
   // State and refs for dragging folder
   const [dragging, setDragging] = useState(false);
@@ -933,15 +955,28 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                 const folderFilesKey = [`/api/folders/${folder.id}/files`];
                 const folderContents = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey) || {files: []};
                 
-                // Update folder contents cache immediately
-                queryClient.setQueryData(folderFilesKey, {
-                  files: [...folderContents.files, movedFile]
-                });
+                // Check if file already exists in this folder to avoid duplicates
+                const fileExists = folderContents.files.some(f => f.id === fileIdNumber);
+                
+                if (!fileExists) {
+                  // Update folder contents cache immediately
+                  queryClient.setQueryData(folderFilesKey, {
+                    files: [...folderContents.files, movedFile]
+                  });
+                  
+                  // Also directly update the visible UI with React state
+                  setFiles(prevFiles => {
+                    // Check if file already exists in state to avoid duplicates
+                    const alreadyExists = prevFiles.some(f => f.id === fileIdNumber);
+                    if (alreadyExists) return prevFiles;
+                    return [...prevFiles, movedFile];
+                  });
+                }
                 
                 // Show success toast
                 toast({
-                  title: "File moved",
-                  description: `File added to ${folder.name}`,
+                  title: "Bestand verplaatst",
+                  description: `Bestand toegevoegd aan "${folder.name}"`,
                   duration: 2000
                 });
                 
@@ -950,6 +985,15 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                   addFileToFolder(fileIdNumber, folder.id)
                     .then(() => {
                       console.log("✅ Database updated to match UI");
+                      
+                      // Force refresh both folder content and desktop files for consistency
+                      queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+                      queryClient.invalidateQueries({ queryKey: [`/api/folders/${folder.id}/files`] });
+                      
+                      // Refetch files to ensure consistency
+                      setTimeout(() => {
+                        fetchFiles();
+                      }, 100);
                     })
                     .catch(error => {
                       console.error("Error moving file to folder:", error);
@@ -968,7 +1012,28 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
             } else {
               // Fallback to direct API call if we don't have cache data
               if (folder.id !== undefined) {
-                addFileToFolder(fileIdNumber, folder.id);
+                addFileToFolder(fileIdNumber, folder.id)
+                  .then(() => {
+                    toast({
+                      title: "Bestand verplaatst",
+                      description: `Bestand toegevoegd aan "${folder.name}"`,
+                      duration: 2000
+                    });
+                    
+                    // Force refresh folder contents
+                    fetchFiles();
+                    
+                    // Also refresh desktop files
+                    queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+                  })
+                  .catch(error => {
+                    console.error('Error adding file to folder:', error);
+                    toast({
+                      title: "Error",
+                      description: "Failed to add file to folder",
+                      variant: "destructive"
+                    });
+                  });
               }
             }
           }
@@ -1195,6 +1260,37 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                     
                     // Vernieuwen van mapinhoud
                     fetchFiles();
+                    
+                    // Invalidate queries to ensure desktop and folder views are synchronized
+                    queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+                    queryClient.invalidateQueries({ queryKey: [`/api/folders/${folderId}/files`] });
+                    
+                    // Immediately try to update UI directly from cache  
+                    try {
+                      // Get the currently displayed files in this folder
+                      const desktopFiles = queryClient.getQueryData<{files: DesktopFile[]}>(['/api/files']);
+                      if (desktopFiles?.files) {
+                        // Find the file that's being moved
+                        const draggedFile = desktopFiles.files.find(f => f.id === parsedFileId);
+                        
+                        if (draggedFile) {
+                          // Add to current folder view if not already there
+                          const fileExists = files.some(f => f.id === parsedFileId);
+                          
+                          if (!fileExists) {
+                            // Update local state directly for immediate feedback
+                            setFiles(prevFiles => [...prevFiles, {
+                              ...draggedFile,
+                              parentId: folderId
+                            }]);
+                            
+                            console.log(`✅ INSTANT UI UPDATE: Bestand ${draggedFile.name} is direct aan mapweergave toegevoegd`);
+                          }
+                        }
+                      }
+                    } catch (error) {
+                      console.error("Error updating folder UI:", error);
+                    }
                   })
                   .catch(err => {
                     console.error('Fout bij toevoegen van bestand aan map:', err);
