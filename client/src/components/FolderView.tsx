@@ -222,33 +222,69 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   
   // Handle the window/folder dragging
   useEffect(() => {
+    // Element referentie voor betere performance
+    const folderWindowEl = document.getElementById(`folder-window-${folder.id}`);
+    if (!folderWindowEl) return;
+    
+    // Startpositie bijhouden voordat we gaan slepen
+    let startPos = { x: localPosition.x, y: localPosition.y };
+    let isFolderHeaderDrag = false;
+    
     const handleHeaderMouseDown = (e: MouseEvent) => {
+      // Voorkom slepen als het een button of input element is
+      if ((e.target as HTMLElement).tagName === 'BUTTON' || 
+          (e.target as HTMLElement).tagName === 'INPUT') {
+        return;
+      }
+      
       // Only proceed if target is folder header
       const target = e.target as HTMLElement;
-      const folderHeader = document.querySelector(`#folder-window-${folder.id} .folder-header`);
+      const folderHeader = folderWindowEl.querySelector('.folder-header') as HTMLElement;
       
       // Check if click was in folder header or its children
       if (folderHeader && (folderHeader === target || folderHeader.contains(target))) {
+        // Sla de huidige positie op voordat we gaan slepen
+        startPos = { ...localPosition };
+        isFolderHeaderDrag = true;
         setDragging(true);
         
-        // Calculate offset so the drag starts from where the mouse is
-        const rect = document.getElementById(`folder-window-${folder.id}`)?.getBoundingClientRect();
-        if (rect) {
-          setDragOffset({
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
-          });
-        }
+        // Calculate offset zo dat we vanaf dezelfde positie blijven slepen
+        const rect = folderWindowEl.getBoundingClientRect();
+        setDragOffset({
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top
+        });
         
+        console.log(`🖐️ Start dragging folder from position: (${startPos.x}, ${startPos.y})`);
         e.preventDefault();
       }
     };
     
     const handleMouseMove = (e: MouseEvent) => {
-      if (dragging) {
+      if (dragging && isFolderHeaderDrag) {
+        // Bereken de nieuwe positie met grenzen
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+        const folderWidth = folderWindowEl.offsetWidth;
+        const folderHeight = folderWindowEl.offsetHeight;
+        
         // Voorkom dat de map buiten het scherm kan worden gesleept
-        const newX = Math.max(0, e.clientX - dragOffset.x);
-        const newY = Math.max(0, e.clientY - dragOffset.y);
+        // Houd altijd tenminste 100px binnen het scherm
+        const newX = Math.max(
+          -folderWidth + 100, 
+          Math.min(
+            screenWidth - 100, 
+            e.clientX - dragOffset.x
+          )
+        );
+        
+        const newY = Math.max(
+          0, // Bij de bovenkant niet negatief
+          Math.min(
+            screenHeight - 50, // Altijd visible onderaan
+            e.clientY - dragOffset.y
+          )
+        );
         
         // Update de lokale positie voor directe visuele feedback
         setLocalPosition({
@@ -259,22 +295,30 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     };
     
     const handleMouseUp = (e: MouseEvent) => {
-      if (dragging) {
+      if (dragging && isFolderHeaderDrag) {
+        // Reset dragging state
         setDragging(false);
+        isFolderHeaderDrag = false;
         
-        // Bereken de uiteindelijke positie bij loslaten
-        const finalX = Math.max(0, e.clientX - dragOffset.x);
-        const finalY = Math.max(0, e.clientY - dragOffset.y);
+        // Gebruik de huidige positie, niet e.clientX/Y omdat we al beperkingen toepassen
+        const finalX = localPosition.x;
+        const finalY = localPosition.y;
         
-        // Update de lokale positie met de definitieve waarden
-        setLocalPosition({
-          x: finalX,
-          y: finalY
-        });
+        // Controleer of de positie daadwerkelijk is veranderd
+        const hasMoved = 
+          Math.abs(finalX - startPos.x) > 5 || 
+          Math.abs(finalY - startPos.y) > 5;
+        
+        if (!hasMoved) {
+          console.log(`🔙 Folder was clicked but not moved significantly`);
+          return; // Skip update als de map nauwelijks bewogen heeft
+        }
+        
+        console.log(`✋ Folder drag completed: (${finalX}, ${finalY})`);
         
         // Update the server with the new position
         if (folder.id) {
-          console.log(`Updating folder ${folder.id} position to:`, { x: finalX, y: finalY });
+          console.log(`📤 Updating folder ${folder.id} position from (${startPos.x}, ${startPos.y}) to (${finalX}, ${finalY})`);
           
           fetch(`/api/files/${folder.id}/position`, {
             method: 'PATCH',
@@ -297,7 +341,14 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
             console.error('Error updating folder position:', err);
             
             // Bij fout, herstel naar de originele positie
-            setLocalPosition(folder.position);
+            toast({
+              title: "Fout bij verplaatsen",
+              description: "Kon de mappositie niet opslaan",
+              variant: "destructive"
+            });
+            
+            // Terug naar positie voor het slepen
+            setLocalPosition(startPos);
           });
         }
       }
@@ -546,7 +597,8 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         left: localPosition.x,
         top: localPosition.y,
         zIndex: dragging ? 1000 : 30, // Higher when dragging, lower when static but still allow files to be visible above
-        transition: dragging ? 'none' : 'all 0.15s ease'
+        transition: dragging ? 'none' : 'all 0.15s ease',
+        border: isDraggingOver ? '2px solid #3b82f6' : '1px solid rgba(0,0,0,0.1)'
       }}
       onDragOver={(e) => {
         e.preventDefault();
@@ -603,133 +655,172 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         console.log(`⬇️ DROP OP OPEN MAP: ${folder.name} (ID: ${folder.id})`);
         setIsDraggingOver(false);
         
+        // Reset globalfolders
+        // @ts-ignore - Custom property
+        window._activeDropFolder = undefined;
+        // @ts-ignore - Custom property
+        window._openFolderHoverId = undefined;
+        
+        // Haal bestandsID op uit de drag data
         const fileId = e.dataTransfer.getData('text/plain');
-        if (!fileId) return;
+        if (!fileId) {
+          console.log('❌ Geen bestand-ID gevonden in drop data');
+          return;
+        }
         
         console.log(`📁 Bestand met ID ${fileId} gedropt op open map ${folder.id}`);
         
-        // Immediately update UI for instant feedback
+        // Verwerk de drop
         try {
           const fileIdNumber = parseInt(fileId);
-          if (!isNaN(fileIdNumber)) {
-            // Show visual feedback
-            onSelectFile({
-              id: fileIdNumber,
-              name: "Moving file...",
-              type: "placeholder",
-              size: 0,
-              dataUrl: "",
-              position: { x: 0, y: 0 }
-            });
+          if (isNaN(fileIdNumber)) {
+            console.error('❌ Ongeldige bestand-ID:', fileId);
+            return;
+          }
+          
+          // Toon visuele feedback
+          setIsRefreshing(true);
+          onSelectFile({
+            id: fileIdNumber,
+            name: "Bestand wordt verplaatst...",
+            type: "placeholder",
+            size: 0,
+            dataUrl: "",
+            position: { x: 0, y: 0 }
+          });
+          
+          // Bereid de UI update voor
+          const desktopFiles = queryClient.getQueryData<{files: DesktopFile[]}>(['/api/files']);
+          
+          if (desktopFiles?.files) {
+            // Zoek het bestand dat verplaatst wordt
+            const fileIndex = desktopFiles.files.findIndex(f => f.id === fileIdNumber);
             
-            // Instant visual update
-            const desktopFiles = queryClient.getQueryData<{files: DesktopFile[]}>(['/api/files']);
-            if (desktopFiles?.files) {
-              // Find the file that's being moved
-              const fileIndex = desktopFiles.files.findIndex(f => f.id === fileIdNumber);
+            if (fileIndex >= 0) {
+              // Kloon arrays om direct mutaties te voorkomen
+              const updatedDesktopFiles = [...desktopFiles.files];
+              const movedFile = {...updatedDesktopFiles[fileIndex]};
               
-              if (fileIndex >= 0) {
-                // Clone the files array to avoid mutating the cache directly
-                const updatedFiles = [...desktopFiles.files];
-                const movedFile = {...updatedFiles[fileIndex]};
+              // Update het bestand met de nieuwe parent map
+              movedFile.parentId = folder.id;
+              
+              // Verwijder het bestand uit desktop view
+              updatedDesktopFiles.splice(fileIndex, 1);
+              
+              // Update de cache voor desktop bestanden
+              queryClient.setQueryData(['/api/files'], {
+                files: updatedDesktopFiles
+              });
+              
+              // Update de mapinhoud in de cache
+              const folderFilesKey = [`/api/folders/${folder.id}/files`];
+              let currentFolderFiles = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey)?.files || [];
+              
+              // Controleer of bestand al bestaat om duplicaten te voorkomen
+              const fileExists = currentFolderFiles.some(f => f.id === fileIdNumber);
+              
+              if (!fileExists) {
+                // Voeg alleen toe als het bestand nog niet in de map zit
+                currentFolderFiles = [...currentFolderFiles, movedFile];
                 
-                // Update the file's parentId to the folder's ID
-                movedFile.parentId = folder.id;
-                
-                // Remove the file from desktop view immediately
-                updatedFiles.splice(fileIndex, 1);
-                
-                // Update the cache with the file removed from desktop
-                queryClient.setQueryData(['/api/files'], {
-                  files: updatedFiles
+                // Update cache
+                queryClient.setQueryData(folderFilesKey, {
+                  files: currentFolderFiles
                 });
                 
-                // Get folder contents and add the file there
-                const folderFilesKey = [`/api/folders/${folder.id}/files`];
-                const folderContents = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey) || {files: []};
-                
-                // Check if file already exists in this folder to avoid duplicates
-                const fileExists = folderContents.files.some(f => f.id === fileIdNumber);
-                
-                if (!fileExists) {
-                  // Update folder contents cache immediately
-                  queryClient.setQueryData(folderFilesKey, {
-                    files: [...folderContents.files, movedFile]
-                  });
-                  
-                  // Also directly update the visible UI with React state
-                  setFiles(prevFiles => {
-                    // Check if file already exists in state to avoid duplicates
-                    const alreadyExists = prevFiles.some(f => f.id === fileIdNumber);
-                    if (alreadyExists) return prevFiles;
-                    return [...prevFiles, movedFile];
-                  });
-                }
-                
-                // Show success toast
-                toast({
-                  title: "Bestand verplaatst",
-                  description: `Bestand toegevoegd aan "${folder.name}"`,
-                  duration: 2000
-                });
-                
-                // Then make the actual API call to update the database
-                if (folder.id !== undefined) {
-                  addFileToFolder(fileIdNumber, folder.id)
-                    .then(() => {
-                      console.log("✅ Database updated to match UI");
-                      
-                      // Force refresh both folder content and desktop files for consistency
-                      queryClient.invalidateQueries({ queryKey: ['/api/files'] });
-                      queryClient.invalidateQueries({ queryKey: [`/api/folders/${folder.id}/files`] });
-                      
-                      // Refetch files to ensure consistency
-                      setTimeout(() => {
-                        fetchFiles();
-                      }, 100);
-                    })
-                    .catch(error => {
-                      console.error("Error moving file to folder:", error);
-                      // Show error and revert the visual changes
-                      toast({
-                        title: "Error",
-                        description: "Failed to move file to folder",
-                        variant: "destructive",
-                        duration: 3000
-                      });
-                      // Refresh to revert visual changes
-                      fetchFiles();
-                    });
-                }
+                // Update lokale staat voor directe UI feedback
+                setFiles(currentFolderFiles);
               }
-            } else {
-              // Fallback to direct API call if we don't have cache data
+              
+              // Toon succes bericht
+              toast({
+                title: "Bestand verplaatst",
+                description: `Bestand toegevoegd aan map "${folder.name}"`,
+                duration: 2000
+              });
+              
+              // Maak API call voor database update
               if (folder.id !== undefined) {
+                // Roep API aan om bestand toe te voegen aan map
                 addFileToFolder(fileIdNumber, folder.id)
                   .then(() => {
-                    toast({
-                      title: "Bestand verplaatst",
-                      description: `Bestand toegevoegd aan "${folder.name}"`,
-                      duration: 2000
-                    });
-                    // Refetch all data
-                    fetchFiles();
+                    console.log(`✅ Bestand ${fileIdNumber} succesvol toegevoegd aan map ${folder.id}`);
+                    
+                    // Vernieuw beide caches om consistentie te garanderen
                     queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+                    queryClient.invalidateQueries({ queryKey: folderFilesKey });
+                    
+                    // Haal nieuwe mapinhoud op via WebSocket als beschikbaar
+                    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                      console.log('🔄 WebSocket refresh request sent');
+                      wsRef.current.send(JSON.stringify({
+                        type: 'requestFolderRefresh',
+                        folderId: folder.id,
+                        timestamp: new Date().toISOString()
+                      }));
+                    } else {
+                      // Fallback naar traditionele API als WebSocket niet beschikbaar is
+                      console.log('🔄 Traditional fetch for folder contents');
+                      fetchFiles();
+                    }
+                    
+                    setIsRefreshing(false);
                   })
                   .catch(error => {
-                    console.error("Error moving file to folder:", error);
+                    console.error("❌ Fout bij verplaatsen van bestand naar map:", error);
+                    
+                    // Toon foutmelding
                     toast({
-                      title: "Error",
-                      description: "Failed to move file to folder",
+                      title: "Fout bij verplaatsen",
+                      description: "Kon het bestand niet naar de map verplaatsen",
                       variant: "destructive",
                       duration: 3000
                     });
+                    
+                    // Vernieuw data om visuele wijzigingen terug te draaien
+                    fetchFiles();
+                    queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+                    
+                    setIsRefreshing(false);
                   });
               }
+            } else {
+              console.error(`❌ Bestand ${fileIdNumber} niet gevonden in desktop bestanden`);
+              setIsRefreshing(false);
+            }
+          } else {
+            // Fallback naar directe API aanroep als cache niet beschikbaar is
+            console.log('💾 Geen cache data beschikbaar, directe API aanroep');
+            
+            if (folder.id !== undefined) {
+              addFileToFolder(fileIdNumber, folder.id)
+                .then(() => {
+                  toast({
+                    title: "Bestand verplaatst",
+                    description: `Bestand toegevoegd aan map "${folder.name}"`,
+                    duration: 2000
+                  });
+                  
+                  // Vernieuw alle data
+                  fetchFiles();
+                  queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+                  setIsRefreshing(false);
+                })
+                .catch(error => {
+                  console.error("❌ Fout bij verplaatsen van bestand naar map:", error);
+                  toast({
+                    title: "Fout bij verplaatsen",
+                    description: "Kon het bestand niet naar de map verplaatsen",
+                    variant: "destructive",
+                    duration: 3000
+                  });
+                  setIsRefreshing(false);
+                });
             }
           }
         } catch (error) {
-          console.error("Error processing drop:", error);
+          console.error("❌ Fout bij verwerken van drop:", error);
+          setIsRefreshing(false);
         }
       }}
       >
@@ -760,8 +851,31 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
               <Edit className="h-4 w-4" />
             </button>
             <button
-              onClick={() => fetchFiles()}
-              className="p-1 hover:bg-primary-300 rounded-md focus:outline-none"
+              onClick={() => {
+                setIsRefreshing(true);
+                
+                // WebSocket verzoek eerste proberen
+                if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                  wsRef.current.send(JSON.stringify({
+                    type: 'requestFolderRefresh',
+                    folderId: folder.id,
+                    timestamp: new Date().toISOString()
+                  }));
+                  console.log(`🔄 WebSocket refresh request sent for folder ${folder.id}`);
+                } else {
+                  // Fallback naar traditionele API
+                  console.log(`🔄 Traditional fetch for folder ${folder.id}`);
+                  fetchFiles();
+                }
+                
+                // Voor zekerheid ook een timeout voor het geval beide methoden falen
+                setTimeout(() => {
+                  if (isRefreshing) {
+                    setIsRefreshing(false);
+                  }
+                }, 2000);
+              }}
+              className="p-1 hover:bg-primary-300 rounded-md focus:outline-none relative"
               title="Vernieuwen"
             >
               <ArrowLeft className="h-4 w-4 rotate-45" />
