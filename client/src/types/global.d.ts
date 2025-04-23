@@ -9,6 +9,15 @@ interface DraggedFileInfo {
   updateTime?: number;
 }
 
+interface MouseDownInfo {
+  fileId: number;
+  startX: number;
+  startY: number;
+  timestamp: number;
+  element: EventTarget;
+  isDragging: boolean;
+}
+
 interface Window {
   // Drag & Drop flags
   _draggingFileFromFolder: boolean;
@@ -23,4 +32,18 @@ interface Window {
     timestamp: number;
   };
   _openFolderHoverId?: number;
+  
+  // Tracking voor dubbele klikken
+  _lastClickTimes?: {
+    [fileId: number]: number;
+  };
+  
+  // Tracking voor drag vs. click onderscheid
+  _mouseDownInfo?: MouseDownInfo;
+  
+  // Desktop drag positie
+  _desktopDragPosition?: {
+    x: number;
+    y: number;
+  };
 }

@@ -37,6 +37,15 @@
   -webkit-user-drag: element;
 }
 
+/* Stijl voor geselecteerde bestand */
+.file-selected {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
+  transform: scale(1.02);
+  transition: all 0.2s ease;
+}
+
 @keyframes pulse-debug {
   0% {
     outline-color: red;

@@ -174,8 +174,11 @@ export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderIte
     console.log('✅ DragEnd cleanup voltooid');
   };
 
-  // Nieuwe functie voor het loggen van bestandsselectie
+  // Functie voor het openen van bestanden
   const handleFileClick = (e: React.MouseEvent) => {
+    // Voorkom dat dit klikevent het drag-event activeert 
+    e.stopPropagation();
+    
     console.log('=================================================');
     console.log('🖱️ BESTAND GESELECTEERD:', {
       id: file.id,
@@ -185,6 +188,16 @@ export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderIte
       inMap: parentFolderId,
       tijdstip: new Date().toLocaleTimeString()
     });
+    
+    // Controleer of er een drag operatie bezig was
+    // @ts-ignore - Custom property  
+    const wasDragging = window._mouseDownInfo?.isDragging === true;
+    
+    if (wasDragging) {
+      console.log('⚠️ Klik genegeerd omdat er een sleepoperatie plaatsvond');
+      return;
+    }
+    
     console.log('📋 Event details:', {
       type: e.type,
       button: e.button, // 0 = links, 1 = midden, 2 = rechts
@@ -194,10 +207,73 @@ export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderIte
       ctrlKey: e.ctrlKey,
       metaKey: e.metaKey  // Command key op Mac
     });
-    console.log('🔍 Element details:', {
-      target: e.target,
-      currentTarget: e.currentTarget
-    });
+    
+    // Alleen reageren op linksklikken zonder modifier toetsen
+    if (e.button !== 0 || e.shiftKey || e.ctrlKey || e.metaKey) {
+      console.log('⚠️ Klik genegeerd omdat het niet een standaard linksklik is');
+      return;
+    }
+    
+    // Controleren of het een dubbele klik is
+    const now = Date.now();
+    // @ts-ignore - Custom property
+    const lastClickTime = (window._lastClickTimes?.[file.id]) || 0;
+    const isDoubleClick = (now - lastClickTime) < 500; // 500ms tussen kliks
+    
+    // Bewaar de tijd van deze klik
+    // @ts-ignore - Custom property
+    if (!window._lastClickTimes) window._lastClickTimes = {};
+    // @ts-ignore - Custom property
+    window._lastClickTimes[file.id] = now;
+    
+    // We openen alleen het bestand bij een dubbele klik
+    if (isDoubleClick) {
+      console.log('👆 DUBBELE KLIK GEDETECTEERD op bestand:', file.name);
+      
+      // Toon een visuele indicatie dat het bestand wordt geopend
+      const el = e.currentTarget as HTMLElement;
+      el.classList.add('file-blink');
+      
+      // Verwijder de animatie na 1 seconde
+      setTimeout(() => {
+        el.classList.remove('file-blink');
+      }, 1000);
+      
+      // Probeer het bestand te openen, mits het geen map is
+      if (file.type !== 'folder' && file.type !== 'application/folder' && !file.isFolder) {
+        try {
+          // Maak een tijdelijke link om het bestand te openen
+          const link = document.createElement('a');
+          link.href = file.dataUrl;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          
+          console.log('🔗 Bestand openen met URL:', file.dataUrl.substring(0, 50) + '...');
+          
+          // Voeg toe aan het document en klik erop
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          console.log('✅ Bestand geopend in nieuw tabblad');
+        } catch (error) {
+          console.error('❌ Fout bij openen van bestand:', error);
+        }
+      } else {
+        console.log('ℹ️ Dit is een map en kan niet direct worden geopend');
+      }
+    } else {
+      console.log('ℹ️ Enkele klik gedetecteerd - bestand wordt niet geopend');
+      
+      // Toon een subtiele visuele feedback voor selectie
+      const el = e.currentTarget as HTMLElement;
+      el.classList.add('file-selected'); 
+      
+      setTimeout(() => {
+        el.classList.remove('file-selected');
+      }, 500);
+    }
+    
     console.log('=================================================');
   };
 
@@ -206,10 +282,22 @@ export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderIte
     // Als het niet de linker muisknop is, doe niets
     if (e.button !== 0) return;
     
+    // Markeer dat we beginnen met een muisbeweging
+    // @ts-ignore - Custom property
+    window._mouseDownInfo = {
+      fileId: file.id,
+      startX: e.clientX,
+      startY: e.clientY,
+      timestamp: Date.now(),
+      element: e.currentTarget,
+      isDragging: false
+    };
+    
     console.log('🖱️ MOUSEDOWN EVENT op bestand:', {
       id: file.id,
       naam: file.name,
-      inMap: parentFolderId
+      inMap: parentFolderId,
+      positie: { x: e.clientX, y: e.clientY }
     });
     
     // Stel in dat dit element draggable is (soms werkt dit beter dan via het attribuut)
@@ -224,15 +312,37 @@ export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderIte
       element.style.cursor = 'grab';
     }, 100);
     
+    // Volg muisbewegingen om te bepalen of het een klik of sleep is
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      // Bereken de afstand die de muis heeft afgelegd
+      const dx = moveEvent.clientX - e.clientX;
+      const dy = moveEvent.clientY - e.clientY;
+      const distance = Math.sqrt(dx*dx + dy*dy);
+      
+      // Als de afstand groter is dan 5px, beschouwen we het als een drag operatie
+      if (distance > 5) {
+        // @ts-ignore - Custom property
+        if (window._mouseDownInfo) window._mouseDownInfo.isDragging = true;
+      }
+    };
+    
     // Schoonmaak wanneer de muis wordt losgelaten
     const cleanup = () => {
       clearTimeout(timer);
       element.classList.remove('item-ready-to-drag');
       element.style.cursor = '';
       window.removeEventListener('mouseup', cleanup);
+      window.removeEventListener('mousemove', handleMouseMove);
+      
+      // Reset de mouseDown info na korte vertraging (zodat click handler het nog kan gebruiken)
+      setTimeout(() => {
+        // @ts-ignore - Custom property
+        window._mouseDownInfo = undefined;
+      }, 50);
     };
     
     window.addEventListener('mouseup', cleanup);
+    window.addEventListener('mousemove', handleMouseMove);
   };
   
   return (
