@@ -150,9 +150,6 @@ export function useDesktopFiles() {
             // Update the file's parentId to the folder's ID
             movedFile.parentId = folderId;
             
-            // Add teleport animation class
-            movedFile.className = 'file-teleport-in';
-            
             // Remove the file from desktop view immediately
             updatedFiles.splice(fileIndex, 1);
             
@@ -165,21 +162,13 @@ export function useDesktopFiles() {
             const folderFilesKey = [`/api/folders/${folderId}/files`];
             const folderContents = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey) || {files: []};
             
-            // Controleer of het bestand niet al in de map zit
-            if (!folderContents.files.some(f => f.id === fileId)) {
-              // Update folder contents cache met het nieuwe bestand
-              const updatedFolderFiles = [...folderContents.files, movedFile];
-              queryClient.setQueryData(folderFilesKey, {
-                files: updatedFolderFiles
-              });
-              
-              // Ook elke geopende map view direct updaten
-              // @ts-ignore - Custom property
-              if (window._updateFolderView && typeof window._updateFolderView === 'function') {
-                // @ts-ignore - Custom property
-                window._updateFolderView(folderId, updatedFolderFiles);
-              }
-            }
+            // Add the file to the folder's contents with teleport-in animation class
+            movedFile.className = 'file-teleport-in';
+            
+            // Update folder contents cache
+            queryClient.setQueryData(folderFilesKey, {
+              files: [...folderContents.files, movedFile]
+            });
             
             console.log(`✨ UI Updated: File ${movedFile.name} is now shown in folder ${folderId}`);
           }

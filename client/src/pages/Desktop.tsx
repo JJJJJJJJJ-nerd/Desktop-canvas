@@ -127,32 +127,16 @@ export default function Desktop() {
     e.preventDefault();
     setIsDraggingOver(true);
     
-    // Controleer of een element wordt gesleept vanuit een map en signaleer dat we over het bureaublad zweven
+    // Signaleer dat we over het bureaublad zweven - zodat bestanden uit open mappen naar hier gesleept kunnen worden
     // @ts-ignore - Custom property
     window._draggingFileToDesktop = true;
     
-    // Update elke keer de desktopDragPosition - dit is belangrijk voor nauwkeurige positionering
-    const canvasRect = canvasRef.current?.getBoundingClientRect();
-    if (canvasRect) {
-      // Bereken de relatieve positie binnen het canvas gebied
-      const relativeX = e.clientX - canvasRect.left;
-      const relativeY = e.clientY - canvasRect.top;
-      
-      // @ts-ignore - Custom property
-      window._desktopDragPosition = {
-        x: relativeX,
-        y: relativeY
-      };
-      
-      console.log(`🖱️ Desktop drag positie bijgewerkt naar: ${relativeX}, ${relativeY}`);
-    } else {
-      // Fallback naar clientX/Y als we de canvasRect niet kunnen krijgen
-      // @ts-ignore - Custom property
-      window._desktopDragPosition = {
-        x: e.clientX,
-        y: e.clientY
-      };
-    }
+    // Bewaar de huidige muispositie voor gebruik als droplocatie bij slepen vanuit mappen
+    // @ts-ignore - Custom property
+    window._desktopDragPosition = {
+      x: e.clientX,
+      y: e.clientY
+    };
     
     // Set cursor to indicate we can drop here
     e.dataTransfer.dropEffect = 'move';
@@ -181,101 +165,43 @@ export default function Desktop() {
     // Check for dragged files from folders (which use dataTransfer.getData)
     const fileIdText = e.dataTransfer.getData('text/plain');
     if (fileIdText) {
-      try {
-        const fileId = parseInt(fileIdText);
-        if (!isNaN(fileId)) {
-          console.log(`🖥️ DESKTOP DROP: Bestand met ID ${fileId} op bureaublad geplaatst`);
-          
-          // Bevestig dat we op het bureaublad slepen
-          // @ts-ignore - Custom property
-          window._draggingFileToDesktop = true;
-          
-          // Get information about the dragged file from global state (if available)
-          // @ts-ignore - Custom property
-          const draggedFileInfo = window.draggedFileInfo;
-          
-          // Determine the exact drop position on the desktop
-          let dropPosition;
-          
-          // First, check if we have a stored position from dragOver events (meer nauwkeurig)
-          // @ts-ignore - Custom property
-          const storedPosition = window._desktopDragPosition;
-          
-          if (storedPosition) {
-            dropPosition = storedPosition;
-            console.log('🎯 Using precise position from drag tracking: ', dropPosition);
-          } else {
-            // Get relative position within canvas as fallback
-            const canvasRect = canvasRef.current?.getBoundingClientRect();
-            if (canvasRect) {
-              dropPosition = {
-                x: e.clientX - canvasRect.left,
-                y: e.clientY - canvasRect.top
-              };
-              console.log('🎯 Using calculated position from drop event: ', dropPosition);
-            } else {
-              // Last resort fallback
-              dropPosition = {
-                x: e.clientX,
-                y: e.clientY
-              };
-              console.log('⚠️ Using absolute position as fallback: ', dropPosition);
-            }
-          }
-          
-          // Update UI immediately before API call for instant feedback
-          if (draggedFileInfo && draggedFileInfo.fromFolder) {
-            // Get current desktop files and add this file to it
-            const desktopFiles = queryClient.getQueryData<{files: DesktopFile[]}>(['/api/files']);
-            
-            if (desktopFiles?.files) {
-              // Create a file object with the correct position
-              const fileForDesktop = {
-                id: fileId,
-                name: draggedFileInfo.name,
-                type: draggedFileInfo.type,
-                size: draggedFileInfo.size,
-                dataUrl: draggedFileInfo.dataUrl,
-                position: dropPosition,
-                parentId: undefined, // Not in a folder
-                className: 'file-teleport-in' // Add animation class
-              };
-              
-              // Add it to the desktop files cache
-              queryClient.setQueryData(['/api/files'], {
-                files: [...desktopFiles.files, fileForDesktop]
-              });
-              
-              // Show toast notification
-              toast({
-                title: "Bestand verplaatst",
-                description: `"${draggedFileInfo.name}" is direct verplaatst naar het bureaublad.`,
-                duration: 2000
-              });
-            }
-          }
+      const fileId = parseInt(fileIdText);
+      if (!isNaN(fileId)) {
+        console.log(`🖥️ DESKTOP DROP: Bestand met ID ${fileId} op bureaublad geplaatst`);
+        
+        // Bevestig dat we op het bureaublad slepen
+        // @ts-ignore - Custom property
+        window._draggingFileToDesktop = true;
+        
+        // We found a valid file ID, so this must be a file from a folder
+        // Remove from folder and place on desktop at the exact position where dropped
+        try {
+          // Gebruik de exacte muispositie voor het plaatsen van het bestand
+          const dropPosition = {
+            x: e.clientX,
+            y: e.clientY
+          };
           
           console.log(`⬇️ DESKTOP DROP POSITIE: ${dropPosition.x}, ${dropPosition.y}`);
           
-          // Verwijderen uit map en direct op bureaubladpositie plaatsen (update database)
+          // Verwijderen uit map en direct op bureaubladpositie plaatsen
           await removeFileFromFolder(fileId, dropPosition);
           console.log('File removed from folder and placed on desktop at position:', dropPosition);
           
-          // Reset drag trackers
-          // @ts-ignore - Custom property
-          window._draggingFileToDesktop = false;
-          // @ts-ignore - Custom property
-          window._desktopDragPosition = undefined;
-          // @ts-ignore - Custom property
-          window.draggedFileInfo = undefined;
+          // Toon een toast-melding
+          toast({
+            title: "Bestand verplaatst",
+            description: "Bestand is verplaatst naar het bureaublad op de exacte plaats waar je het losliet.",
+            duration: 3000,
+          });
+        } catch (error) {
+          console.error('Error moving file to desktop:', error);
+          toast({
+            title: "Fout",
+            description: "Er ging iets mis bij het verplaatsen van het bestand.",
+            variant: "destructive"
+          });
         }
-      } catch (error) {
-        console.error('Error moving file to desktop:', error);
-        toast({
-          title: "Fout",
-          description: "Er ging iets mis bij het verplaatsen van het bestand.",
-          variant: "destructive"
-        });
       }
     }
   };
@@ -672,15 +598,6 @@ export default function Desktop() {
               files: [...folderContents.files, movedFile]
             });
             
-            // Trigger visuele updates in alle openstaande FolderView componenten
-            // @ts-ignore - Custom event
-            window.dispatchEvent(new CustomEvent('folder-contents-updated', {
-              detail: { 
-                folderId: activeDropFolder.id,
-                addedFile: movedFile
-              }
-            }));
-            
             // Show success message with folder name
             toast({
               title: "File moved",
@@ -777,15 +694,6 @@ export default function Desktop() {
             queryClient.setQueryData(folderFilesKey, {
               files: [...folderContents.files, movedFile]
             });
-            
-            // Trigger visuele updates in alle openstaande FolderView componenten
-            // @ts-ignore - Custom event
-            window.dispatchEvent(new CustomEvent('folder-contents-updated', {
-              detail: { 
-                folderId: hoverFolderId,
-                addedFile: movedFile
-              }
-            }));
             
             // Show success message
             toast({
