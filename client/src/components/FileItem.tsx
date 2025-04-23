@@ -14,6 +14,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
+import { useWebSocket } from "@/hooks/use-websocket";
+import { useToast } from "@/hooks/use-toast";
 
 // Function to highlight text with fuzzy matches
 function highlightMatchedText(text: string, searchTerm: string) {
@@ -94,6 +96,8 @@ export function FileItem({
 }: FileItemProps) {
   // Get query client for data operations
   const queryClient = useQueryClient();
+  const { isConnected, sendMessage, lastMessage } = useWebSocket();
+  const { toast } = useToast();
   
   // API functions to manage files and folders
   // Add file to folder
