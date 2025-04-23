@@ -115,12 +115,38 @@ export function FileItem({
       const result = await response.json();
       console.log('File added to folder successfully:', result);
       
+      // Verstuur een WebSocket bericht om clients te informeren over deze wijziging
+      if (isConnected) {
+        sendMessage({
+          type: 'fileAddedToFolder',
+          fileId,
+          folderId,
+          timestamp: new Date().toISOString()
+        });
+        console.log('📡 WebSocket bericht verzonden over bestand toevoegen aan map');
+      }
+      
       // Force refresh the desktop files - this is crucial to make files disappear from desktop
       queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+      
+      // Toon een notificatie
+      toast({
+        title: "Bestand verplaatst",
+        description: `Het bestand is naar de map verplaatst.`,
+        duration: 3000,
+      });
       
       return result;
     } catch (error) {
       console.error('Error adding file to folder:', error);
+      
+      toast({
+        title: "Fout",
+        description: "Kon het bestand niet naar de map verplaatsen.",
+        variant: "destructive",
+        duration: 3000,
+      });
+      
       throw error;
     }
   };
@@ -506,7 +532,7 @@ export function FileItem({
             // Met vertraging toevoegen voor betere visuele feedback
             setTimeout(async () => {
               try {
-                // Toevoegen aan de map met de API
+                // Toevoegen aan de map met de API - dit zal ook een WebSocket-bericht sturen via de hook
                 await addFileToFolder(fileId, file.id);
                 
                 // Desktop bestanden verversen
@@ -514,6 +540,18 @@ export function FileItem({
                 
                 // Expliciet de inhoud van de map verversen
                 queryClient.invalidateQueries({ queryKey: [`/api/folders/${file.id}/files`] });
+                
+                // Extra WebSocket-bericht voor bestandsverplaatsing (voor gesloten mapweergaven)
+                if (isConnected) {
+                  sendMessage({
+                    type: 'fileDroppedIntoFolder',
+                    fileId,
+                    folderId: file.id,
+                    folderName: file.name,
+                    timestamp: new Date().toISOString()
+                  });
+                  console.log(`📡 WebSocket: Bericht verstuurd over verplaatsing van bestand ${fileId} naar map ${file.id}`);
+                }
                 
                 // Direct UI update voor instant feedback (zonder wachten op API)
                 try {
