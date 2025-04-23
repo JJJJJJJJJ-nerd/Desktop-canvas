@@ -50,6 +50,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   
   // Debounce het instellen van isDraggingOver om flikkering te voorkomen
   const debounceTimeoutRef = useRef<number | null>(null);
+  const lastDragOverTimeRef = useRef<number>(0); // Referentie voor laatste dragover-tijdstip
   
   // Handle drag over events
   const handleDragOver = (e: React.DragEvent) => {
@@ -61,6 +62,13 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     
     e.preventDefault();
     e.stopPropagation();
+    
+    // Beperk de frequentie van dragover verwerking (throttling)
+    const now = Date.now();
+    if (now - lastDragOverTimeRef.current < 150) { // Eens per 150ms updaten
+      return;
+    }
+    lastDragOverTimeRef.current = now;
     
     // Set dropEffect to 'move' to indicate this is a valid drop target
     e.dataTransfer.dropEffect = 'move';
@@ -87,10 +95,8 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
           window.clearTimeout(debounceTimeoutRef.current);
         }
         
-        // Stel isDraggingOver in met een vertraging van 50ms
-        debounceTimeoutRef.current = window.setTimeout(() => {
-          setIsDraggingOver(true);
-        }, 50);
+        // Stel isDraggingOver direct in, geen vertraging meer nodig door throttling
+        setIsDraggingOver(true);
       }
     }
   };
@@ -136,6 +142,12 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     
     // Zet de recentlyDropped vlag op true om tijdelijk dragover events te blokkeren
     recentlyDroppedRef.current = true;
+    
+    // Clear any existing timeout for debouncing
+    if (debounceTimeoutRef.current) {
+      window.clearTimeout(debounceTimeoutRef.current);
+      debounceTimeoutRef.current = null;
+    }
     
     // Reset de vlag na 1.5 seconde
     setTimeout(() => {
@@ -1191,6 +1203,13 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                     
                     // 3. Direct lokale state bijwerken zodat bestand meteen verschijnt in de UI
                     setFiles(updatedFolderFiles);
+                    
+                    // 4. Meld onmiddellijk dat de drag operation is voltooid
+                    setIsDraggingOver(false);
+                    recentlyDroppedRef.current = true;
+                    setTimeout(() => {
+                      recentlyDroppedRef.current = false;
+                    }, 1000);
                     
                     // Toon meteen een toast
                     toast({
