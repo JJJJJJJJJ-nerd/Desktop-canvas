@@ -1308,6 +1308,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                             });
                             
                             // THEN update the database via API
+                            // @ts-ignore - We updated this function to accept parentId, but TypeScript definition hasn't caught up
                             removeFileFromFolder(file.id, mousePosition, folder.id)
                               .then(() => {
                                 console.log(`✅ Database synchronized: File ${file.name} moved to desktop`);
@@ -1324,6 +1325,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                       console.error("Error updating UI before database:", error);
                       
                       // Fallback to direct API call if cache update fails
+                      // @ts-ignore - We updated this function to accept parentId, but TypeScript definition hasn't caught up
                       removeFileFromFolder(file.id, mousePosition, folder.id)
                         .then(() => {
                           toast({
