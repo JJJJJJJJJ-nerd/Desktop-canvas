@@ -43,6 +43,10 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState(folder.name);
   
+  // Toestand voor het bijhouden van drag/drop acties
+  const lastDragEventTimeRef = useRef<number>(0);
+  const throttleTimeRef = useRef<number>(100); // 100ms tussen updates
+  
   const dropAreaRef = useRef<HTMLDivElement>(null);
 
   // Tijdelijke variabele om bij te houden of een bestand recent is gedropt
