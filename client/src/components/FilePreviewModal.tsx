@@ -163,26 +163,89 @@ export function FilePreviewModal({
   );
 }
 
-// Component to display text content
+// Gedeelde cache voor eerder geladen bestandsinhoud (prestatieverbetering)
+const textContentCache = new Map<string, string>();
+
+// Component to display text content - geoptimaliseerd met caching
 function PreviewTextContent({ dataUrl }: { dataUrl: string }) {
   const [text, setText] = useState<string>("");
   const [error, setError] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
+  const [loadProgress, setLoadProgress] = useState<number>(0);
 
   useEffect(() => {
-    // Beperk textbestand grootte voor betere prestaties
+    // Controleer eerst of we dit bestand al in de cache hebben
+    if (textContentCache.has(dataUrl)) {
+      setText(textContentCache.get(dataUrl) || "");
+      setLoading(false);
+      return;
+    }
+    
+    // Beperk textbestand grootte voor betere prestaties met progressieve lading
     const fetchWithTimeout = async () => {
       setLoading(true);
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconden timeout
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconden timeout
         
+        // Begin met bestand ophalen
         const response = await fetch(dataUrl, { signal: controller.signal });
-        clearTimeout(timeoutId);
         
-        const content = await response.text();
+        // Controleer bestandsgrootte
+        const contentLength = response.headers.get('Content-Length');
+        const totalSize = contentLength ? parseInt(contentLength, 10) : undefined;
+        
+        // Stream de response voor grote bestanden
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error("Kan bestandsinhoud niet lezen");
+        
+        let receivedLength = 0;
+        let chunks: Uint8Array[] = [];
+        
+        // Lees in chunks
+        while(true) {
+          const {done, value} = await reader.read();
+          
+          if (done) {
+            break;
+          }
+          
+          chunks.push(value);
+          receivedLength += value.length;
+          
+          // Update progressiestatus
+          if (totalSize) {
+            setLoadProgress(Math.round((receivedLength / totalSize) * 100));
+          }
+          
+          // Als we een enorm bestand tegenkomen, stoppen we na 1MB
+          if (receivedLength > 1048576) { // 1MB
+            chunks.push(new TextEncoder().encode("\n\n[Bestand ingekort vanwege grootte (>1MB)...]"));
+            break;
+          }
+        }
+        
+        // Combineer chunks tot tekst
+        const chunksAll = new Uint8Array(receivedLength);
+        let position = 0;
+        for(let chunk of chunks) {
+          chunksAll.set(chunk, position);
+          position += chunk.length;
+        }
+        
+        // Decodeer de bestandsinhoud
+        const content = new TextDecoder("utf-8").decode(chunksAll);
+        
         // Limiteer aantal tekens voor grote bestanden
-        setText(content.length > 500000 ? content.substring(0, 500000) + "\n\n[Bestand ingekort vanwege grootte...]" : content);
+        const finalContent = content.length > 500000 
+          ? content.substring(0, 500000) + "\n\n[Bestand ingekort vanwege grootte (>500K tekens)...]" 
+          : content;
+        
+        // Cache het resultaat voor latere weergave
+        textContentCache.set(dataUrl, finalContent);
+        
+        setText(finalContent);
+        clearTimeout(timeoutId);
         setLoading(false);
       } catch (err) {
         console.error("Error loading text file:", err);
@@ -200,9 +263,17 @@ function PreviewTextContent({ dataUrl }: { dataUrl: string }) {
   
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[40vh]">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
-        <span className="ml-3 text-gray-600">Loading text content...</span>
+      <div className="flex flex-col items-center justify-center h-[40vh]">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-3"></div>
+        <span className="text-gray-600">Bestand laden...</span>
+        {loadProgress > 0 && (
+          <div className="w-64 mt-3">
+            <div className="w-full bg-gray-200 rounded-full h-2.5 mt-1">
+              <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${loadProgress}%` }}></div>
+            </div>
+            <div className="text-xs text-gray-500 mt-1 text-center">{loadProgress}% geladen</div>
+          </div>
+        )}
       </div>
     );
   }

@@ -17,17 +17,63 @@ export default function FolderContentPage() {
       return;
     }
     
-    // Bestanden ophalen
-    const fetchFiles = async () => {
+    // WebSocket voor real-time updates opzetten indien beschikbaar
+    let ws: WebSocket | null = null;
+    
+    try {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      ws = new WebSocket(wsUrl);
+      
+      ws.onopen = () => {
+        console.log('[FolderPage] WebSocket verbinding geopend');
+      };
+      
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'mapupdate' && data.folderId === parseInt(folderId)) {
+            console.log('[FolderPage] WebSocket update ontvangen voor map', folderId);
+            fetchFiles(false); // Herlaad bestanden zonder spinners opnieuw te tonen
+          }
+        } catch (e) {
+          console.error('[FolderPage] Fout bij verwerken WebSocket bericht:', e);
+        }
+      };
+      
+      ws.onerror = (error) => {
+        console.error('[FolderPage] WebSocket fout:', error);
+      };
+    } catch (e) {
+      console.error('[FolderPage] Fout bij opzetten WebSocket:', e);
+      // Continue with polling fallback
+    }
+    
+    // Verbeterde bestandsophaalfunctie met cache-busting en optionele laadstatus
+    const fetchFiles = async (showLoading = true) => {
+      if (showLoading) {
+        setLoading(true);
+      }
+      
       try {
-        console.log(`[FolderPage] Ophalen bestanden voor map ${folderId}`);
-        const response = await fetch(`/api/folders/${folderId}/files?t=${Date.now()}`);
+        // Cache busting met timestamp
+        const cacheParam = `_t=${Date.now()}`;
+        const response = await fetch(`/api/folders/${folderId}/files?${cacheParam}`);
+        
+        if (!response.ok) {
+          throw new Error(`Server antwoordde met status ${response.status}`);
+        }
+        
         const data = await response.json();
         
-        console.log('[FolderPage] Ontvangen data:', data);
-        
         if (data && Array.isArray(data.files)) {
-          setFiles(data.files);
+          // Alleen bestanden instellen als ze veranderd zijn (geen onnodige re-renders)
+          const currentFileIds = files.map(f => f.id).sort().join(',');
+          const newFileIds = data.files.map((f: any) => f.id).sort().join(',');
+          
+          if (currentFileIds !== newFileIds || files.length !== data.files.length) {
+            setFiles(data.files);
+          }
         } else {
           setError('Ongeldig antwoord van server');
         }
@@ -35,18 +81,26 @@ export default function FolderContentPage() {
         console.error('[FolderPage] Fout bij ophalen bestanden:', err);
         setError(`Fout: ${err instanceof Error ? err.message : String(err)}`);
       } finally {
-        setLoading(false);
+        if (showLoading) {
+          setLoading(false);
+        }
       }
     };
     
+    // Initiële ophaling
     fetchFiles();
     
-    // Ververs elke 5 seconden
-    const interval = setInterval(fetchFiles, 5000);
+    // Fallback polling - elke 10 seconden verversen als geen WebSocket
+    const interval = setInterval(() => fetchFiles(false), 10000);
     
     // Cleanup
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      clearInterval(interval);
+      if (ws) {
+        ws.close();
+      }
+    };
+  }, [files.length]);
 
   // Styling - puur inline CSS
   const styles = {

@@ -440,31 +440,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
-  // Vereenvoudigde helper functies om problemen met websockets te vermijden
+  // Helper functie om berichten naar alle WebSocket clients te versturen
   const broadcastToClients = (data: any) => {
-    // Uitgecommentarieerd om problemen te vermijden
-    console.log('📢 Broadcast overgeslagen om problemen te voorkomen');
-    // Originele code:
-    // wss.clients.forEach(client => {
-    //   if (client.readyState === WebSocket.OPEN) {
-    //     client.send(JSON.stringify(data));
-    //   }
-    // });
+    try {
+      let clientCount = 0;
+      wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify(data));
+          clientCount++;
+        }
+      });
+      console.log(`📢 Broadcast verzonden naar ${clientCount} clients`);
+    } catch (err) {
+      console.error('❌ Fout bij broadcast naar clients:', err);
+    }
   };
   
-  // Event broadcaster voor mapupdates - vereenvoudigd
+  // Event broadcaster voor mapupdates - realtime WebSocket implementatie
   const broadcastFolderUpdate = async (folderId: number) => {
     try {
       const files = await storage.getFilesInFolder(folderId);
       console.log(`📢 WebSocket broadcast: mapupdate voor map ${folderId}, ${files.length} bestanden`);
-      // Uitgecommentarieerd om problemen te vermijden
-      // broadcastToClients({
-      //   type: 'folderUpdate',
-      //   folderId,
-      //   files,
-      //   timestamp: new Date().toISOString()
-      // });
-      console.log(`📢 WebSocket broadcast: mapupdate voor map ${folderId}, ${files.length} bestanden`);
+      
+      // Stuur updates naar verbonden clients
+      broadcastToClients({
+        type: 'mapupdate',
+        folderId,
+        fileCount: files.length,
+        timestamp: new Date().toISOString()
+      });
     } catch (error) {
       console.error(`❌ WebSocket broadcast fout:`, error);
     }
