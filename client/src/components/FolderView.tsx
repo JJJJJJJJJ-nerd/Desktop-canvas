@@ -154,19 +154,25 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         // Verwerk verschillende soorten berichten
         if (data.type === 'folderContents' && data.folderId === folder.id) {
           console.log(`📂 WebSocket: Ontvangen mapinhoud voor ${folder.id}: ${data.files.length} bestanden`);
-          setFiles(data.files);
+          console.log('📄 DEBUG FOLDER CONTENTS:', JSON.stringify(data.files, null, 2));
+          
+          // Update files array in state
+          setFiles(data.files || []);
           setIsLoading(false);
           setIsRefreshing(false);
           
-          // Update cache voor consistentie
-          queryClient.setQueryData([`/api/folders/${folder.id}/files`], { files: data.files });
+          // Also update cache for consistency
+          queryClient.setQueryData([`/api/folders/${folder.id}/files`], { files: data.files || [] });
           
         } else if (data.type === 'folderUpdate' && data.folderId === folder.id) {
           console.log(`🔄 WebSocket: Mapupdate ontvangen voor ${folder.id}`);
-          setFiles(data.files);
+          console.log('📄 DEBUG FOLDER UPDATE:', JSON.stringify(data.files, null, 2));
           
-          // Update cache voor consistentie
-          queryClient.setQueryData([`/api/folders/${folder.id}/files`], { files: data.files });
+          // Update files array in state
+          setFiles(data.files || []);
+          
+          // Also update cache for consistency
+          queryClient.setQueryData([`/api/folders/${folder.id}/files`], { files: data.files || [] });
         }
       } catch (error) {
         console.error('Error parsing WebSocket message:', error);
