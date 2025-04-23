@@ -31,7 +31,7 @@ export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderIte
   // Bepaal het juiste icoon op basis van het bestandstype
   const getIcon = () => {
     if (file.isFolder === 'true' || file.type === 'folder' || file.type === 'application/folder') {
-      return <Folder className="h-6 w-6 text-blue-500" />;
+      return <Folder className="h-6 w-6 text-blue-500 folder-icon" />;
     } else if (file.type.startsWith('image/')) {
       return <Image className="h-6 w-6 text-green-500" />;
     } else {
@@ -476,16 +476,23 @@ export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderIte
         console.log(`📩 WebSocket bericht ontvangen voor map ${file.name}: update met ${lastMessage.fileCount} bestanden`);
         
         // Toon visuele feedback als een bestand naar deze map is gesleept
+        // Alleen de icon laten oplichten
         if (dragElementRef.current) {
-          // Voeg een pulse animatie toe aan de map
-          dragElementRef.current.classList.add('folder-updated');
+          // Zoek het map-icoon element 
+          const folderIcon = dragElementRef.current.querySelector('.folder-icon');
           
-          // Verwijder de animatie na 1 seconde
-          setTimeout(() => {
-            if (dragElementRef.current) {
-              dragElementRef.current.classList.remove('folder-updated');
-            }
-          }, 1000);
+          // Als we het icoon kunnen vinden, voeg dan een highlightklasse toe
+          if (folderIcon) {
+            folderIcon.classList.add('folder-icon-highlight');
+            
+            // Verwijder de highlight na 1 seconde
+            setTimeout(() => {
+              folderIcon.classList.remove('folder-icon-highlight');
+            }, 1000);
+          } else {
+            // Log dat we het icoon niet konden vinden
+            console.log('Kon het mapicoon niet vinden voor highlight');
+          }
         }
       }
     }
