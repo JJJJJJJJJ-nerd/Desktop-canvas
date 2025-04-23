@@ -344,6 +344,8 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   const fetchCountRef = useRef(0);
   // Eenmalige hardcoded limit
   const MAX_FETCH_CALLS = 2;
+  // Loading state voor laadeffect bij file verplaatsingen
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   const fetchFiles = async () => {
     // Reset fetch counter bij expliciet aanroepen (niet bij auto-refresh)
@@ -698,6 +700,9 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         // Reset de counter zodat we opnieuw data kunnen ophalen
         fetchCountRef.current = 0;
         
+        // Toon laadanimatie gedurende 0.5 seconden
+        setIsRefreshing(true);
+        
         // Forceer een herlading van map-inhoud (BELANGRIJKE FIX)
         console.log(`🔄 DIRECTE HERLAAD: Map ${folder.name} (ID: ${folder.id}) wordt opnieuw geladen`);
         
@@ -708,6 +713,11 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         // Direct ophalen na korte vertraging om cache tijd te geven
         setTimeout(() => {
           fetchFiles();
+          
+          // Verberg laadanimatie na 0.5 seconden (totale duur van de animatie)
+          setTimeout(() => {
+            setIsRefreshing(false);
+          }, 500);
         }, 50);
       }
     };
