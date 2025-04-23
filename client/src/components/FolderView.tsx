@@ -260,8 +260,30 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
               duration: 3000,
             });
             
+            // Toon loading indicator tijdens het bijwerken
+            setIsRefreshing(true);
+            
             // THEN make the API call
             const result = await addFileToFolder(fileId, folder.id);
+            
+            console.log(`🔄 FOLDER HERLADEN: Map ${folder.name} wordt bijgewerkt na drop operatie`);
+            
+            // Forceer herlading van map gegevens
+            queryClient.invalidateQueries({ queryKey: [`/api/folders/${folder.id}/files`] });
+            
+            // Direct fetch uitvoeren
+            fetchFiles();
+            
+            // Extra fetch na korte vertraging om zeker te zijn dat data actueel is
+            setTimeout(() => {
+              console.log(`🔄 FOLDER DUBBEL-CHECK: Tweede herlading van map ${folder.name} na drop`);
+              fetchFiles();
+              
+              // Verberg loading indicator na alle updates
+              setTimeout(() => {
+                setIsRefreshing(false);
+              }, 300);
+            }, 500);
             
             return;
           }
@@ -306,8 +328,27 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
             }
           }
           
-          // Refresh folder contents
+          // Toon loading indicator tijdens het bijwerken
+          setIsRefreshing(true);
+          
+          console.log(`🔄 FOLDER HERLADEN: Map ${folder.name} wordt bijgewerkt na uploaden van bestanden`);
+          
+          // Forceer herlading van map gegevens
+          queryClient.invalidateQueries({ queryKey: [`/api/folders/${folder.id}/files`] });
+          
+          // Direct fetch uitvoeren
           fetchFiles();
+          
+          // Extra fetch na korte vertraging om zeker te zijn dat data actueel is
+          setTimeout(() => {
+            console.log(`🔄 FOLDER DUBBEL-CHECK: Tweede herlading van map ${folder.name} na upload`);
+            fetchFiles();
+            
+            // Verberg loading indicator na alle updates
+            setTimeout(() => {
+              setIsRefreshing(false);
+            }, 300);
+          }, 500);
         }
       } catch (error) {
         console.error('Error uploading files:', error);
@@ -548,9 +589,28 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         await addFileToFolder(fileId, folder.id);
       }
       
-      // Refresh folder contents and desktop view
-      fetchFiles();
+      // Toon loading indicator tijdens het bijwerken
+      setIsRefreshing(true);
+      
+      console.log(`🔄 FOLDER HERLADEN: Map ${folder.name} wordt bijgewerkt na verplaatsen van bestanden`);
+      
+      // Invalidate queries to ensure desktop and folder views are synchronized
       queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/folders/${folder.id}/files`] });
+      
+      // Direct fetch uitvoeren
+      fetchFiles();
+      
+      // Extra fetch na korte vertraging om zeker te zijn dat data actueel is
+      setTimeout(() => {
+        console.log(`🔄 FOLDER DUBBEL-CHECK: Tweede herlading van map ${folder.name} na verplaatsen`);
+        fetchFiles();
+        
+        // Verberg loading indicator na alle updates
+        setTimeout(() => {
+          setIsRefreshing(false);
+        }, 300);
+      }, 500);
       
       // Exit select mode
       setIsSelectMode(false);
@@ -1439,12 +1499,28 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                       duration: 3000,
                     });
                     
-                    // Vernieuwen van mapinhoud
-                    fetchFiles();
+                    // Toon loading indicator tijdens het bijwerken
+                    setIsRefreshing(true);
+                    
+                    console.log(`🔄 FOLDER HERLADEN: Map ${folder.name} wordt bijgewerkt na toevoegen van bestand`);
                     
                     // Invalidate queries to ensure desktop and folder views are synchronized
                     queryClient.invalidateQueries({ queryKey: ['/api/files'] });
                     queryClient.invalidateQueries({ queryKey: [`/api/folders/${folderId}/files`] });
+                    
+                    // Direct fetch uitvoeren
+                    fetchFiles();
+                    
+                    // Extra fetch na korte vertraging om zeker te zijn dat data actueel is
+                    setTimeout(() => {
+                      console.log(`🔄 FOLDER DUBBEL-CHECK: Tweede herlading van map ${folder.name}`);
+                      fetchFiles();
+                      
+                      // Verberg loading indicator na alle updates
+                      setTimeout(() => {
+                        setIsRefreshing(false);
+                      }, 300);
+                    }, 500);
                     
                     // Immediately try to update UI directly from cache  
                     try {
