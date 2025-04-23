@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { FileItem } from './FileItem';
 import { DesktopFile } from '@/types';
-import { X, FolderOpen, ArrowLeft, Upload, Check, Folder, MoveRight, FileX, Edit } from 'lucide-react';
+import { X, FolderOpen, ArrowLeft, Upload, Check, Folder, MoveRight, FileX, Edit, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { queryClient } from '@/lib/queryClient';
 import { useDesktopFiles } from '@/hooks/use-desktop-files';
@@ -135,6 +135,13 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingOver(false);
+    
+    // Toon laadanimatie voor 0.5 seconden
+    setIsRefreshing(true);
+    // Instellen van een timer om de laadanimatie te verbergen na 0.5 seconden
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 500);
     
     console.log(`🎯 DROP SUCCESS: File dropped into folder ${folder.name} (ID: ${folder.id})`);
     
@@ -1233,7 +1240,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         {isRefreshing && (
           <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-50 animate-in fade-in duration-300">
             <div className="bg-white p-6 rounded-lg shadow-lg border border-primary/20 flex flex-col items-center">
-              <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+              <div className="h-10 w-10 animate-spin text-primary mb-4 border-2 border-primary/20 border-t-primary rounded-full" />
               <h3 className="text-lg font-medium text-gray-900 mb-1">Map Vernieuwen</h3>
               <p className="text-sm text-gray-500">Inhoud wordt bijgewerkt...</p>
             </div>
@@ -1361,6 +1368,13 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
               e.preventDefault();
               e.stopPropagation();
               setIsDraggingOver(false);
+              
+              // Toon laadanimatie voor 0.5 seconden
+              setIsRefreshing(true);
+              // Instellen van een timer om de laadanimatie te verbergen na 0.5 seconden
+              setTimeout(() => {
+                setIsRefreshing(false);
+              }, 500);
               
               // Haal het file ID op uit de data transfer
               const fileId = e.dataTransfer.getData('text/plain');
