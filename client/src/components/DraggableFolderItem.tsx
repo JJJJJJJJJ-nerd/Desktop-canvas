@@ -476,24 +476,12 @@ export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderIte
         console.log(`📩 WebSocket bericht ontvangen voor map ${file.name}: update met ${lastMessage.fileCount} bestanden`);
         
         // Toon visuele feedback als een bestand naar deze map is gesleept
-        // Alleen de icon laten oplichten
-        if (dragElementRef.current) {
-          // Zoek het map-icoon element 
-          const folderIcon = dragElementRef.current.querySelector('.folder-icon');
-          
-          // Als we het icoon kunnen vinden, voeg dan een highlightklasse toe
-          if (folderIcon) {
-            folderIcon.classList.add('folder-icon-highlight');
-            
-            // Verwijder de highlight na 1 seconde
-            setTimeout(() => {
-              folderIcon.classList.remove('folder-icon-highlight');
-            }, 1000);
-          } else {
-            // Log dat we het icoon niet konden vinden
-            console.log('Kon het mapicoon niet vinden voor highlight');
-          }
-        }
+        // Een volledig andere aanpak: toast notification gebruiken
+        toast({
+          title: "Bestand toegevoegd",
+          description: `Bestand naar map '${file.name}' verplaatst`,
+          duration: 3000,
+        });
       }
     }
   }, [lastMessage, file.id, file.name, file.isFolder]);
