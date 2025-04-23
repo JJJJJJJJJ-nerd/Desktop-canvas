@@ -64,42 +64,6 @@ function areFilesOverlapping(file1Element: HTMLElement, file2Element: HTMLElemen
 }
 
 export default function Desktop() {
-  // Preload folder contents after the component is fully mounted and files are available
-  useEffect(() => {
-    if (files.length > 0) {
-      // Find all folder type files on the desktop
-      const folderFiles = files.filter(file => 
-        !file.parentId && // Only consider files on desktop
-        (file.type === 'folder' || 
-         file.type === 'application/folder' || 
-         file.isFolder === 'true')
-      );
-      
-      if (folderFiles.length > 0) {
-        console.log(`Preloading contents for ${folderFiles.length} folders on desktop`);
-        
-        // Preload each folder's contents in sequence with a small delay to not overload the server
-        const preloadNextFolder = async (index = 0) => {
-          if (index >= folderFiles.length) return;
-          
-          const folder = folderFiles[index];
-          if (folder.id) {
-            try {
-              await fetch(`/api/folders/${folder.id}/files?t=${Date.now()}`);
-              console.log(`Preloaded folder ${folder.name} (${folder.id})`);
-            } catch (err) {
-              console.error(`Error preloading folder ${folder.id}:`, err);
-            }
-          }
-          
-          // Small delay before loading the next folder
-          setTimeout(() => preloadNextFolder(index + 1), 100);
-        };
-        
-        preloadNextFolder();
-      }
-    }
-  }, [files]);
   const { toast } = useToast();
   const {
     files,
@@ -117,6 +81,27 @@ export default function Desktop() {
     removeFileFromFolder,
     updateFileName,
   } = useDesktopFiles();
+  
+  // Een eenvoudiger preload mechanisme dat alleen actief wordt bij het openen van een map
+  const preloadedFolders = useRef<Set<number>>(new Set());
+  
+  // Preload functie die alleen wordt aangeroepen wanneer nodig
+  const preloadFolderContents = useCallback(async (folderId: number) => {
+    // Voorkom dubbel laden
+    if (preloadedFolders.current.has(folderId)) {
+      return;
+    }
+    
+    // Markeer als gepreload
+    preloadedFolders.current.add(folderId);
+    
+    try {
+      console.log(`Preloading folder ID: ${folderId}`);
+      await fetch(`/api/folders/${folderId}/files?t=${Date.now()}`);
+    } catch (err) {
+      console.error(`Error preloading folder: ${folderId}`, err);
+    }
+  }, []);
   const [previewFile, setPreviewFile] = useState<DesktopFile | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
