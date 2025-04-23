@@ -459,11 +459,59 @@ export default function Desktop() {
           console.log('🎯 Overlap gedetecteerd met open map!');
         }
       }
+      
+      // Voeg globale detectie toe voor dragend event
+      // Dit is belangrijk - als de muisknop is losgelaten, 
+      // moeten we alle highlighting resetten
+      if (e.buttons === 0) { // 0 means no buttons are pressed
+        // Reset alle folder highlighting
+        document.querySelectorAll('.folder-highlight-dragover').forEach((el) => {
+          el.classList.remove('folder-highlight-dragover');
+        });
+        
+        // @ts-ignore - Custom window property
+        window._activeDropFolder = undefined;
+        // @ts-ignore - Custom window property
+        window._openFolderHoverId = undefined;
+        // @ts-ignore - Custom window property
+        window._hoverFolderId = undefined;
+        
+        // Reset ook de draggedFileInfo als die bestaat
+        // @ts-ignore - Custom window property
+        if (window.draggedFileInfo) {
+          // @ts-ignore - Custom window property
+          window.draggedFileInfo = undefined;
+        }
+      }
     };
     
     // Voeg event listener toe en ruim op - ALTIJD ACTIEF
     document.addEventListener('mousemove', handleGlobalMouseTracking);
-    return () => document.removeEventListener('mousemove', handleGlobalMouseTracking);
+    
+    // Extra event listener voor mouseup om highlighting te resetten
+    const resetHighlighting = () => {
+      document.querySelectorAll('.folder-highlight-dragover').forEach((el) => {
+        el.classList.remove('folder-highlight-dragover');
+      });
+      
+      // @ts-ignore - Custom window property
+      window._activeDropFolder = undefined;
+      // @ts-ignore - Custom window property
+      window._openFolderHoverId = undefined;
+      // @ts-ignore - Custom window property
+      window._hoverFolderId = undefined;
+      
+      // Reset ook de draggedFileInfo als die bestaat
+      // @ts-ignore - Custom window property
+      window.draggedFileInfo = undefined;
+    };
+    
+    document.addEventListener('mouseup', resetHighlighting);
+    
+    return () => {
+      document.removeEventListener('mousemove', handleGlobalMouseTracking);
+      document.removeEventListener('mouseup', resetHighlighting);
+    };
   }, []);
   
   // Listen for global mouse movement when dragging
