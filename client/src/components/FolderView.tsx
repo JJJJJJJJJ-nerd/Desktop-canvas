@@ -920,7 +920,13 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
           className="p-4 h-[calc(100%-48px)] overflow-auto bg-white/90"
           ref={dropAreaRef}
         >
-          {files.length === 0 && !isLoading ? (
+          {/* Show loading indicator within content area as fallback */}
+          {isLoading ? (
+            <div className="h-full flex flex-col items-center justify-center text-gray-500">
+              <div className="animate-spin h-12 w-12 border-4 border-gray-300 border-t-primary rounded-full mb-4"></div>
+              <p className="text-sm">Inhoud laden...</p>
+            </div>
+          ) : files.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-gray-500">
               <div className="mb-4 bg-gray-100 p-4 rounded-full">
                 <FileX className="w-12 h-12 opacity-30" />
