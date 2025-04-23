@@ -26,12 +26,20 @@ export function FilePreviewModal({
 }: FilePreviewModalProps) {
   const downloadRef = useRef<HTMLAnchorElement>(null);
 
+  // Gebruik preloading om de bestandsinhoud klaar te hebben voordat het modal wordt geopend
   useEffect(() => {
-    if (isOpen && file && downloadRef.current) {
+    // Meteen de download link instellen zodra we een bestand hebben
+    if (file && downloadRef.current) {
       downloadRef.current.href = file.dataUrl;
       downloadRef.current.download = file.name;
     }
-  }, [isOpen, file]);
+    
+    // Pre-load het bestand als het een afbeelding is
+    if (file && file.type.startsWith("image/")) {
+      const img = new Image();
+      img.src = file.dataUrl;
+    }
+  }, [file]);
 
   if (!file) return null;
 
@@ -159,21 +167,44 @@ export function FilePreviewModal({
 function PreviewTextContent({ dataUrl }: { dataUrl: string }) {
   const [text, setText] = useState<string>("");
   const [error, setError] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    fetch(dataUrl)
-      .then((response) => response.text())
-      .then((content) => {
-        setText(content);
-      })
-      .catch((err) => {
+    // Beperk textbestand grootte voor betere prestaties
+    const fetchWithTimeout = async () => {
+      setLoading(true);
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconden timeout
+        
+        const response = await fetch(dataUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
+        const content = await response.text();
+        // Limiteer aantal tekens voor grote bestanden
+        setText(content.length > 500000 ? content.substring(0, 500000) + "\n\n[Bestand ingekort vanwege grootte...]" : content);
+        setLoading(false);
+      } catch (err) {
         console.error("Error loading text file:", err);
         setError(true);
-      });
+        setLoading(false);
+      }
+    };
+    
+    fetchWithTimeout();
   }, [dataUrl]);
 
   if (error) {
     return <div className="text-center text-red-500">Error loading file content</div>;
+  }
+  
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[40vh]">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+        <span className="ml-3 text-gray-600">Loading text content...</span>
+      </div>
+    );
   }
 
   return (
