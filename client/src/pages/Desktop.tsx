@@ -174,6 +174,11 @@ export default function Desktop() {
         // @ts-ignore - Custom property
         window._draggingFileToDesktop = true;
         
+        // Check global flag set by folder items to see if this file came from a folder
+        // @ts-ignore - Custom property
+        const isFromFolder = Boolean(window._draggingFileFromFolder);
+        console.log(`🔄 DESKTOP DROP: Bestand komt ${isFromFolder ? 'WEL' : 'NIET'} uit een map`);
+        
         // We found a valid file ID, so this must be a file from a folder
         // Remove from folder and place on desktop at the exact position where dropped
         try {
@@ -195,6 +200,10 @@ export default function Desktop() {
             description: "Bestand is verplaatst naar het bureaublad op de exacte plaats waar je het losliet.",
             duration: 3000,
           });
+          
+          // Reset the dragging state
+          // @ts-ignore - Custom property
+          window._draggingFileFromFolder = false;
         } catch (error) {
           console.error('Error moving file to desktop:', error);
           toast({

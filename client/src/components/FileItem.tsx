@@ -280,9 +280,13 @@ export function FileItem({
         e.currentTarget.classList.remove('opacity-50');
       }
       
-      // Clear the global drag reference
+      // Clear the global drag references
       // @ts-ignore - Clearing custom property
       window.draggedFileInfo = undefined;
+      
+      // Reset the flag indicating file from folder
+      // @ts-ignore - Clearing custom property
+      window._draggingFileFromFolder = false;
     }
   };
   
