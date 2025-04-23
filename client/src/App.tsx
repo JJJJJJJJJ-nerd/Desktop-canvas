@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Desktop from "@/pages/Desktop";
 import AuthPage from "@/pages/auth-page";
+import FolderContentPage from "@/pages/FolderContentPage";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AuthProvider } from "@/hooks/use-auth";
 
@@ -14,6 +15,7 @@ function Router() {
     <Switch>
       <ProtectedRoute path="/" component={Desktop} />
       <Route path="/auth" component={AuthPage} />
+      <Route path="/folder-content" component={FolderContentPage} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>
