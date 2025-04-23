@@ -106,11 +106,26 @@ export default function Desktop() {
   // Handle upload button click
   const handleUploadClick = () => {
     console.log('Upload button clicked!');
+    
+    // Maak een tijdelijk input element als de referentie niet werkt
     if (fileInputRef.current) {
-      console.log('Clicking the file input element');
+      console.log('Clicking the reference to file input element');
       fileInputRef.current.click();
     } else {
-      console.error('fileInputRef.current is null or undefined');
+      console.error('fileInputRef.current is null or undefined, creating temporary input');
+      // Maak een tijdelijk bestandselement en klik erop
+      const tempFileInput = document.createElement('input');
+      tempFileInput.type = 'file';
+      tempFileInput.multiple = true;
+      tempFileInput.style.display = 'none';
+      tempFileInput.onchange = (e: any) => handleFileInputChange(e);
+      document.body.appendChild(tempFileInput);
+      tempFileInput.click();
+      
+      // Verwijder het tijdelijke element na gebruik
+      setTimeout(() => {
+        document.body.removeChild(tempFileInput);
+      }, 1000);
     }
   };
 
@@ -854,27 +869,31 @@ export default function Desktop() {
               onClose={closePreview}
             />
             
-            {/* Hidden file input - tijdelijke directe knop voor testen */}
-            <div className="absolute bottom-2 right-2 p-3 bg-white shadow rounded-md z-50 flex flex-col gap-2">
-              <p className="text-xs">Debug Controls</p>
-              <input
-                type="file"
-                ref={fileInputRef}
-                className="text-xs w-full"
-                onChange={handleFileInputChange}
-                multiple
-              />
-              <button 
-                onClick={() => {
-                  console.log("Direct testing file input...");
-                  if (fileInputRef.current) {
-                    fileInputRef.current.click();
-                  }
-                }}
-                className="text-xs bg-blue-500 text-white p-1 rounded"
-              >
-                Test File Input
-              </button>
+            {/* Hidden file input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              onChange={handleFileInputChange}
+              multiple
+            />
+            
+            {/* Upload Debug panel - verwijder dit later */}
+            <div className="fixed top-12 right-2 p-2 bg-white/90 shadow-md rounded-md z-50 text-xs border border-gray-300 hover:bg-white">
+              <div className="flex flex-col gap-1.5">
+                <p className="font-medium text-gray-700">Upload opties</p>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={handleUploadClick}
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs flex items-center transition-colors"
+                  >
+                    <FileUp className="h-3 w-3 mr-1" />
+                    Bestand kiezen
+                  </button>
+                  <span className="text-gray-500">of</span>
+                  <span className="text-gray-500">bestanden hier naartoe slepen</span>
+                </div>
+              </div>
             </div>
           </div>
         </ContextMenuTrigger>
