@@ -10,6 +10,33 @@
   animation: pulse-debug 1.5s infinite;
 }
 
+/* Styling voor verbeterde drag & drop ervaring */
+.item-ready-to-drag {
+  border: 2px dashed #3b82f6 !important;
+  background-color: rgba(219, 234, 254, 0.4) !important;
+  transform: scale(1.02);
+  transition: all 0.2s ease-in-out;
+  position: relative;
+  z-index: 101;
+}
+
+.folder-item:hover .drag-indicator {
+  display: block !important;
+}
+
+.folder-item:active {
+  cursor: grabbing !important;
+  opacity: 0.7;
+  transform: scale(0.98);
+}
+
+/* Verbeterde aanwijzingen voor sleepbaarheid */
+[draggable="true"] {
+  cursor: grab;
+  user-select: none;
+  -webkit-user-drag: element;
+}
+
 @keyframes pulse-debug {
   0% {
     outline-color: red;

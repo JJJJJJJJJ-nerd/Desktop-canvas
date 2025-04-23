@@ -201,122 +201,150 @@ export default function Desktop() {
     
     // Check for dragged files from folders (which use dataTransfer.getData)
     try {
-      console.log('🔍 Controleren op tekst data in dataTransfer...');
-      const fileIdText = e.dataTransfer.getData('text/plain');
-      console.log('📋 dataTransfer text/plain bevat:', fileIdText);
+      console.log('🔍 Controleren op data in dataTransfer...');
+      
+      // Probeer meerdere dataformaten te lezen voor betere compatibiliteit
+      let fileIdText = "";
+      let fileData = null;
+      
+      // Probeer eerst application/json, dan text/plain
+      try {
+        if (e.dataTransfer.types.includes('application/json')) {
+          const jsonData = e.dataTransfer.getData('application/json');
+          if (jsonData) {
+            fileData = JSON.parse(jsonData);
+            fileIdText = String(fileData.id);
+            console.log('📋 Verwerkt uit application/json:', fileData);
+          }
+        }
+      } catch (jsonErr) {
+        console.warn('⚠️ Kon JSON data niet verwerken:', jsonErr);
+      }
+      
+      // Als geen JSON data, probeer text/plain
+      if (!fileIdText && e.dataTransfer.types.includes('text/plain')) {
+        fileIdText = e.dataTransfer.getData('text/plain');
+        console.log('📋 Verwerkt uit text/plain:', fileIdText);
+      }
+      
+      // Log alle beschikbare types voor debugging
+      console.log('📋 Beschikbare dataTransfer types:', Array.from(e.dataTransfer.types));
       
       // Volledige sleepflow logging
       console.log('📝 SLEEP FLOW DEBUG LOG:');
       console.log('1. DragStart gedetecteerd in FolderView voor bestand', window.draggedFileInfo?.id);
-      console.log('2. DataTransfer data ingesteld: text/plain =', fileIdText);
-      console.log('3. Window._draggingFileFromFolder flag ingesteld =', window._draggingFileFromFolder);
+      console.log('2. DataTransfer data ontvangen:', { fileIdText, fileData });
+      console.log('3. Window._draggingFileFromFolder flag status =', window._draggingFileFromFolder);
       console.log('4. Drop event ontvangen op bureaublad positie', { x: e.clientX, y: e.clientY });
       
-      if (fileIdText) {
-        const fileId = parseInt(fileIdText);
+      // Geef prioriteit aan window.draggedFileInfo als het beschikbaar is (meest betrouwbaar)
+      const preferredFileId = window.draggedFileInfo?.id || (fileIdText ? parseInt(fileIdText) : null);
+      
+      if (preferredFileId) {
+        console.log(`✅ Geldig bestand ID gedetecteerd: ${preferredFileId}`);
         
-        if (!isNaN(fileId)) {
-          console.log(`✅ Geldig bestand ID gedetecteerd: ${fileId}`);
+        // Markeer het element visueel om te debuggen
+        const draggedElement = document.querySelector(`[data-file-id="${preferredFileId}"]`);
+        if (draggedElement) {
+          draggedElement.classList.add('debug-dragged-element');
+          draggedElement.setAttribute('data-debug-status', 'being-moved');
           
-          // Markeer het element visueel om te debuggen
-          const draggedElement = document.querySelector(`[data-file-id="${fileId}"]`);
-          if (draggedElement) {
-            draggedElement.classList.add('debug-dragged-element');
-            draggedElement.setAttribute('data-debug-status', 'being-moved');
-            
-            // Verwijder de markering na 5 seconden
-            setTimeout(() => {
-              draggedElement.classList.remove('debug-dragged-element');
-              draggedElement.removeAttribute('data-debug-status');
-            }, 5000);
-          } else {
-            console.warn('⚠️ Element voor bestand niet gevonden in de DOM');
-          }
+          // Visuele hint tonen
+          const hint = document.createElement('div');
+          hint.innerHTML = `<div style="position:fixed;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);color:white;padding:10px;border-radius:5px;z-index:9999">Bestand wordt verplaatst: ID ${preferredFileId}</div>`;
+          document.body.appendChild(hint);
           
-          // Bevestig dat we op het bureaublad slepen
-          window._draggingFileToDesktop = true;
-          
-          // Check global flag set by folder items to see if this file came from a folder
-          const isFromFolder = Boolean(window._draggingFileFromFolder);
-          console.log(`🔄 DESKTOP DROP: Bestand komt ${isFromFolder ? 'WEL' : 'NIET'} uit een map`);
-          
-          if (!isFromFolder) {
-            console.log('⚠️ Bestand komt niet uit een map, het verplaatsen wordt overgeslagen');
-            toast({
-              title: "Niet verplaatst",
-              description: "Dit bestand komt niet uit een map en kan niet worden verplaatst.",
-              duration: 3000,
-            });
-            return;
-          }
-          
-          // We found a valid file ID from a folder
-          // Remove from folder and place on desktop at the exact position where dropped
-          try {
-            // Gebruik de exacte muispositie voor het plaatsen van het bestand
-            const dropPosition = {
-              x: e.clientX,
-              y: e.clientY
-            };
-            
-            console.log(`⬇️ DESKTOP DROP POSITIE: ${dropPosition.x}, ${dropPosition.y}`);
-            
-            // Verkrijg het parent ID uit de draggedFileInfo (indien beschikbaar)
-            const parentFolderId = window.draggedFileInfo?.parentId;
-            
-            console.log(`📂 PARENT FOLDER ID: ${parentFolderId || 'niet gevonden'}`);
-            console.log(`🔄 REMOVING FILE ${fileId} FROM FOLDER ${parentFolderId || 'unknown'}`);
-            
-            if (!parentFolderId) {
-              console.warn('⚠️ Geen parent folder ID gevonden, dit kan het verplaatsen beïnvloeden');
-            }
-            
-            console.log('🔌 API AANROEP: Bestand uit map verwijderen:', {
-              bestandId: fileId,
-              mapId: parentFolderId,
-              nieuwePositie: dropPosition
-            });
-            
-            // Verwijderen uit map en direct op bureaubladpositie plaatsen
-            const result = await removeFileFromFolder(fileId, dropPosition, parentFolderId);
-            
-            console.log('🔌 API RESPONSE:', {
-              status: 'success',
-              updatedFile: result?.file,
-              parentId: result?.parentId
-            });
-            
-            // Toon een toast-melding
-            toast({
-              title: "Bestand verplaatst",
-              description: "Bestand is verplaatst naar het bureaublad op de exacte plaats waar je het losliet.",
-              duration: 3000,
-            });
-            
-            // Reset the dragging state
-            window._draggingFileFromFolder = false;
-            window.draggedFileInfo = undefined;
-            
-            console.log('✅ Verplaatsing voltooid en status gereset');
-            console.log('++++++++++++++++++++++++++++++++++++++++++++++++++++++');
-          } catch (error) {
-            console.error('❌ FOUT bij verplaatsen van bestand naar bureaublad:', error);
-            console.log('❌ FOUT bij sleepoperatie:', {
-              fase: 'drop',
-              foutmelding: (error as Error).message,
-              details: error
-            });
-            toast({
-              title: "Fout",
-              description: "Er ging iets mis bij het verplaatsen van het bestand.",
-              variant: "destructive"
-            });
-          }
+          // Verwijder markers na 5 seconden
+          setTimeout(() => {
+            draggedElement.classList.remove('debug-dragged-element');
+            draggedElement.removeAttribute('data-debug-status');
+            document.body.removeChild(hint);
+          }, 5000);
         } else {
-          console.error('❌ Geen geldig bestand ID in dataTransfer:', fileIdText);
+          console.warn('⚠️ Element voor bestand niet gevonden in de DOM');
+        }
+        
+        // Bevestig dat we op het bureaublad slepen
+        window._draggingFileToDesktop = true;
+        
+        // Check flag of bestand uit map komt
+        const isFromFolder = Boolean(window._draggingFileFromFolder) || Boolean(window.draggedFileInfo?.parentId);
+        console.log(`🔄 DESKTOP DROP: Bestand komt ${isFromFolder ? 'WEL' : 'NIET'} uit een map`);
+        
+        if (!isFromFolder) {
+          console.log('⚠️ Bestand komt niet uit een map, het verplaatsen wordt overgeslagen');
+          toast({
+            title: "Niet verplaatst",
+            description: "Dit bestand komt niet uit een map en kan niet worden verplaatst.",
+            duration: 3000,
+          });
+          return;
+        }
+        
+        // We found a valid file ID from a folder
+        // Remove from folder and place on desktop at the exact position where dropped
+        try {
+          // Gebruik de exacte muispositie voor het plaatsen van het bestand
+          const dropPosition = {
+            x: e.clientX,
+            y: e.clientY
+          };
+          
+          console.log(`⬇️ DESKTOP DROP POSITIE: ${dropPosition.x}, ${dropPosition.y}`);
+          
+          // Verkrijg het parent ID uit de draggedFileInfo (indien beschikbaar)
+          const parentFolderId = window.draggedFileInfo?.parentId;
+          
+          console.log(`📂 PARENT FOLDER ID: ${parentFolderId || 'niet gevonden'}`);
+          console.log(`🔄 REMOVING FILE ${preferredFileId} FROM FOLDER ${parentFolderId || 'unknown'}`);
+          
+          if (!parentFolderId) {
+            console.warn('⚠️ Geen parent folder ID gevonden, dit kan het verplaatsen beïnvloeden');
+          }
+          
+          console.log('🔌 API AANROEP: Bestand uit map verwijderen:', {
+            bestandId: preferredFileId,
+            mapId: parentFolderId,
+            nieuwePositie: dropPosition
+          });
+          
+          // Verwijderen uit map en direct op bureaubladpositie plaatsen
+          const result = await removeFileFromFolder(preferredFileId, dropPosition, parentFolderId);
+          
+          console.log('🔌 API RESPONSE:', {
+            status: 'success',
+            updatedFile: result?.file,
+            parentId: result?.parentId
+          });
+          
+          // Toon een toast-melding
+          toast({
+            title: "Bestand verplaatst",
+            description: "Bestand is verplaatst naar het bureaublad op de exacte plaats waar je het losliet.",
+            duration: 3000,
+          });
+          
+          // Reset the dragging state
+          window._draggingFileFromFolder = false;
+          window.draggedFileInfo = undefined;
+          
+          console.log('✅ Verplaatsing voltooid en status gereset');
+          console.log('++++++++++++++++++++++++++++++++++++++++++++++++++++++');
+        } catch (error) {
+          console.error('❌ FOUT bij verplaatsen van bestand naar bureaublad:', error);
+          console.log('❌ FOUT bij sleepoperatie:', {
+            fase: 'drop',
+            foutmelding: (error as Error).message,
+            details: error
+          });
+          toast({
+            title: "Fout",
+            description: "Er ging iets mis bij het verplaatsen van het bestand.",
+            variant: "destructive"
+          });
         }
       } else {
-        console.log('ℹ️ Geen tekstdata gevonden in dataTransfer');
+        console.error('❌ Geen geldig bestand ID in dataTransfer:', fileIdText);
       }
     } catch (error) {
       console.error('❌ FOUT bij verwerken van drop event:', error);
@@ -554,826 +582,309 @@ export default function Desktop() {
     }
   }, [draggingFileId, folderRefs]);
   
-  // ENHANCED GLOBAL MOUSE POSITION TRACKER - IMPROVED FOLDER DETECTION
+  // Attach/detach global mouse tracking
   useEffect(() => {
-    const handleGlobalMouseTracking = (e: MouseEvent) => {
-      // Only process when mouse button is pressed (active dragging)
-      // @ts-ignore - Custom window property
-      if (window.draggedFileInfo && window.draggedFileInfo.id && e.buttons > 0) {
-        // Store current mouse position and update global tracking object
-        // @ts-ignore - Custom property
-        window.draggedFileInfo.position = { x: e.clientX, y: e.clientY };
-        // @ts-ignore - Custom property  
-        window.draggedFileInfo.updateTime = Date.now();
-        const mousePosition = { x: e.clientX, y: e.clientY };
-        
-        // Controleer alle open mappen
-        const openFolderWindows = document.querySelectorAll('[id^="folder-window-"]');
-        let foundOverlappingFolder = false;
-        
-        openFolderWindows.forEach((folderElement) => {
-          if (!(folderElement instanceof HTMLElement)) return;
-          
-          // Haal folder ID uit element ID (format: folder-window-{id})
-          const folderId = parseInt(folderElement.id.replace('folder-window-', ''));
-          // @ts-ignore - Check voor gelijk ID om slepen naar zichzelf te voorkomen
-          if (folderId === window.draggedFileInfo.id) return;
-          
-          const rect = folderElement.getBoundingClientRect();
-          const isInside = 
-            mousePosition.x >= rect.left && 
-            mousePosition.x <= rect.right && 
-            mousePosition.y >= rect.top && 
-            mousePosition.y <= rect.bottom;
-          
-          if (isInside) {
-            foundOverlappingFolder = true;
-            console.log(`🎯🎯 BELANGRIJKE DETECTIE: Gesleept bestand bevindt zich boven open map ${folderId}`);
-            
-            // Voeg highlight class toe aan dit element
-            folderElement.classList.add('folder-highlight-dragover');
-            
-            // Sla informatie op over actieve drop target
-            // @ts-ignore - Custom window property
-            window._activeDropFolder = {
-              id: folderId,
-              element: folderElement,
-              timestamp: Date.now()
-            };
-            
-            // @ts-ignore - Voor backward compatibility
-            window._openFolderHoverId = folderId;
-          } else {
-            // Verwijder highlight als we deze map verlaten
-            folderElement.classList.remove('folder-highlight-dragover');
-            
-            // @ts-ignore - Custom window property
-            if (window._activeDropFolder?.id === folderId) {
-              // @ts-ignore - Custom window property
-              window._activeDropFolder = undefined;
-              // @ts-ignore - Custom window property for backward compatibility
-              window._openFolderHoverId = undefined;
-            }
-          }
-        });
-        
-        // Debug logging voor het bijhouden van overlaps
-        if (foundOverlappingFolder) {
-          console.log('🎯 Overlap gedetecteerd met open map!');
-        }
-      } else if (!e.buttons) {
-        // When not dragging (no mouse buttons pressed), clear all folder highlights
-        document.querySelectorAll('[id^="folder-window-"].folder-highlight-dragover').forEach((element) => {
-          if (element instanceof HTMLElement) {
-            element.classList.remove('folder-highlight-dragover');
-          }
-        });
-      }
-      
-      // We verplaatsen de reset-logica naar mouseup event
-      // Als we het hier doen, werkt het slepen niet goed meer
-      // console.log('Mouse buttons state:', e.buttons);
-      
-      // (Verplaatst naar mouseup handler)
-    };
-    
-    // Voeg event listener toe en ruim op - ALTIJD ACTIEF
-    document.addEventListener('mousemove', handleGlobalMouseTracking);
-    
-    // Extra event listener voor mouseup om highlighting te resetten, maar ALLEEN nadat drop is verwerkt
-    const resetHighlighting = () => {
-      // Gebruik een ruime timeout zodat eerst de drop events worden afgehandeld
-      // Dit is essentieel voor het correct werken van drag & drop naar mappen
-      setTimeout(() => {
-        console.log('Reset highlighting after drop/mouseup...');
-        
-        // Reset visuele feedback
-        document.querySelectorAll('.folder-highlight-dragover').forEach((el) => {
-          el.classList.remove('folder-highlight-dragover');
-        });
-        
-        // Reset alleen de tracking variabelen als er GEEN drop target actief is
-        // Dit is cruciaal - we willen niet resetten terwijl een drop wordt verwerkt
-        
-        // Check of we niet in een actieve drop operatie zitten
-        // @ts-ignore - Custom window property 
-        const isActiveDropOngoing = window._activeDropFolder || window._hoverFolderId;
-        
-        if (!isActiveDropOngoing) {
-          console.log('Geen actieve drop operatie, resetten van alle tracking...');
-          // @ts-ignore - Custom window property
-          window._openFolderHoverId = undefined;
-          // @ts-ignore - Custom window property 
-          window._hoverFolderId = undefined;
-          // @ts-ignore - Custom window property
-          window._activeDropFolder = undefined;
-          // @ts-ignore - Custom window property
-          window.draggedFileInfo = undefined;
-        } else {
-          console.log('Actieve drop operatie bezig, tracking blijft behouden voor drop handlers...');
-        }
-      }, 200); // Langere timeout om zeker te zijn dat drop handlers tijd hebben om te verwerken
-    };
-    
-    document.addEventListener('mouseup', resetHighlighting);
-    
+    document.addEventListener('mousemove', handleGlobalMouseMove);
     return () => {
-      document.removeEventListener('mousemove', handleGlobalMouseTracking);
-      document.removeEventListener('mouseup', resetHighlighting);
+      document.removeEventListener('mousemove', handleGlobalMouseMove);
     };
-  }, []);
-  
-  // Listen for global mouse movement when dragging
-  useEffect(() => {
-    if (draggingFileId) {
-      window.addEventListener('mousemove', handleGlobalMouseMove);
-      return () => window.removeEventListener('mousemove', handleGlobalMouseMove);
-    }
-  }, [draggingFileId, handleGlobalMouseMove]);
-  
-  // Function to check if two elements are overlapping
-  const checkFileOverFolder = (movingFileId: number | undefined) => {
-    if (!movingFileId) return null;
-    
-    const movingElementKey = `file-${movingFileId}`;
-    const movingElement = fileElementsRef.current[movingElementKey];
-    if (!movingElement) return null;
-    
-    const movingRect = movingElement.getBoundingClientRect();
-    
-    // Find all folder IDs
-    const folderFiles = files.filter(f => f.isFolder === 'true' || f.type === 'folder' || f.type === 'application/folder');
-    
-    // Clear any previous hover state
-    // @ts-ignore - Custom window property
-    window._hoverFolderId = undefined;
-    
-    for (const folder of folderFiles) {
-      if (!folder.id || folder.id === movingFileId) continue; // Skip if same file or invalid id
-      
-      const folderElementKey = `file-${folder.id}`;
-      const folderElement = fileElementsRef.current[folderElementKey];
-      if (!folderElement) continue;
-      
-      const folderRect = folderElement.getBoundingClientRect();
-      
-      // Check for overlap
-      const overlap = !(
-        movingRect.right < folderRect.left || 
-        movingRect.left > folderRect.right || 
-        movingRect.bottom < folderRect.top || 
-        movingRect.top > folderRect.bottom
-      );
-      
-      if (overlap) {
-        // Store the folder ID in a global variable so FileItem can access it
-        // @ts-ignore - Custom window property
-        window._hoverFolderId = folder.id;
-        
-        console.log(`🎯 OVERLAP DETECTED: File ${movingFileId} is overlapping with folder ${folder.id}`);
-        return { fileId: movingFileId, folderId: folder.id };
-      }
-    }
-    
-    return null;
-  };
-  
-  // Handle file drag start
-  const handleFileDragStart = (fileId: number | undefined) => {
-    if (fileId) {
-      setDraggingFileId(fileId);
-    }
-  };
-  
-  // Handle file drag end - UITGESCHAKELD: automatische map-creatie
-  const handleFileDragEnd = async (fileId: number | undefined, x: number, y: number) => {
-    if (!fileId) return;
-    
-    // Clear dragging state
-    setDraggingFileId(null);
-    
-    // Clear any active overlap timeout
-    if (dragTimeoutRef.current) {
-      clearTimeout(dragTimeoutRef.current);
-      dragTimeoutRef.current = null;
-    }
-    
-    // Automatische map-creatie uitgeschakeld
-    if (activeOverlap) {
-      setActiveOverlap(null);
-    }
-    
-    /* UITGESCHAKELDE CODE:
-    // If we had an active overlap, create a folder
-    if (activeOverlap && activeOverlap.fileId === fileId) {
-      const now = Date.now();
-      if (now - activeOverlap.overlapStartTime >= 1000) { // Ensure it's been 1 second
-        createFolderFromOverlap(activeOverlap);
-      }
-      setActiveOverlap(null);
-    }
-    */
-    
-    // Check if we're over an open folder window
-    // Check if there's an active drop folder (new implementation)
-    // @ts-ignore - Custom property
-    const activeDropFolder = window._activeDropFolder;
-    
-    // If we have an active drop folder target and a valid file ID
-    if (activeDropFolder?.id && fileId) {
-      try {
-        console.log(`📂 Moving file ${fileId} into folder ${activeDropFolder.name} (ID: ${activeDropFolder.id})`);
-        
-        // Get the current files from the query cache
-        const desktopFiles = queryClient.getQueryData<{files: DesktopFile[]}>(['/api/files']);
-        if (desktopFiles?.files) {
-          // Find the file that's being moved
-          const fileIndex = desktopFiles.files.findIndex(f => f.id === fileId);
-          
-          if (fileIndex >= 0) {
-            // Clone the files array to avoid mutating the cache directly
-            const updatedFiles = [...desktopFiles.files];
-            const movedFile = {...updatedFiles[fileIndex]};
-            
-            // Update the file's parentId to the folder's ID
-            movedFile.parentId = activeDropFolder.id;
-            
-            // Remove the file from desktop view immediately for instant visual feedback
-            updatedFiles.splice(fileIndex, 1);
-            
-            // Update the cache with the file removed from desktop
-            queryClient.setQueryData(['/api/files'], {
-              files: updatedFiles
-            });
-            
-            // Get folder contents and add the file there immediately
-            const folderFilesKey = [`/api/folders/${activeDropFolder.id}/files`];
-            const folderContents = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey) || {files: []};
-            
-            // Update folder contents cache immediately
-            queryClient.setQueryData(folderFilesKey, {
-              files: [...folderContents.files, movedFile]
-            });
-            
-            // Show success message with folder name
-            toast({
-              title: "File moved",
-              description: `File was moved to "${activeDropFolder.name}" folder successfully.`,
-            });
-            
-            // Clear the active drop folder reference
-            // @ts-ignore - Custom property
-            window._activeDropFolder = undefined;
-            // @ts-ignore - Custom property for backward compatibility
-            window._openFolderHoverId = undefined;
-            
-            // THEN make the actual API call to update the database
-            addFileToFolder(fileId, activeDropFolder.id)
-              .then(() => {
-                console.log("✅ Database updated to match UI changes");
-              })
-              .catch(error => {
-                console.error('Error moving file to open folder:', error);
-                toast({
-                  title: "Error",
-                  description: "Failed to move file to folder.",
-                  variant: "destructive"
-                });
-                // Revert UI changes by refetching data
-                queryClient.invalidateQueries({ queryKey: ['/api/files'] });
-                queryClient.invalidateQueries({ queryKey: folderFilesKey });
-              });
-            
-            return; // Skip position update since file is now in a folder
-          }
-        } else {
-          // Fallback to direct API call if cache not available
-          await addFileToFolder(fileId, activeDropFolder.id);
-          
-          // Clear the active drop folder reference
-          // @ts-ignore - Custom property
-          window._activeDropFolder = undefined;
-          // @ts-ignore - Custom property for backward compatibility
-          window._openFolderHoverId = undefined;
-          
-          // Show success message with folder name
-          toast({
-            title: "File moved",
-            description: `File was moved to "${activeDropFolder.name}" folder successfully.`,
-          });
-          
-          return; // Skip position update since file is now in a folder
-        }
-      } catch (error) {
-        console.error('Error moving file to open folder:', error);
-        toast({
-          title: "Error",
-          description: "Failed to move file to folder.",
-          variant: "destructive"
-        });
-      }
-    }
-    
-    // Check if we're over a closed folder (using our custom window property)
-    // @ts-ignore - Custom window property
-    const hoverFolderId = window._hoverFolderId;
-    if (hoverFolderId && fileId) {
-      try {
-        console.log(`🗂️ Moving file ${fileId} into folder ${hoverFolderId}`);
-        
-        // Get the current files from the query cache
-        const desktopFiles = queryClient.getQueryData<{files: DesktopFile[]}>(['/api/files']);
-        if (desktopFiles?.files) {
-          // Find the file that's being moved
-          const fileIndex = desktopFiles.files.findIndex(f => f.id === fileId);
-          
-          if (fileIndex >= 0) {
-            // Clone the files array to avoid mutating the cache directly
-            const updatedFiles = [...desktopFiles.files];
-            const movedFile = {...updatedFiles[fileIndex]};
-            
-            // Update the file's parentId to the folder's ID
-            movedFile.parentId = hoverFolderId;
-            
-            // Remove the file from desktop view immediately for instant visual feedback
-            updatedFiles.splice(fileIndex, 1);
-            
-            // Update the cache with the file removed from desktop
-            queryClient.setQueryData(['/api/files'], {
-              files: updatedFiles
-            });
-            
-            // Get folder contents and add the file there immediately
-            const folderFilesKey = [`/api/folders/${hoverFolderId}/files`];
-            const folderContents = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey) || {files: []};
-            
-            // Update folder contents cache immediately
-            queryClient.setQueryData(folderFilesKey, {
-              files: [...folderContents.files, movedFile]
-            });
-            
-            // Show success message
-            toast({
-              title: "File moved",
-              description: "File was moved to folder successfully.",
-            });
-            
-            // Clear the hover folder ID
-            // @ts-ignore - Custom window property
-            window._hoverFolderId = undefined;
-            
-            // THEN make the actual API call to update the database
-            addFileToFolder(fileId, hoverFolderId)
-              .then(() => {
-                console.log("✅ Database updated to match UI changes");
-                
-                // BELANGRIJKE FIX: Roep de fetchContents methode aan indien beschikbaar
-                // @ts-ignore - Custom window property
-                window._lastFolderUpdateRequest = Date.now();
-                
-                // @ts-ignore - Custom window property
-                if (window._openFolders && window._openFolders[hoverFolderId]) {
-                  // @ts-ignore - Fetch contents of folder to update UI
-                  const folderInfo = window._openFolders[hoverFolderId];
-                  if (folderInfo.fetchContents && typeof folderInfo.fetchContents === 'function') {
-                    console.log(`📋 MAPHERLADING STARTEN: Bestanden ophalen voor map ${hoverFolderId}`);
-                    folderInfo.fetchContents();
-                  }
-                }
-                
-                // Forceer ook een directe cache invalidatie voor deze specifieke map
-                const specificFolderKey = [`/api/folders/${hoverFolderId}/files`];
-                queryClient.invalidateQueries({ queryKey: specificFolderKey });
-              })
-              .catch(error => {
-                console.error('Error moving file to folder:', error);
-                toast({
-                  title: "Error",
-                  description: "Failed to move file to folder.",
-                  variant: "destructive"
-                });
-                // Revert UI changes by refetching data
-                queryClient.invalidateQueries({ queryKey: ['/api/files'] });
-                queryClient.invalidateQueries({ queryKey: folderFilesKey });
-              });
-            
-            return; // Skip position update since file is now in a folder
-          }
-        } else {
-          // Fallback to direct API call if cache not available
-          await addFileToFolder(fileId, hoverFolderId);
-          
-          // Clear the hover folder ID
-          // @ts-ignore - Custom window property
-          window._hoverFolderId = undefined;
-          
-          // Show success message
-          toast({
-            title: "File moved",
-            description: "File was moved to folder successfully.",
-          });
-          
-          return; // Skip position update since file is now in a folder
-        }
-      } catch (error) {
-        console.error('Error moving file to folder:', error);
-        toast({
-          title: "Error",
-          description: "Failed to move file to folder.",
-          variant: "destructive"
-        });
-      }
-    }
-  };
-  
-  // Check for file overlaps - UITGESCHAKELD: functie om automatisch mappen te maken is gedeactiveerd
-  const checkFileOverlap = (fileId: number | undefined) => {
-    // Functie uitgeschakeld op verzoek van de gebruiker
-    // De automatische map-creatie functie is nu uitgeschakeld
-    
-    return; // Early return om geen overlap-detectie uit te voeren
-    
-    /* UITGESCHAKELDE CODE:
-    if (!fileId || !draggingFileId || fileId === draggingFileId) return;
-    
-    // Clear any existing timeout
-    if (dragTimeoutRef.current) {
-      clearTimeout(dragTimeoutRef.current);
-      dragTimeoutRef.current = null;
-    }
-    
-    const draggedElement = fileElementsRef.current[`file-${draggingFileId}`];
-    const targetElement = fileElementsRef.current[`file-${fileId}`];
-    
-    if (draggedElement && targetElement) {
-      const isOverlapping = areFilesOverlapping(draggedElement, targetElement);
-      
-      if (isOverlapping) {
-        // Calculate the midpoint between the two files for folder position
-        const draggedRect = draggedElement.getBoundingClientRect();
-        const targetRect = targetElement.getBoundingClientRect();
-        
-        const position = {
-          x: (draggedRect.left + targetRect.left) / 2,
-          y: (draggedRect.top + targetRect.top) / 2
-        };
-        
-        // Start the timer for folder creation
-        const overlap: FileOverlap = {
-          fileId: draggingFileId,
-          targetId: fileId,
-          overlapStartTime: Date.now(),
-          position
-        };
-        
-        setActiveOverlap(overlap);
-        
-        // Set timeout for 1 second
-        dragTimeoutRef.current = setTimeout(() => {
-          createFolderFromOverlap(overlap);
-        }, 1000);
-      } else if (activeOverlap && 
-                (activeOverlap.fileId === draggingFileId || activeOverlap.targetId === fileId)) {
-        // Files are no longer overlapping, cancel folder creation
-        setActiveOverlap(null);
-      }
-    }
-    */
-  };
-  
-  // Create a folder from overlapping files
+  }, [handleGlobalMouseMove]);
+
+  // Create folder from overlapping files when held together for a set duration
   const createFolderFromOverlap = async (overlap: FileOverlap) => {
+    // Get files from overlap
     try {
-      const { fileId, targetId, position } = overlap;
+      // Generate a position that's the average of the two files
+      const position = overlap.position;
       
-      // Open the folder naming dialog with the files to include
-      setFolderName("New Folder");
+      // Open folder naming dialog
+      setFolderName("Nieuwe map");
       setPendingFolderPosition(position);
-      setPendingFolderFiles([fileId, targetId]);
+      setPendingFolderFiles([overlap.fileId, overlap.targetId]);
       setIsFolderDialogOpen(true);
       
-      // Clear active overlap
+      // Clear the active overlap
       setActiveOverlap(null);
       
-      // Clear any timeout
+      // Clear any pending timeouts
       if (dragTimeoutRef.current) {
         clearTimeout(dragTimeoutRef.current);
         dragTimeoutRef.current = null;
       }
+      
+      console.log("✅ Dialoog geopend voor nieuwe map maken van overlappende bestanden");
     } catch (error) {
-      console.error('Error creating folder from overlap:', error);
+      console.error("❌ Fout bij het maken van een map van overlappende bestanden:", error);
+      toast({
+        title: "Fout",
+        description: "Kon geen map maken van deze bestanden.",
+        variant: "destructive"
+      });
     }
   };
-
-  // Prevent default browser behavior for drag and drop
-  useEffect(() => {
-    const preventDefaults = (e: DragEvent) => {
-      e.preventDefault();
-    };
-    
-    window.addEventListener('dragover', preventDefaults);
-    window.addEventListener('drop', preventDefaults);
-    
-    return () => {
-      window.removeEventListener('dragover', preventDefaults);
-      window.removeEventListener('drop', preventDefaults);
-    };
-  }, []);
   
-  // Clean up any timeouts on unmount
+  // When files are dragged on top of each other, set a timer to create a folder
   useEffect(() => {
+    // Skip if no active overlap
+    if (!activeOverlap) return;
+    
+    // Clear any existing timeout
+    if (dragTimeoutRef.current) {
+      clearTimeout(dragTimeoutRef.current);
+    }
+    
+    // Set a timeout to create a folder if the overlap persists
+    dragTimeoutRef.current = setTimeout(() => {
+      if (activeOverlap) {
+        createFolderFromOverlap(activeOverlap);
+      }
+    }, 1500); // 1.5 seconds
+    
+    // Cleanup when component unmounts or overlap changes
     return () => {
       if (dragTimeoutRef.current) {
         clearTimeout(dragTimeoutRef.current);
       }
     };
+  }, [activeOverlap]);
+
+  // Submit the folder name dialog
+  const handleSubmitFolderName = async () => {
+    if (pendingFolderPosition) {
+      try {
+        if (pendingFolderFiles) {
+          // Create a folder from the pending files
+          await createFolderFromFiles(pendingFolderFiles, pendingFolderPosition, folderName);
+        } else {
+          // Create a new empty folder
+          await createFolder(folderName, pendingFolderPosition);
+        }
+        
+        // Close the dialog and reset state
+        setIsFolderDialogOpen(false);
+        setFolderName("");
+        setPendingFolderPosition(null);
+        setPendingFolderFiles(null);
+        
+        // Clear the active overlap
+        setActiveOverlap(null);
+        
+        // Clear any pending timeouts
+        if (dragTimeoutRef.current) {
+          clearTimeout(dragTimeoutRef.current);
+          dragTimeoutRef.current = null;
+        }
+        
+        // Show a success message
+        toast({
+          title: "Map aangemaakt",
+          description: `De map "${folderName}" is aangemaakt.`,
+        });
+      } catch (error) {
+        console.error("❌ Fout bij aanmaken van map:", error);
+        
+        toast({
+          title: "Fout",
+          description: "Er is een fout opgetreden bij het maken van de map.",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  // Handle clearing all files
+  const handleClearClick = () => {
+    if (window.confirm('Weet je zeker dat je alle bestanden wilt verwijderen?')) {
+      clearAllFiles();
+    }
+  };
+
+  // Handle renaming a file
+  const handleRenameFile = (fileId: number, newName: string) => {
+    updateFileName(fileId, newName);
+  };
+
+  // Reset all timeouts when component unmounts
+  useEffect(() => {
+    return () => {
+      if (dragTimeoutRef.current) {
+        clearTimeout(dragTimeoutRef.current);
+        dragTimeoutRef.current = null;
+      }
+    };
   }, []);
 
+  // Render the loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <Spinner className="h-10 w-10 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-lg font-medium">Bestanden laden...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Render the error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="text-red-500 mx-auto mb-4">
+            <X className="h-10 w-10" />
+          </div>
+          <p className="text-lg">Error loading files. Please try again.</p>
+          <button
+            className="mt-4 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90"
+            onClick={() => window.location.reload()}
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="h-screen w-screen flex flex-col bg-gradient-to-br from-blue-900 to-purple-900 bg-cover bg-center">
+    <div className="h-screen flex flex-col overflow-hidden">
+      {/* Toolbar */}
       <DesktopToolbar
-        fileCount={files.length}
+        fileCount={filteredFiles.length}
         onUploadClick={handleUploadClick}
-        onClearClick={clearAllFiles}
+        onClearClick={handleClearClick}
         onSearch={handleSearch}
       />
       
-      {searchQuery && (
-        <div className="relative bg-gradient-to-r from-blue-900/80 via-primary/60 to-blue-900/80 backdrop-blur-sm py-2 px-4 border-b border-primary/30 shadow-md">
-          <div className="container mx-auto flex items-center justify-between">
-            <div className="flex items-center">
-              <Search className="h-4 w-4 text-white mr-2" />
-              <p className="text-white text-sm font-medium">
-                {filteredFiles.length === 0 
-                  ? "No files found" 
-                  : `Found ${filteredFiles.length} file${filteredFiles.length !== 1 ? 's' : ''} matching `}
-                {filteredFiles.length > 0 && (
-                  <span className="bg-primary/30 rounded px-1 py-0.5 mx-1 font-semibold">"{searchQuery}"</span>
-                )}
-              </p>
-            </div>
-            <button 
-              onClick={() => setSearchQuery("")}
-              className="text-white text-sm hover:bg-white/10 px-2 py-1 rounded flex items-center transition-colors"
-            >
-              <X className="h-3.5 w-3.5 mr-1" />
-              Clear
-            </button>
-          </div>
-        </div>
-      )}
-
+      {/* Desktop area with folders and files */}
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div
             ref={canvasRef}
-            className={`canvas-area relative flex-1 ${
-              isDraggingOver ? "bg-blue-100/20" : ""
-            }${searchQuery ? " bg-blue-900/50" : ""}`}
+            className="flex-1 relative overflow-auto bg-slate-100 canvas-area"
             onClick={handleCanvasClick}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            {/* Folder creation indicator */}
-            {activeOverlap && (
-              <div 
-                className="absolute z-40 pointer-events-none"
-                style={{
-                  left: `${activeOverlap.position.x - 25}px`,
-                  top: `${activeOverlap.position.y - 25}px`,
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                <div className="flex flex-col items-center justify-center">
-                  <div className="w-12 h-12 rounded-full bg-primary/30 backdrop-blur-md flex items-center justify-center animate-pulse">
-                    <Folder className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="mt-1 text-white text-xs font-medium bg-black/50 px-2 py-0.5 rounded backdrop-blur-sm">
-                    Creating folder...
-                  </div>
-                </div>
-              </div>
-            )}
-            {isLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <Spinner className="animate-spin text-white w-8 h-8" />
-                <span className="ml-2 text-white text-lg">Loading files...</span>
-              </div>
-            ) : error ? (
-              <div className="flex items-center justify-center h-full text-white">
-                <p className="text-lg">Error loading files. Please try again.</p>
-              </div>
-            ) : files.length === 0 ? (
+            {/* If there are no files, show the empty state */}
+            {filteredFiles.length === 0 && !searchQuery && (
               <EmptyState onUploadClick={handleUploadClick} />
-            ) : filteredFiles.length === 0 && searchQuery ? (
-              <div className="flex flex-col items-center justify-center h-full text-white">
-                <div className="p-6 bg-black/20 backdrop-blur-md rounded-lg max-w-md text-center border border-primary/30 shadow-lg">
-                  <FolderSearch className="w-16 h-16 mx-auto text-primary/70 mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">No Matches Found</h3>
-                  <p className="mb-4 text-gray-300">
-                    No files match your fuzzy search for <span className="bg-primary/20 px-2 py-0.5 rounded font-mono">"{searchQuery}"</span>
-                  </p>
-                  <p className="text-sm text-gray-400 mb-4">Try using shorter search terms or checking for typos</p>
-                  <button 
-                    onClick={() => setSearchQuery("")}
-                    className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-md transition-colors duration-200 inline-flex items-center"
-                  >
-                    <X className="w-4 h-4 mr-2" />
-                    Clear Search
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                {/* Regular file icons */}
-                {filteredFiles.map((file: DesktopFile, index: number) => {
-                  // Get the real index from the original files array
-                  const realIndex = files.findIndex(f => 
-                    (f.id && file.id) ? f.id === file.id : f === file
-                  );
-                  
-                  // All files in filteredFiles match the search criteria when using fuzzy search
-                  const isMatch = searchQuery ? true : false;
-                  
-                  // Skip rendering files that are currently open as windows
-                  // or that belong to a folder
-                  if (file.id && (openWindowFiles.includes(file.id) || file.parentId)) {
-                    return null;
-                  }
-                  
-                  return (
-                    <FileItem
-                      key={file.id ? `file-${file.id}` : `file-${index}`}
-                      file={file}
-                      index={realIndex !== -1 ? realIndex : index}
-                      isSelected={selectedFile === realIndex}
-                      isSearchMatch={isMatch}
-                      searchTerm={searchQuery}
-                      onSelect={handleSelectFile}
-                      onDragEnd={(index, x, y) => {
-                        if (file.id) handleFileDragEnd(file.id, x, y);
-                        handleFilePositionUpdate(index, x, y);
-                      }}
-                      onDragStart={(fileId) => handleFileDragStart(fileId)}
-                      onDragMove={(fileId) => {
-                        checkFileOverlap(fileId);
-                        // Check for overlapping folders using our new function
-                        checkFileOverFolder(fileId);
-                      }}
-                      registerRef={registerFileElement}
-                      onResize={handleFileResize}
-                      onPreview={handlePreviewFile}
-                      onRename={updateFileName}
-                    />
-                  );
-                })}
-                
-                {/* Open files in windows */}
-                {openWindowFiles.map((fileId: number) => {
-                  const fileIndex = files.findIndex(f => f.id === fileId);
-                  if (fileIndex === -1) return null;
-                  
-                  const file = files[fileIndex];
-                  
-                  // Check if this is a folder 
-                  if (file.isFolder === 'true') {
-                    console.log('DRAGGABLE MAP VIEWER: Tonen van map', file);
-                    // Gebruik het versleepbare map venster
-                    return (
-                      <DraggableFolderWindow
-                        key={`folder-${fileId}`}
-                        folder={file}
-                        onClose={() => closeWindowFile(fileId)}
-                        onDragEnd={(id, x, y) => {
-                          // Sla de nieuwe positie op
-                          updateFilePosition(id, x, y);
-                        }}
-                      />
-                    );
-                  }
-                  
-                  // Regular file window
+            )}
+            
+            {/* Render the files */}
+            {filteredFiles.map((file: DesktopFile, index: number) => {
+              // Skip files that are inside folders
+              if (file.parentId) return null;
+              
+              // Check if this file needs to be displayed in a window
+              const isWindowOpen = file.id && openWindowFiles.includes(file.id);
+              
+              // Based on the file type, render the appropriate component
+              if (isWindowOpen) {
+                if (isExcelFile(file)) {
                   return (
                     <WindowItem
-                      key={`window-${fileId}`}
+                      key={`window-${file.id || index}`}
                       file={file}
-                      index={fileIndex}
-                      isSelected={selectedFile === fileIndex}
+                      index={index}
+                      isSelected={selectedFile === index}
                       onSelect={handleSelectFile}
                       onDragEnd={handleFilePositionUpdate}
                       onResize={handleFileResize}
-                      onClose={() => closeWindowFile(fileId)}
+                      onClose={() => file.id && closeWindowFile(file.id)}
                     />
                   );
-                })}
-              </>
-            )}
+                } else if (file.type === 'folder' || file.isFolder === 'true') {
+                  return (
+                    <DraggableFolderWindow
+                      key={`folder-${file.id || index}`}
+                      folder={file}
+                      onClose={() => file.id && closeWindowFile(file.id)}
+                      onDragEnd={(id, x, y) => updateFilePosition(id, x, y)}
+                    />
+                  );
+                }
+              }
+              
+              // Regular file item on desktop
+              return (
+                <FileItem
+                  key={`file-${file.id || index}`}
+                  file={file}
+                  index={index}
+                  isSelected={selectedFile === index}
+                  isSearchMatch={searchQuery.length > 0}
+                  searchTerm={searchQuery}
+                  onSelect={handleSelectFile}
+                  onDragEnd={handleFilePositionUpdate}
+                  onDragStart={(fileId) => setDraggingFileId(fileId)}
+                  onDragMove={() => {}}
+                  onResize={handleFileResize}
+                  onPreview={handlePreviewFile}
+                  registerRef={registerFileElement}
+                  onRename={handleRenameFile}
+                />
+              );
+            })}
+            
+            {/* File preview modal */}
+            <FilePreviewModal
+              file={previewFile}
+              isOpen={isPreviewOpen}
+              onClose={closePreview}
+            />
+            
+            {/* Hidden file input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              onChange={handleFileInputChange}
+              multiple
+            />
           </div>
         </ContextMenuTrigger>
         
-        <ContextMenuContent className="w-60 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-md">
-          <ContextMenuItem 
-            onClick={handleCreateNewFolder}
-            className="flex items-center cursor-pointer"
-          >
-            <FolderPlus className="mr-2 h-4 w-4 text-primary" />
-            <span>Create new folder</span>
+        {/* Context menu for right-click on desktop */}
+        <ContextMenuContent>
+          <ContextMenuItem onClick={handleCreateNewFolder}>
+            <FolderPlus className="mr-2 h-4 w-4" />
+            Nieuwe map
           </ContextMenuItem>
-          
+          <ContextMenuItem onClick={handleUploadClick}>
+            <Upload className="mr-2 h-4 w-4" />
+            Bestand uploaden
+          </ContextMenuItem>
           <ContextMenuSeparator />
-          
-          <ContextMenuItem 
-            onClick={handleUploadClick}
-            className="flex items-center cursor-pointer"
-          >
-            <FileUp className="mr-2 h-4 w-4 text-primary" />
-            <span>Upload file</span>
-          </ContextMenuItem>
-          
-          <ContextMenuItem 
-            onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/files'] })}
-            className="flex items-center cursor-pointer"
-          >
-            <RefreshCw className="mr-2 h-4 w-4 text-primary" />
-            <span>Refresh</span>
+          <ContextMenuItem onClick={() => window.location.reload()}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Verversen
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
       
-      <input
-        ref={fileInputRef}
-        type="file"
-        className="hidden"
-        multiple
-        onChange={handleFileInputChange}
-      />
-      
-      <FilePreviewModal
-        file={previewFile}
-        isOpen={isPreviewOpen}
-        onClose={closePreview}
-      />
-      
       {/* Folder naming dialog */}
       <Dialog open={isFolderDialogOpen} onOpenChange={setIsFolderDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Folder</DialogTitle>
+            <DialogTitle>Nieuwe map</DialogTitle>
             <DialogDescription>
-              Enter a name for the new folder.
+              Geef een naam op voor de nieuwe map.
             </DialogDescription>
           </DialogHeader>
-          
-          <div className="flex items-center space-x-2 mt-4">
-            <div className="grid flex-1 gap-2">
-              <Input
-                value={folderName}
-                onChange={(e) => setFolderName(e.target.value)}
-                placeholder="Folder name"
-                className="col-span-3"
-                autoFocus
-              />
-            </div>
-          </div>
-          
-          <DialogFooter className="sm:justify-between mt-4">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsFolderDialogOpen(false);
-                setPendingFolderPosition(null);
-                setPendingFolderFiles(null);
-              }}
-            >
-              Cancel
+          <Input
+            value={folderName}
+            onChange={(e) => setFolderName(e.target.value)}
+            placeholder="Nieuwe map"
+            className="mt-4"
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsFolderDialogOpen(false)}>
+              Annuleren
             </Button>
-            <Button
-              type="button"
-              onClick={async () => {
-                // Make sure we have a position
-                if (!pendingFolderPosition) return;
-                
-                try {
-                  if (pendingFolderFiles && pendingFolderFiles.length >= 2) {
-                    // Create folder from overlapping files with custom name
-                    await createFolderFromFiles(pendingFolderFiles, pendingFolderPosition, folderName);
-                  } else {
-                    // Create a new empty folder
-                    await createFolder(folderName, pendingFolderPosition);
-                  }
-                  
-                  // Close the dialog and reset state
-                  setIsFolderDialogOpen(false);
-                  setPendingFolderPosition(null);
-                  setPendingFolderFiles(null);
-                } catch (error) {
-                  console.error('Error creating folder:', error);
-                }
-              }}
-            >
-              Create
-            </Button>
+            <Button onClick={handleSubmitFolderName}>Aanmaken</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
