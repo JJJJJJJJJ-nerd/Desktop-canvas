@@ -182,23 +182,7 @@ export function NewFolderViewer({ folderId, folderName, onClose }: NewFolderView
             </div>
           )}
           
-          {/* Debug sectie */}
-          {!isLoading && !error && files.length > 0 && (
-            <div className="mt-8 p-4 bg-gray-50 border border-gray-200 rounded-md">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-sm font-bold text-gray-500">Debug Informatie</h3>
-                <button 
-                  className="text-xs text-blue-600"
-                  onClick={() => console.log('Mapinhoud:', files)}
-                >
-                  Log naar console
-                </button>
-              </div>
-              <pre className="text-xs overflow-auto bg-gray-100 p-3 rounded-md max-h-40">
-                {JSON.stringify(files, null, 2)}
-              </pre>
-            </div>
-          )}
+
         </div>
       </div>
     </div>

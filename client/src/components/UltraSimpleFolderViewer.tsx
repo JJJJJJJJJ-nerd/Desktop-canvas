@@ -95,7 +95,7 @@ export function UltraSimpleFolderViewer({ folderId, folderName, onClose }: Ultra
           alignItems: 'center'
         }}>
           <div style={{ fontWeight: 'bold' }}>
-            Map: {folderName} (ID: {folderId})
+            Map: {folderName}
           </div>
           <button 
             onClick={onClose}
@@ -224,43 +224,12 @@ export function UltraSimpleFolderViewer({ folderId, folderName, onClose }: Ultra
                     }} title={file.name}>
                       {file.name}
                     </div>
-                    <div style={{
-                      fontSize: '12px',
-                      color: '#9ca3af', // gray-400
-                      marginTop: '4px'
-                    }}>
-                      ID: {file.id}
-                    </div>
+
                   </div>
                 ))}
               </div>
               
-              {/* Debug */}
-              <div style={{
-                marginTop: '24px',
-                padding: '16px',
-                backgroundColor: '#f9fafb', // gray-50
-                borderRadius: '6px',
-                border: '1px solid #e5e7eb' // gray-200
-              }}>
-                <h4 style={{
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  marginBottom: '8px'
-                }}>
-                  Debug Informatie
-                </h4>
-                <pre style={{
-                  backgroundColor: '#f3f4f6', // gray-100
-                  padding: '8px',
-                  borderRadius: '4px',
-                  overflow: 'auto',
-                  fontSize: '12px',
-                  maxHeight: '200px'
-                }}>
-                  {JSON.stringify(files, null, 2)}
-                </pre>
-              </div>
+
             </div>
           )}
         </div>

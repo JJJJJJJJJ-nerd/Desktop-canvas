@@ -31,7 +31,7 @@ export function BasicFolderWindowDirectRender({ folder, onClose }: BasicFolderWi
     header.style.alignItems = 'center';
     
     const title = document.createElement('div');
-    title.textContent = `Map: ${folderName} (ID: ${folderId})`;
+    title.textContent = `Map: ${folderName}`;
     title.style.fontWeight = 'bold';
     
     const closeButton = document.createElement('button');
@@ -130,47 +130,14 @@ export function BasicFolderWindowDirectRender({ folder, onClose }: BasicFolderWi
               nameDiv.style.whiteSpace = 'nowrap';
               nameDiv.title = file.name;
               
-              // Bestand ID
-              const idDiv = document.createElement('div');
-              idDiv.textContent = `ID: ${file.id}`;
-              idDiv.style.fontSize = '12px';
-              idDiv.style.color = '#9ca3af';
-              idDiv.style.marginTop = '4px';
-              
               fileItem.appendChild(iconDiv);
               fileItem.appendChild(nameDiv);
-              fileItem.appendChild(idDiv);
               grid.appendChild(fileItem);
             });
             
             content.appendChild(grid);
             
-            // Debug sectie toevoegen
-            const debugSection = document.createElement('div');
-            debugSection.style.marginTop = '24px';
-            debugSection.style.padding = '16px';
-            debugSection.style.backgroundColor = '#f9fafb';
-            debugSection.style.border = '1px solid #e5e7eb';
-            debugSection.style.borderRadius = '6px';
-            
-            const debugTitle = document.createElement('h4');
-            debugTitle.textContent = 'Debug Informatie';
-            debugTitle.style.marginBottom = '8px';
-            debugTitle.style.fontSize = '14px';
-            debugTitle.style.fontWeight = 'bold';
-            
-            const debugPre = document.createElement('pre');
-            debugPre.textContent = JSON.stringify(data.files, null, 2);
-            debugPre.style.backgroundColor = '#f3f4f6';
-            debugPre.style.padding = '8px';
-            debugPre.style.borderRadius = '4px';
-            debugPre.style.overflow = 'auto';
-            debugPre.style.fontSize = '12px';
-            debugPre.style.maxHeight = '200px';
-            
-            debugSection.appendChild(debugTitle);
-            debugSection.appendChild(debugPre);
-            content.appendChild(debugSection);
+
           }
         } else {
           // Error tonen
