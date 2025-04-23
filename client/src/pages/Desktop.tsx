@@ -165,43 +165,70 @@ export default function Desktop() {
     // Check for dragged files from folders (which use dataTransfer.getData)
     const fileIdText = e.dataTransfer.getData('text/plain');
     if (fileIdText) {
-      const fileId = parseInt(fileIdText);
-      if (!isNaN(fileId)) {
-        console.log(`🖥️ DESKTOP DROP: Bestand met ID ${fileId} op bureaublad geplaatst`);
-        
-        // Bevestig dat we op het bureaublad slepen
-        // @ts-ignore - Custom property
-        window._draggingFileToDesktop = true;
-        
-        // We found a valid file ID, so this must be a file from a folder
-        // Remove from folder and place on desktop at the exact position where dropped
-        try {
-          // Gebruik de exacte muispositie voor het plaatsen van het bestand
+      try {
+        const fileId = parseInt(fileIdText);
+        if (!isNaN(fileId)) {
+          console.log(`🖥️ DESKTOP DROP: Bestand met ID ${fileId} op bureaublad geplaatst`);
+          
+          // Bevestig dat we op het bureaublad slepen
+          // @ts-ignore - Custom property
+          window._draggingFileToDesktop = true;
+          
+          // Get information about the dragged file from global state (if available)
+          // @ts-ignore - Custom property
+          const draggedFileInfo = window.draggedFileInfo;
+          
+          // Determine the exact drop position on the desktop
           const dropPosition = {
             x: e.clientX,
             y: e.clientY
           };
           
+          // Update UI immediately before API call for instant feedback
+          if (draggedFileInfo && draggedFileInfo.fromFolder) {
+            // Get current desktop files and add this file to it
+            const desktopFiles = queryClient.getQueryData<{files: DesktopFile[]}>(['/api/files']);
+            
+            if (desktopFiles?.files) {
+              // Create a file object with the correct position
+              const fileForDesktop = {
+                id: fileId,
+                name: draggedFileInfo.name,
+                type: draggedFileInfo.type,
+                size: draggedFileInfo.size,
+                dataUrl: draggedFileInfo.dataUrl,
+                position: dropPosition,
+                parentId: undefined, // Not in a folder
+                className: 'file-teleport-in' // Add animation class
+              };
+              
+              // Add it to the desktop files cache
+              queryClient.setQueryData(['/api/files'], {
+                files: [...desktopFiles.files, fileForDesktop]
+              });
+              
+              // Show toast notification
+              toast({
+                title: "Bestand verplaatst",
+                description: `"${draggedFileInfo.name}" is direct verplaatst naar het bureaublad.`,
+                duration: 2000
+              });
+            }
+          }
+          
           console.log(`⬇️ DESKTOP DROP POSITIE: ${dropPosition.x}, ${dropPosition.y}`);
           
-          // Verwijderen uit map en direct op bureaubladpositie plaatsen
+          // Verwijderen uit map en direct op bureaubladpositie plaatsen (update database)
           await removeFileFromFolder(fileId, dropPosition);
           console.log('File removed from folder and placed on desktop at position:', dropPosition);
-          
-          // Toon een toast-melding
-          toast({
-            title: "Bestand verplaatst",
-            description: "Bestand is verplaatst naar het bureaublad op de exacte plaats waar je het losliet.",
-            duration: 3000,
-          });
-        } catch (error) {
-          console.error('Error moving file to desktop:', error);
-          toast({
-            title: "Fout",
-            description: "Er ging iets mis bij het verplaatsen van het bestand.",
-            variant: "destructive"
-          });
         }
+      } catch (error) {
+        console.error('Error moving file to desktop:', error);
+        toast({
+          title: "Fout",
+          description: "Er ging iets mis bij het verplaatsen van het bestand.",
+          variant: "destructive"
+        });
       }
     }
   };
