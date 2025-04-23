@@ -368,31 +368,41 @@ export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderIte
   };
   
   return (
-    <div
-      className="folder-item flex items-center p-3 rounded-md hover:bg-gray-100 cursor-pointer border border-gray-200 mb-1 transition-all duration-150 bg-white select-none"
-      draggable="true"
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      onClick={handleFileClick}
-      onMouseDown={handleMouseDown}
-      data-file-id={file.id}
-      data-parent-folder={parentFolderId}
-      data-draggable="true"
-      title={`Sleep om dit bestand naar het bureaublad te verplaatsen: ${file.name}`}
-      style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none' }}
-    >
-      <div className="flex items-center gap-3 w-full select-none" style={{ pointerEvents: 'none' }}>
-        {getIcon()}
-        <div className="truncate font-medium text-sm select-none" style={{ pointerEvents: 'none' }}>{file.name}</div>
-      </div>
-      {/* Sleepindicator toevoegen */}
-      <div className="hidden ml-2 text-blue-500 drag-indicator select-none">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-          <polyline points="14 2 14 8 20 8"></polyline>
-          <line x1="12" y1="18" x2="12" y2="12"></line>
-          <line x1="9" y1="15" x2="15" y2="15"></line>
+    <div className="folder-item-container relative group">
+      {/* Drag handle (zichtbaar op hover) */}
+      <div 
+        className="absolute left-0 inset-y-0 flex items-center justify-center w-10 bg-blue-100/50 cursor-move opacity-0 group-hover:opacity-100 transition-all rounded-l-md z-10"
+        draggable="true"
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onMouseDown={handleMouseDown}
+        data-file-id={file.id}
+        data-parent-folder={parentFolderId}
+        data-drag-handle="true"
+        title="Sleep om te verplaatsen"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600">
+          <circle cx="8" cy="8" r="1.5"/>
+          <circle cx="8" cy="16" r="1.5"/>
+          <circle cx="16" cy="8" r="1.5"/>
+          <circle cx="16" cy="16" r="1.5"/>
         </svg>
+      </div>
+      
+      {/* Bestandsitem (klikbaar maar niet sleepbaar) */}
+      <div
+        className="folder-item flex items-center p-3 pl-10 rounded-md hover:bg-gray-100 border border-gray-200 mb-1 transition-all duration-150 bg-white"
+        onClick={handleFileClick}
+        data-file-id={file.id}
+        data-parent-folder={parentFolderId}
+        title={file.name}
+      >
+        <div className="flex items-center gap-3 w-full">
+          <div>
+            {getIcon()}
+          </div>
+          <div className="truncate font-medium text-sm">{file.name}</div>
+        </div>
       </div>
     </div>
   );

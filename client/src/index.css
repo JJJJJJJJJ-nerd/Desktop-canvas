@@ -419,6 +419,26 @@
     transform: scale(1.05);
     transition: all 0.2s ease-in-out;
   }
+  
+  /* Folder items met aparte drag handles */
+  .folder-item-container {
+    position: relative;
+    transition: all 0.2s ease;
+  }
+  
+  .folder-item-container:hover .drag-handle {
+    opacity: 1;
+  }
+  
+  .folder-item-container .drag-handle {
+    opacity: 0;
+    transition: all 0.15s ease;
+    border-right: 1px dashed #e5e7eb;
+  }
+  
+  .folder-item-container.dragging .folder-item {
+    background-color: #f3f4f6;
+  }
 
   @keyframes pulse-green {
     0% {
