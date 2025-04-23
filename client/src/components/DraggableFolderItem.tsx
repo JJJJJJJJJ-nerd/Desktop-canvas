@@ -160,12 +160,16 @@ export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderIte
     window._draggingFileFromFolder = false;
     window.draggedFileInfo = undefined;
     
-    // Verwijder de debug class van de body
-    document.body.classList.remove('dragging-file-in-progress');
+    // Verwijder de debug en no-select classes van de body
+    document.body.classList.remove('dragging-file-in-progress', 'no-select');
     
     // Verwijder eventuele resterende drag ghost elementen
     document.querySelectorAll('.drag-ghost').forEach(el => {
-      document.body.removeChild(el);
+      try {
+        document.body.removeChild(el);
+      } catch (err) {
+        // Element might already be removed
+      }
     });
     
     // Herstel normale cursor
@@ -279,6 +283,9 @@ export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderIte
 
   // Handmatig drag-event starten bij mousedown
   const handleMouseDown = (e: React.MouseEvent) => {
+    // Voorkom standaard tekstselectie gedrag
+    e.preventDefault();
+    
     // Als het niet de linker muisknop is, doe niets
     if (e.button !== 0) return;
     
@@ -304,8 +311,15 @@ export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderIte
     const element = e.currentTarget as HTMLElement;
     element.draggable = true;
     
+    // Directe visuele feedback dat je het bestand kunt slepen
+    document.body.style.cursor = 'grabbing';
+    element.style.cursor = 'grabbing';
+    
     // Zet ook een visueel teken dat dit element sleepbaar is
     element.classList.add('item-ready-to-drag');
+    
+    // Extra fix voor het voorkomen van tekstselectie
+    document.body.classList.add('no-select');
     
     // Stel een timer in die de cursor verandert om aan te geven dat je kunt slepen
     const timer = setTimeout(() => {
@@ -331,6 +345,14 @@ export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderIte
       clearTimeout(timer);
       element.classList.remove('item-ready-to-drag');
       element.style.cursor = '';
+      
+      // Ook cursor van het document resetten
+      document.body.style.cursor = '';
+      
+      // Verwijder de no-select class van body
+      document.body.classList.remove('no-select');
+      
+      // Verwijder alle event listeners
       window.removeEventListener('mouseup', cleanup);
       window.removeEventListener('mousemove', handleMouseMove);
       
@@ -347,7 +369,7 @@ export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderIte
   
   return (
     <div
-      className="folder-item flex items-center p-3 rounded-md hover:bg-gray-100 cursor-pointer border border-gray-200 mb-1 transition-all duration-150 bg-white"
+      className="folder-item flex items-center p-3 rounded-md hover:bg-gray-100 cursor-pointer border border-gray-200 mb-1 transition-all duration-150 bg-white select-none"
       draggable="true"
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
@@ -357,13 +379,14 @@ export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderIte
       data-parent-folder={parentFolderId}
       data-draggable="true"
       title={`Sleep om dit bestand naar het bureaublad te verplaatsen: ${file.name}`}
+      style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none' }}
     >
-      <div className="flex items-center gap-3 w-full">
+      <div className="flex items-center gap-3 w-full select-none" style={{ pointerEvents: 'none' }}>
         {getIcon()}
-        <div className="truncate font-medium text-sm">{file.name}</div>
+        <div className="truncate font-medium text-sm select-none" style={{ pointerEvents: 'none' }}>{file.name}</div>
       </div>
       {/* Sleepindicator toevoegen */}
-      <div className="hidden ml-2 text-blue-500 drag-indicator">
+      <div className="hidden ml-2 text-blue-500 drag-indicator select-none">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
           <polyline points="14 2 14 8 20 8"></polyline>
