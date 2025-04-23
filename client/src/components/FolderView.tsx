@@ -340,28 +340,18 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     fetchFiles();
   };
   
-  // NOODOPLOSSING: Gebruik van een static counter om oneindige lussen te voorkomen
-  // Maak een statische variabele die het aantal fetchFiles calls bijhoudt
-  // TS ignores nodig omdat we een static var toevoegen aan functiecomponent
-  // @ts-ignore
-  if (typeof FolderView.fetchCounter === 'undefined') {
-    // @ts-ignore
-    FolderView.fetchCounter = 0;
-  }
-
+  // Lokale variabele voor beter tracking van het aantal fetches
+  const fetchCountRef = useRef(0);
   // Eenmalige hardcoded limit
   const MAX_FETCH_CALLS = 2;
   
   const fetchFiles = async () => {
     // NOODREM: Direct terug als dit te vaak wordt aangeroepen, oneindige lus detectie
-    // @ts-ignore 
-    FolderView.fetchCounter++;
-    // @ts-ignore
-    console.log(`🔢 FetchCounter: ${FolderView.fetchCounter}`);
+    fetchCountRef.current++;
+    console.log(`🔢 FetchCounter: ${fetchCountRef.current}`);
     
-    // @ts-ignore
-    if (FolderView.fetchCounter > MAX_FETCH_CALLS) {
-      console.log(`⛔ NOODSTOP: Te veel fetchFiles calls (${FolderView.fetchCounter}), blokkeert verder calls`);
+    if (fetchCountRef.current > MAX_FETCH_CALLS) {
+      console.log(`⛔ NOODSTOP: Te veel fetchFiles calls (${fetchCountRef.current}), blokkeert verder calls`);
       setIsLoading(false);
       
       // HARD FIX: Toon bericht dat er een probleem was

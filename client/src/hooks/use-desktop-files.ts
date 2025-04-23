@@ -188,9 +188,18 @@ export function useDesktopFiles() {
     },
     onSuccess: (data) => {
       console.log('✅ Bestand', data.file.name, '(ID:', data.file.id, ') succesvol aan map toegevoegd');
-      // This is crucial - force invalidation of both desktop files and folder contents
+      
+      // Dit was het probleem! De invalidatie moet specifiek zijn
+      // We moeten EXPLICITLY de folderFilesKey invalideren met het specifieke folder ID
+      const folderId = data.file.parentId;
+      if (folderId) {
+        const folderFilesKey = [`/api/folders/${folderId}/files`];
+        console.log(`🔄 Vernieuwen van map inhoud voor map ID: ${folderId}`);
+        queryClient.invalidateQueries({ queryKey: folderFilesKey });
+      }
+      
+      // Ook de desktop bestanden vernieuwen
       queryClient.invalidateQueries({ queryKey: ['/api/files'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/folders'] });
     },
   });
   
