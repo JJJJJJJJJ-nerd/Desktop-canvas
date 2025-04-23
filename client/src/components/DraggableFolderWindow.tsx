@@ -25,12 +25,18 @@ export function DraggableFolderWindow({ folder, onClose, onDragEnd }: DraggableF
     position: { x: 0, y: 0 },
     dimensions: { width: 0, height: 0 }
   });
+  const [iframeLoading, setIframeLoading] = useState(true);
   
   const windowRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   
   // Iframe URL samenstellen
-  const iframeUrl = `/folder-content?folderId=${folder.id}&folderName=${encodeURIComponent(folder.name)}`;
+  const iframeUrl = `/folder-content?folderId=${folder.id}&folderName=${encodeURIComponent(folder.name)}&t=${Date.now()}`;
   
+  // Detecteer wanneer iframe geladen is
+  const handleIframeLoad = () => {
+    setIframeLoading(false);
+  };
   // Venster slepen
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!windowRef.current) return;
@@ -214,10 +220,48 @@ export function DraggableFolderWindow({ folder, onClose, onDragEnd }: DraggableF
       </div>
       
       <div style={styles.content}>
+        {iframeLoading && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'white',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 5
+          }}>
+            <div style={{ 
+              width: '40px', 
+              height: '40px', 
+              border: '4px solid #f3f3f3',
+              borderTop: '4px solid #3b82f6',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+              marginBottom: '10px'
+            }}></div>
+            <style>
+              {`
+                @keyframes spin {
+                  0% { transform: rotate(0deg); }
+                  100% { transform: rotate(360deg); }
+                }
+              `}
+            </style>
+            <div style={{ fontSize: '14px', color: '#666' }}>
+              Map "{folder.name}" wordt geladen...
+            </div>
+          </div>
+        )}
         <iframe 
+          ref={iframeRef}
           src={iframeUrl} 
           style={styles.iframe}
           title={`Map: ${folder.name}`}
+          onLoad={handleIframeLoad}
         />
       </div>
     </div>
