@@ -71,7 +71,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   // @ts-ignore - Custom property
   window._folderBeingDragged = dragging ? folder.id : null;
   
-  // Files ophalen voor deze map
+  // Files ophalen voor deze map - verbeterde versie met directe verwerking
   const fetchFiles = async () => {
     if (!folder.id) return;
     
@@ -81,25 +81,42 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       setIsRefreshing(true);
       const folderFilesKey = [`/api/folders/${folder.id}/files`];
       
-      // Haal altijd verse data op van de API
-      const response = await fetch(`/api/folders/${folder.id}/files`);
-      if (!response.ok) throw new Error('Failed to fetch folder files');
+      // Gebruik een cachebreaker om zeker verse data te krijgen
+      const timestamp = new Date().getTime();
+      const response = await fetch(`/api/folders/${folder.id}/files?_t=${timestamp}`);
+      
+      if (!response.ok) {
+        console.error(`HTTP Error ${response.status} bij ophalen mapinhoud`);
+        throw new Error(`Failed to fetch folder files: ${response.statusText}`);
+      }
       
       const data = await response.json();
       
-      console.log(`📂 FOLDER ${folder.id} DATA FETCHED: ${data.files.length} bestanden gevonden`);
+      console.log(`📂 FOLDER ${folder.id} DATA FETCHED: ${data.files?.length || 0} bestanden gevonden`);
+      console.log(`📄 RUWE DATA: ${JSON.stringify(data)}`);
+      
+      // Controleer of de data de verwachte structuur heeft
+      if (!data.files || !Array.isArray(data.files)) {
+        console.error("⚠️ Onverwachte datastructuur:", data);
+        // Maak een leeg array als fallback
+        data.files = [];
+      }
       
       // Update het cachegeheugen
-      queryClient.setQueryData(folderFilesKey, data);
+      queryClient.setQueryData(folderFilesKey, { files: data.files });
       
-      // Zet de bestanden in de lokale staat
-      setFiles(data.files);
+      // HIER IS DE WIJZIGING: Forceer een state update met een nieuw array
+      // React kan soms niet reageren op veranderingen in arrays/objecten zonder referentiewijziging
+      setFiles([...data.files]);
       
-      // Log voor debug
+      // Log de data voor debugging
       if (data.files.length > 0) {
-        console.log(`📄 FOLDER BEVAT: ${data.files.map((f: any) => f.name).join(', ')}`);
+        console.log(`📄 FOLDER INHOUD (${data.files.length}):`);
+        data.files.forEach((file: any, index: number) => {
+          console.log(`   ${index+1}. ${file.name} (ID: ${file.id})`);
+        });
       } else {
-        console.log(`📄 FOLDER IS LEEG`);
+        console.log(`📄 FOLDER IS LEEG (0 bestanden)`);
       }
       
       return data.files;
@@ -108,14 +125,18 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       setError(err instanceof Error ? err : new Error(String(err)));
       
       toast({
-        title: "Fout",
+        title: "Fout bij laden",
         description: "Kon de inhoud van de map niet laden",
         variant: "destructive"
       });
       return [];
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      // Een kleine vertraging voordat we de loading states resetten
+      // Zorgt ervoor dat React tijd heeft om de nieuwe data te verwerken
+      setTimeout(() => {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }, 300);
     }
   };
   
@@ -225,6 +246,32 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     
     return () => clearTimeout(timeoutId);
   }, [folder.id, folder.name]);
+  
+  // Debug en auto-refresh effect
+  useEffect(() => {
+    if (!folder.id) return;
+    
+    // Automatisch om de paar seconden verversen voor debugging
+    const debugInterval = setInterval(() => {
+      // Alleen debug logs, geen fetch om performance te sparen
+      console.log(`🔍 DEBUG Map ${folder.id}: huidige status: ${files.length} bestanden, loading: ${isLoading}`);
+      
+      // Force rendering debug
+      console.log(`🔍 CURRENT FILES IN STATE:`, files.map(f => `${f.name} (${f.id})`).join(', ') || 'Geen bestanden');
+      
+      // Log als in development mode
+      if (process.env.NODE_ENV === 'development') {
+        // Controleer of het DOM overeenkomt met de state
+        const folderContent = document.querySelector(`#folder-window-${folder.id} .grid`);
+        if (folderContent) {
+          const fileItems = folderContent.querySelectorAll('.file-item');
+          console.log(`🔍 DOM INHOUD: ${fileItems.length} bestand elementen in het DOM`);
+        }
+      }
+    }, 3000);
+    
+    return () => clearInterval(debugInterval);
+  }, [folder.id, files.length, isLoading]);
   
   // Handle the window/folder dragging
   useEffect(() => {
@@ -926,47 +973,66 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
           className="p-4 h-[calc(100%-48px)] overflow-auto bg-white/90"
           ref={dropAreaRef}
         >
-          {/* Show loading indicator within content area as fallback */}
-          {isLoading ? (
-            <div className="h-full flex flex-col items-center justify-center text-gray-500">
-              <div className="animate-spin h-12 w-12 border-4 border-gray-300 border-t-primary rounded-full mb-4"></div>
-              <p className="text-sm">Inhoud laden...</p>
-            </div>
-          ) : files.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-gray-500">
-              <div className="mb-4 bg-gray-100 p-4 rounded-full">
-                <FileX className="w-12 h-12 opacity-30" />
+          {/* We gebruiken een compleet andere aanpak die niet afhankelijk is van conditionele rendering */}
+          <div className="relative w-full h-full">
+            {/* Loading overlay - absolute positioned */}
+            {isLoading && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 z-10">
+                <div className="animate-spin h-12 w-12 border-4 border-gray-300 border-t-primary rounded-full mb-4"></div>
+                <p className="text-sm font-medium">Inhoud laden...</p>
               </div>
-              <p className="text-lg font-medium mb-1">Map is leeg</p>
-              <p className="text-sm mb-4">Sleep bestanden naar deze map</p>
+            )}
+            
+            {/* Empty state - only shown when not loading and no files */}
+            {!isLoading && files.length === 0 && (
+              <div className="h-full flex flex-col items-center justify-center text-gray-500">
+                <div className="mb-4 bg-gray-100 p-4 rounded-full">
+                  <FileX className="w-12 h-12 opacity-30" />
+                </div>
+                <p className="text-lg font-medium mb-1">Map is leeg</p>
+                <p className="text-sm mb-4">Sleep bestanden naar deze map</p>
+              </div>
+            )}
+            
+            {/* Files grid - always rendered, but can be empty */}
+            <div className={`grid grid-cols-4 gap-4 auto-rows-max ${(isLoading || files.length === 0) ? 'opacity-0' : 'opacity-100'}`}>
+              {files.map((file) => {
+                // Log alleen in ontwikkelomgeving
+                if (process.env.NODE_ENV === 'development') {
+                  // Gebruik console.log buiten JSX
+                  console.log(`🔍 RENDERING FILE: ${file.id} - ${file.name}`);
+                }
+                return (
+                  <FileItem
+                    key={file.id}
+                    file={file}
+                    index={file.id || 0}
+                    isSelected={selectedFileIds.includes(file.id || 0)}
+                    onSelect={() => {
+                      setSelectedFileIds(prev => 
+                        prev.includes(file.id || 0) 
+                          ? prev.filter(id => id !== file.id) 
+                          : [...prev, file.id || 0]
+                      );
+                    }}
+                    onDragEnd={(id, x, y) => {
+                      // Handle dragging inside folder (rearrangement) if needed
+                    }}
+                    onPreview={() => {
+                      // Handle previewing file
+                      onSelectFile(file);
+                    }}
+                    onRename={onRename}
+                  />
+                );
+              })}
             </div>
-          ) : (
-            <div className="grid grid-cols-4 gap-4 auto-rows-max">
-              {files.map((file) => (
-                <FileItem
-                  key={file.id}
-                  file={file}
-                  index={file.id || 0}
-                  isSelected={selectedFileIds.includes(file.id || 0)}
-                  onSelect={() => {
-                    setSelectedFileIds(prev => 
-                      prev.includes(file.id || 0) 
-                        ? prev.filter(id => id !== file.id) 
-                        : [...prev, file.id || 0]
-                    );
-                  }}
-                  onDragEnd={(id, x, y) => {
-                    // Handle dragging inside folder (rearrangement) if needed
-                  }}
-                  onPreview={() => {
-                    // Handle previewing file
-                    onSelectFile(file);
-                  }}
-                  onRename={onRename}
-                />
-              ))}
+            
+            {/* Force manual file debug here */}
+            <div className="hidden">
+              Debug info: {files.length > 0 ? `Files: ${files.map(f => f.name).join(', ')}` : 'No files'}
             </div>
-          )}
+          </div>
         </div>
       </div>
 

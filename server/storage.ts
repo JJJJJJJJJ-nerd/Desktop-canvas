@@ -135,10 +135,27 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getFilesInFolder(folderId: number): Promise<DesktopFileDB[]> {
-    return db
-      .select()
-      .from(desktopFiles)
-      .where(eq(desktopFiles.parentId, folderId));
+    try {
+      if (isNaN(folderId) || folderId <= 0) {
+        console.error(`⚠️ Ongeldige folder ID ontvangen: ${folderId}`);
+        return [];
+      }
+      
+      console.log(`🔍 DATABASE: Ophalen bestanden voor map ${folderId}`);
+      
+      const files = await db
+        .select()
+        .from(desktopFiles)
+        .where(eq(desktopFiles.parentId, folderId));
+      
+      console.log(`📊 DATABASE: ${files.length} bestanden gevonden in map ${folderId}`);
+      
+      return files;
+    } catch (error) {
+      console.error(`❌ DATABASE ERROR bij ophalen bestanden in map ${folderId}:`, error);
+      // Geef een leeg array terug in geval van fouten
+      return [];
+    }
   }
   
   async removeFileFromFolder(fileId: number): Promise<DesktopFileDB | undefined> {

@@ -277,16 +277,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Get files in a folder
+  // Get files in a folder (VERBETERD)
   app.get('/api/folders/:folderId/files', async (req, res) => {
     try {
       const folderId = parseInt(req.params.folderId);
-      const files = await storage.getFilesInFolder(folderId);
+      if (isNaN(folderId)) {
+        console.error('Invalid folder ID:', req.params.folderId);
+        return res.status(400).json({ message: 'Invalid folder ID', files: [] });
+      }
       
-      return res.status(200).json({ files });
+      console.log(`📂 API REQUEST: Ophalen bestanden voor map ${folderId}`);
+      
+      // Haal bestanden op
+      const files = await storage.getFilesInFolder(folderId);
+      console.log(`📄 MAP ${folderId} BEVAT ${files.length} BESTANDEN:`, 
+        files.map(f => `${f.name} (ID:${f.id})`).join(', '));
+      
+      // Ververs WebSocket clients met deze data
+      try {
+        await broadcastFolderUpdate(folderId);
+      } catch (wsError) {
+        console.error('Error broadcasting folder update via WebSocket:', wsError);
+        // Dit is niet kritiek, dus we laten de request doorgaan
+      }
+      
+      return res.status(200).json({ 
+        files,
+        message: `Successfully retrieved ${files.length} files from folder ${folderId}`
+      });
     } catch (error) {
       console.error('Error getting files from folder:', error);
-      return res.status(500).json({ message: 'Error getting files from folder' });
+      return res.status(500).json({ 
+        message: 'Error getting files from folder', 
+        error: String(error),
+        files: [] // Verstuur een leeg array als fallback
+      });
     }
   });
   
