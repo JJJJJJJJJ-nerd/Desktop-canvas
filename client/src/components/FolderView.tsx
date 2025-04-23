@@ -1402,8 +1402,11 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                             });
                           }
                           
+                          // Forceer de folder state update
                           // Force refetch the folder files to ensure UI is updated
                           setTimeout(() => {
+                            // Dubbele refresh - echt zorgen dat de UI de server state weergeeft
+                            queryClient.invalidateQueries({ queryKey: folderFilesKey });
                             fetchFiles();
                           }, 50);
                           
@@ -1435,10 +1438,32 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                               .then(() => {
                                 console.log(`✅ Database synchronized: File ${file.name} moved to desktop`);
                                 // Force refresh folder contents to ensure it's synced with database
-                                setTimeout(() => fetchFiles(), 200);
+                                setTimeout(() => {
+                                  // Forceer een COMPLETE refresh
+                                  queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+                                  queryClient.invalidateQueries({ queryKey: folderFilesKey });
+                                  
+                                  // En dan nog eens de folder content vernieuwen
+                                  fetchFiles();
+                                  
+                                  // Zorgen dat het bestand ook echt verwijderd is uit de UI
+                                  setFiles(currentFiles => currentFiles.filter(f => f.id !== file.id));
+                                }, 200);
                               })
                               .catch(error => {
                                 console.error('Error syncing database after UI update:', error);
+                                
+                                // Bij fouten forceren we een volledige refresh
+                                toast({
+                                  title: "Synchronisatieprobleem",
+                                  description: "Er was een probleem bij het verwijderen van het bestand. De weergave wordt ververst.",
+                                  variant: "destructive"
+                                });
+                                
+                                // Forceer een nieuwe data ophaal van zowel bureaublad als folder
+                                queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+                                queryClient.invalidateQueries({ queryKey: folderFilesKey });
+                                fetchFiles();
                               });
                           }
                         }
