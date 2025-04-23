@@ -5,6 +5,7 @@ import { FileItem } from "@/components/FileItem";
 import { FilePreviewModal } from "@/components/FilePreviewModal";
 import { WindowItem } from "@/components/WindowItem";
 import { FolderView } from "@/components/FolderView";
+import { BasicFolderView } from "@/components/BasicFolderView"; // TIJDELIJK: Vereenvoudigde mapweergave voor testen
 import { EmptyState } from "@/components/EmptyState";
 import { useDesktopFiles } from "@/hooks/use-desktop-files";
 import { DesktopFile } from "@/types";
@@ -1087,8 +1088,19 @@ export default function Desktop() {
                   
                   const file = files[fileIndex];
                   
-                  // Check if this is a folder
+                  // Check if this is a folder 
                   if (file.isFolder === 'true') {
+                    // TIJDELIJK: Gebruik de eenvoudige mapweergave voor testen
+                    return (
+                      <BasicFolderView
+                        key={`folder-${fileId}`}
+                        folder={file}
+                        onClose={() => closeWindowFile(fileId)}
+                      />
+                    );
+                    
+                    // Oorspronkelijke implementatie (uitgecommentarieerd)
+                    /*
                     return (
                       <FolderView
                         key={`folder-${fileId}`}
@@ -1098,6 +1110,7 @@ export default function Desktop() {
                         onRename={updateFileName}
                       />
                     );
+                    */
                   }
                   
                   // Regular file window
