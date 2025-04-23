@@ -1308,9 +1308,11 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                             });
                             
                             // THEN update the database via API
-                            removeFileFromFolder(file.id, mousePosition)
+                            removeFileFromFolder(file.id, mousePosition, folder.id)
                               .then(() => {
                                 console.log(`✅ Database synchronized: File ${file.name} moved to desktop`);
+                                // Force refresh folder contents to ensure it's synced with database
+                                setTimeout(() => fetchFiles(), 200);
                               })
                               .catch(error => {
                                 console.error('Error syncing database after UI update:', error);
@@ -1322,14 +1324,16 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                       console.error("Error updating UI before database:", error);
                       
                       // Fallback to direct API call if cache update fails
-                      removeFileFromFolder(file.id, mousePosition)
+                      removeFileFromFolder(file.id, mousePosition, folder.id)
                         .then(() => {
                           toast({
                             title: "Bestand verplaatst",
                             description: `"${file.name}" is verplaatst naar het bureaublad.`,
                           });
                           
+                          // Refresh both the desktop files and folder contents
                           queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+                          queryClient.invalidateQueries({ queryKey: [`/api/folders/${folder.id}/files`] });
                           fetchFiles();
                         })
                         .catch(err => console.error('Fout bij verplaatsen bestand naar bureaublad:', err));

@@ -413,10 +413,15 @@ export function useDesktopFiles() {
   // Remove a file from a folder, optionally with a new desktop position
   const removeFileFromFolder = async (
     fileId: number, 
-    position?: { x: number; y: number }
+    position?: { x: number; y: number },
+    parentId?: number
   ) => {
     try {
-      return await removeFileFromFolderMutation.mutateAsync({ fileId, position });
+      return await removeFileFromFolderMutation.mutateAsync({ 
+        fileId, 
+        position,
+        parentId 
+      });
     } catch (error) {
       console.error('Error removing file from folder:', error);
     }
