@@ -1229,6 +1229,17 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
           boxShadow: isDraggingOver ? 'inset 0 0 20px rgba(34, 197, 94, 0.4)' : 'none'
         }}
       >
+        {/* Loading overlay for file drag operations, appears for 0.5 seconds */}
+        {isRefreshing && (
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-50 animate-in fade-in duration-300">
+            <div className="bg-white p-6 rounded-lg shadow-lg border border-primary/20 flex flex-col items-center">
+              <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-1">Map Vernieuwen</h3>
+              <p className="text-sm text-gray-500">Inhoud wordt bijgewerkt...</p>
+            </div>
+          </div>
+        )}
+        
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin border-2 border-primary/20 border-t-primary rounded-full w-6 h-6"></div>
@@ -1470,6 +1481,13 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                   // @ts-ignore - Custom property
                   if (window._draggingFileToDesktop && file.id) {
                     console.log(`📤 DRAG TO DESKTOP: File ${file.name} (ID: ${file.id}) wordt naar bureaublad gesleept`);
+                    
+                    // Toon laadanimatie voor 0.5 seconden
+                    setIsRefreshing(true);
+                    // Instellen van een timer om de laadanimatie te verbergen na 0.5 seconden
+                    setTimeout(() => {
+                      setIsRefreshing(false);
+                    }, 500);
                     
                     // Bepaal de positie waar het bestand zou moeten komen
                     // Gebruik bij voorkeur de laatst bekende positie op het bureaublad (veel nauwkeuriger)
