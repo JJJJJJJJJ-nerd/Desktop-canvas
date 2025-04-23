@@ -346,15 +346,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const fileId = parseInt(req.params.fileId);
       
-      // Controleer of er een positie is meegegeven in de request body
-      let validPosition = undefined;
+      console.log(`📤 API: Verwijderen van bestand ${fileId} uit map`);
       
-      // Start met positie uit request body als er één is
+      // Haal zowel positie als parent ID uit de request body
+      let validPosition = undefined;
+      let parentFolderId = undefined;
+      
+      // Controleer en valideer positie
       if (req.body?.position) {
-        console.log(`📤 API: Verwijderen van bestand ${fileId} uit map`);
         console.log(`🖱️ Met aangevraagde positie: x=${req.body.position.x}, y=${req.body.position.y}`);
         
-        // Valideer de positie
         const positionSchema = z.object({
           x: z.number(),
           y: z.number()
@@ -367,8 +368,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else {
           console.error(`⚠️ Ongeldige positie ontvangen:`, req.body.position);
         }
+      }
+      
+      // Controleer parent ID
+      if (req.body?.parentId) {
+        parentFolderId = parseInt(req.body.parentId);
+        if (!isNaN(parentFolderId)) {
+          console.log(`📂 Bestand wordt verwijderd uit map ${parentFolderId}`);
+        } else {
+          console.error(`⚠️ Ongeldige parent ID ontvangen:`, req.body.parentId);
+          parentFolderId = undefined;
+        }
       } else {
-        console.log(`📤 API: Verwijderen van bestand ${fileId} uit map zonder positie`);
+        console.log(`📤 Geen parent ID opgegeven voor het bestand`);
       }
       
       // Verwijder het bestand uit de map met de nieuwe positie in één operatie
@@ -382,7 +394,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`✅ Bestand ${updatedFile.name} (ID: ${updatedFile.id}) succesvol uit map verwijderd`);
       console.log(`   ${validPosition ? `en geplaatst op positie (${validPosition.x}, ${validPosition.y})` : 'zonder positie-update'}`);
       
-      return res.status(200).json({ file: updatedFile });
+      // Als er een parentId was meegegeven, trigger een broadcast om die map te verversen
+      if (parentFolderId) {
+        try {
+          console.log(`🔄 Sending folder update broadcast voor map ${parentFolderId}`);
+          await broadcastFolderUpdate(parentFolderId);
+        } catch (err) {
+          console.error(`❌ Fout bij broadcast van mapupdate na verwijderen bestand:`, err);
+        }
+      }
+      
+      return res.status(200).json({ file: updatedFile, parentId: parentFolderId });
     } catch (error) {
       console.error('❌ Error removing file from folder:', error);
       return res.status(500).json({ message: 'Error removing file from folder' });

@@ -299,11 +299,18 @@ export function useDesktopFiles() {
       
       return result;
     },
-    onSuccess: () => {
-      // Light refresh to ensure data is consistent
+    onSuccess: (data) => {
+      // Vernieuw bestanden op het bureaublad
       queryClient.invalidateQueries({ queryKey: ['/api/files'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/folders'] });
-      console.log('Removed file from folder and invalidated queries');
+      
+      // Als er een parentId was, invalideer die mapinhoud
+      if (data.parentId) {
+        const folderFilesKey = [`/api/folders/${data.parentId}/files`];
+        console.log(`🔄 Vernieuwen van mapinhoud voor map ID: ${data.parentId}`);
+        queryClient.invalidateQueries({ queryKey: folderFilesKey });
+      }
+      
+      console.log('✅ Bestand succesvol uit map verwijderd en queries vernieuwd');
     },
   });
 
