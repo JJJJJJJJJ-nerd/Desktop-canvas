@@ -17,30 +17,14 @@ export default function FolderContentPage() {
       return;
     }
     
-    // Bestanden ophalen met optimalisaties
+    // Bestanden ophalen
     const fetchFiles = async () => {
       try {
-        console.log(`FolderContentPage: Ophalen van bestanden voor map ${folderId}`);
-        
-        const cacheParam = Date.now();
-        const response = await fetch(`/api/folders/${folderId}/files?t=${cacheParam}`);
-        
-        if (!response.ok) {
-          throw new Error(`Server reageerde met status ${response.status}`);
-        }
-        
+        const response = await fetch(`/api/folders/${folderId}/files?t=${Date.now()}`);
         const data = await response.json();
         
         if (data && Array.isArray(data.files)) {
-          console.log(`Mapinhoud geladen: ${data.files.length} bestanden gevonden`);
           setFiles(data.files);
-          
-          // Informeer parent window dat we klaar zijn met laden
-          window.parent.postMessage({ 
-            type: 'FOLDER_CONTENT_LOADED',
-            folderId,
-            fileCount: data.files.length 
-          }, '*');
         } else {
           setError('Ongeldig antwoord van server');
         }
@@ -52,11 +36,10 @@ export default function FolderContentPage() {
       }
     };
     
-    // Onmiddellijk ophalen bij laden
     fetchFiles();
     
-    // Niet te vaak verversen - elke 10 seconden is genoeg
-    const interval = setInterval(fetchFiles, 10000);
+    // Ververs elke 5 seconden
+    const interval = setInterval(fetchFiles, 5000);
     
     // Cleanup
     return () => clearInterval(interval);

@@ -81,27 +81,6 @@ export default function Desktop() {
     removeFileFromFolder,
     updateFileName,
   } = useDesktopFiles();
-  
-  // Een eenvoudiger preload mechanisme dat alleen actief wordt bij het openen van een map
-  const preloadedFolders = useRef<Set<number>>(new Set());
-  
-  // Preload functie die alleen wordt aangeroepen wanneer nodig
-  const preloadFolderContents = useCallback(async (folderId: number) => {
-    // Voorkom dubbel laden
-    if (preloadedFolders.current.has(folderId)) {
-      return;
-    }
-    
-    // Markeer als gepreload
-    preloadedFolders.current.add(folderId);
-    
-    try {
-      console.log(`Preloading folder ID: ${folderId}`);
-      await fetch(`/api/folders/${folderId}/files?t=${Date.now()}`);
-    } catch (err) {
-      console.error(`Error preloading folder: ${folderId}`, err);
-    }
-  }, []);
   const [previewFile, setPreviewFile] = useState<DesktopFile | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);

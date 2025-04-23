@@ -1,5 +1,5 @@
 // Zeer eenvoudige iframe-gebaseerde map viewer - werkt altijd
-import React, { useEffect } from 'react';
+import React from 'react';
 import { DesktopFile } from '@/types';
 import { Button } from './ui/button';
 import { X, Folder } from 'lucide-react';
@@ -16,29 +16,8 @@ export function FolderIframe({ folder, onClose }: FolderIframeProps) {
     return null;
   }
   
-  // Pre-load de mapinhoud wanneer we deze component renderen
-  useEffect(() => {
-    // Direct prefetchen van de mapinhoud voor betere prestaties
-    const prefetchFolderContent = async () => {
-      try {
-        console.log(`🔄 Prefetching folder content for ID: ${folder.id}`);
-        const cacheParam = Date.now(); // Cache-busting parameter
-        const response = await fetch(`/api/folders/${folder.id}/files?t=${cacheParam}`);
-        if (response.ok) {
-          const data = await response.json();
-          console.log(`✅ Prefetched folder ${folder.name} content with ${data.files?.length || 0} files`);
-        }
-      } catch (err) {
-        console.error(`❌ Error prefetching folder content:`, err);
-      }
-    };
-    
-    prefetchFolderContent();
-  }, [folder.id, folder.name]);
-  
-  // Iframe URL samenstellen met cache-busting parameter
-  const cacheParam = Date.now();
-  const iframeUrl = `/folder-content?folderId=${folder.id}&folderName=${encodeURIComponent(folder.name)}&t=${cacheParam}`;
+  // Iframe URL samenstellen
+  const iframeUrl = `/folder-content?folderId=${folder.id}&folderName=${encodeURIComponent(folder.name)}`;
   console.log('IFRAME URL:', iframeUrl);
   
   // Styling voor de map interface
@@ -104,7 +83,7 @@ export function FolderIframe({ folder, onClose }: FolderIframeProps) {
         <div style={styles.header}>
           <div style={styles.title}>
             <Folder size={18} />
-            <span>{folder.name}</span>
+            <span>{folder.name} (ID: {folder.id})</span>
           </div>
           <Button 
             variant="ghost" 

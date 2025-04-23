@@ -13,7 +13,7 @@ export function useDesktopFiles() {
   const queryClient = useQueryClient();
   
   // Fetch files from API
-  const { data, isLoading, error, refetch } = useQuery<ApiResponse>({
+  const { data, isLoading, error } = useQuery<ApiResponse>({
     queryKey: ['/api/files'],
     refetchOnWindowFocus: false,
   });
@@ -476,7 +476,6 @@ export function useDesktopFiles() {
     selectedFile,
     isLoading,
     error,
-    refetch,
     addFiles,
     updateFilePosition,
     updateFileDimensions,
