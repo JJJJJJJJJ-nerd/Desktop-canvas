@@ -28,7 +28,7 @@ export interface IStorage {
   createFolder(name: string, position: { x: number, y: number }, userId?: number): Promise<DesktopFileDB>;
   addFileToFolder(fileId: number, folderId: number): Promise<DesktopFileDB | undefined>;
   getFilesInFolder(folderId: number): Promise<DesktopFileDB[]>;
-  removeFileFromFolder(fileId: number): Promise<DesktopFileDB | undefined>;
+  removeFileFromFolder(fileId: number, position?: { x: number, y: number }): Promise<DesktopFileDB | undefined>;
   updateFileName(id: number, name: string): Promise<DesktopFileDB | undefined>;
 }
 
@@ -158,13 +158,33 @@ export class DatabaseStorage implements IStorage {
     }
   }
   
-  async removeFileFromFolder(fileId: number): Promise<DesktopFileDB | undefined> {
-    const [updatedFile] = await db
-      .update(desktopFiles)
-      .set({ parentId: null })
-      .where(eq(desktopFiles.id, fileId))
-      .returning();
-    return updatedFile || undefined;
+  async removeFileFromFolder(fileId: number, position?: { x: number, y: number }): Promise<DesktopFileDB | undefined> {
+    try {
+      console.log(`🔄 DATABASE: Removing file ${fileId} from folder${position ? ` and placing at position (${position.x}, ${position.y})` : ''}`);
+      
+      // Update set object that always includes parentId: null
+      const updateSet: Partial<typeof desktopFiles.$inferInsert> = { 
+        parentId: null 
+      };
+      
+      // Add position if provided
+      if (position) {
+        updateSet.position = position;
+      }
+      
+      // Perform the update
+      const [updatedFile] = await db
+        .update(desktopFiles)
+        .set(updateSet)
+        .where(eq(desktopFiles.id, fileId))
+        .returning();
+        
+      console.log(`✅ DATABASE: File ${fileId} successfully removed from folder${position ? ' and position updated' : ''}`);
+      return updatedFile || undefined;
+    } catch (error) {
+      console.error(`❌ DATABASE ERROR removing file ${fileId} from folder:`, error);
+      return undefined;
+    }
   }
   
   async updateFileName(id: number, name: string): Promise<DesktopFileDB | undefined> {
