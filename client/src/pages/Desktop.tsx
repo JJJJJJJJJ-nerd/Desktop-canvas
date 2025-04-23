@@ -64,12 +64,46 @@ function areFilesOverlapping(file1Element: HTMLElement, file2Element: HTMLElemen
 }
 
 export default function Desktop() {
+  // Preload folder contents whenever a folder is visible on desktop
+  useEffect(() => {
+    // Preload contents of all visible folders
+    const preloadFolderContents = async () => {
+      // Filter out only folder types
+      const folderFiles = files.filter(file => 
+        file.type === 'folder' || 
+        file.type === 'application/folder' || 
+        file.isFolder === 'true'
+      );
+      
+      if (folderFiles.length > 0) {
+        console.log(`Preloading contents for ${folderFiles.length} folders in desktop view`);
+        
+        // Preload each folder's contents
+        for (const folder of folderFiles) {
+          if (folder.id) {
+            try {
+              console.log(`Preloading content for folder ID: ${folder.id} (${folder.name})`);
+              await fetch(`/api/folders/${folder.id}/files?t=${Date.now()}`);
+            } catch (err) {
+              console.error(`Error preloading contents for folder ID ${folder.id}:`, err);
+            }
+          }
+        }
+      }
+    };
+    
+    // Run preload on initial load and whenever files list changes
+    if (files.length > 0) {
+      preloadFolderContents();
+    }
+  }, [files]);
   const { toast } = useToast();
   const {
     files,
     selectedFile,
     isLoading,
     error,
+    refetch,
     addFiles,
     updateFilePosition,
     updateFileDimensions,
