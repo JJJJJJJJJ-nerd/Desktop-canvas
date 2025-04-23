@@ -127,16 +127,32 @@ export default function Desktop() {
     e.preventDefault();
     setIsDraggingOver(true);
     
-    // Signaleer dat we over het bureaublad zweven - zodat bestanden uit open mappen naar hier gesleept kunnen worden
+    // Controleer of een element wordt gesleept vanuit een map en signaleer dat we over het bureaublad zweven
     // @ts-ignore - Custom property
     window._draggingFileToDesktop = true;
     
-    // Bewaar de huidige muispositie voor gebruik als droplocatie bij slepen vanuit mappen
-    // @ts-ignore - Custom property
-    window._desktopDragPosition = {
-      x: e.clientX,
-      y: e.clientY
-    };
+    // Update elke keer de desktopDragPosition - dit is belangrijk voor nauwkeurige positionering
+    const canvasRect = canvasRef.current?.getBoundingClientRect();
+    if (canvasRect) {
+      // Bereken de relatieve positie binnen het canvas gebied
+      const relativeX = e.clientX - canvasRect.left;
+      const relativeY = e.clientY - canvasRect.top;
+      
+      // @ts-ignore - Custom property
+      window._desktopDragPosition = {
+        x: relativeX,
+        y: relativeY
+      };
+      
+      console.log(`🖱️ Desktop drag positie bijgewerkt naar: ${relativeX}, ${relativeY}`);
+    } else {
+      // Fallback naar clientX/Y als we de canvasRect niet kunnen krijgen
+      // @ts-ignore - Custom property
+      window._desktopDragPosition = {
+        x: e.clientX,
+        y: e.clientY
+      };
+    }
     
     // Set cursor to indicate we can drop here
     e.dataTransfer.dropEffect = 'move';
@@ -179,10 +195,33 @@ export default function Desktop() {
           const draggedFileInfo = window.draggedFileInfo;
           
           // Determine the exact drop position on the desktop
-          const dropPosition = {
-            x: e.clientX,
-            y: e.clientY
-          };
+          let dropPosition;
+          
+          // First, check if we have a stored position from dragOver events (meer nauwkeurig)
+          // @ts-ignore - Custom property
+          const storedPosition = window._desktopDragPosition;
+          
+          if (storedPosition) {
+            dropPosition = storedPosition;
+            console.log('🎯 Using precise position from drag tracking: ', dropPosition);
+          } else {
+            // Get relative position within canvas as fallback
+            const canvasRect = canvasRef.current?.getBoundingClientRect();
+            if (canvasRect) {
+              dropPosition = {
+                x: e.clientX - canvasRect.left,
+                y: e.clientY - canvasRect.top
+              };
+              console.log('🎯 Using calculated position from drop event: ', dropPosition);
+            } else {
+              // Last resort fallback
+              dropPosition = {
+                x: e.clientX,
+                y: e.clientY
+              };
+              console.log('⚠️ Using absolute position as fallback: ', dropPosition);
+            }
+          }
           
           // Update UI immediately before API call for instant feedback
           if (draggedFileInfo && draggedFileInfo.fromFolder) {
@@ -221,6 +260,14 @@ export default function Desktop() {
           // Verwijderen uit map en direct op bureaubladpositie plaatsen (update database)
           await removeFileFromFolder(fileId, dropPosition);
           console.log('File removed from folder and placed on desktop at position:', dropPosition);
+          
+          // Reset drag trackers
+          // @ts-ignore - Custom property
+          window._draggingFileToDesktop = false;
+          // @ts-ignore - Custom property
+          window._desktopDragPosition = undefined;
+          // @ts-ignore - Custom property
+          window.draggedFileInfo = undefined;
         }
       } catch (error) {
         console.error('Error moving file to desktop:', error);

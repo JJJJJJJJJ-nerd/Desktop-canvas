@@ -1327,11 +1327,40 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                     e.dataTransfer.effectAllowed = 'move';
                     console.log(`🔄 Start sleepactie voor bestand ${file.name} (ID: ${file.id})`);
                     
+                    // Create drag image to show during drag operation
+                    const dragImage = document.createElement('div');
+                    dragImage.className = 'drag-preview';
+                    dragImage.innerHTML = `
+                      <div class="file-item-preview" style="padding: 10px; background: white; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 8px;">
+                        <div class="bg-blue-100 text-blue-600 w-10 h-10 flex items-center justify-center rounded">
+                          <span class="text-xs font-bold">${file.name.split('.').pop()?.toUpperCase() || ''}</span>
+                        </div>
+                        <span class="text-sm font-medium">${file.name}</span>
+                      </div>
+                    `;
+                    document.body.appendChild(dragImage);
+                    
+                    // Zet het drag image op de cursor
+                    try {
+                      e.dataTransfer.setDragImage(dragImage, 25, 25);
+                      
+                      // Verwijder het drag image element na een korte tijd
+                      setTimeout(() => {
+                        document.body.removeChild(dragImage);
+                      }, 100);
+                    } catch (err) {
+                      console.log('Fout bij setDragImage:', err);
+                      // Fallback als setDragImage niet werkt
+                      if (document.body.contains(dragImage)) {
+                        document.body.removeChild(dragImage);
+                      }
+                    }
+                    
                     // Add classes to show we're dragging with consistent styling
                     e.currentTarget.classList.add('opacity-50');
                     e.currentTarget.style.visibility = 'hidden'; // Verstop het bestand visueel
                     
-                    // Store a reference to the dragged file for the desktop to use
+                    // Store a reference to the dragged file for the desktop to use (VERBETERD)
                     // @ts-ignore - Custom property
                     window.draggedFileInfo = {
                       id: file.id,
@@ -1342,7 +1371,8 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                       isFolder: false,
                       fromFolder: true,
                       parentFolderId: folder.id,
-                      element: e.currentTarget
+                      element: e.currentTarget,
+                      dragStartTimestamp: Date.now()
                     };
                     
                     // TIJDELIJKE UI UPDATE - Maak het bestand visueel onzichtbaar tijdens slepen
