@@ -354,6 +354,26 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   // Loading state voor laadeffect bij file verplaatsingen
   const [isRefreshing, setIsRefreshing] = useState(false);
   
+  // Effect om de refreshing state automatisch uit te schakelen na een bepaalde tijd
+  // Dit voorkomt dat de laadanimatie oneindig blijft doorgaan bij een eventuele fout
+  useEffect(() => {
+    let refreshTimer: NodeJS.Timeout | null = null;
+    
+    if (isRefreshing) {
+      console.log('🔄 REFRESH ANIMATION: Starting 1-second safety timer');
+      refreshTimer = setTimeout(() => {
+        setIsRefreshing(false);
+        console.log('🛑 REFRESH ANIMATION: Safety timeout reached, forcing animation to stop');
+      }, 1000); // Max 1 second animation, als fallback
+    }
+    
+    return () => {
+      if (refreshTimer) {
+        clearTimeout(refreshTimer);
+      }
+    };
+  }, [isRefreshing]);
+  
   const fetchFiles = async () => {
     // Reset fetch counter bij expliciet aanroepen (niet bij auto-refresh)
     console.log(`🔢 FetchCounter: ${fetchCountRef.current}`);
@@ -1238,7 +1258,11 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       >
         {/* Loading overlay for file drag operations, appears for 0.5 seconds */}
         {isRefreshing && (
-          <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-50 animate-in fade-in duration-300">
+          <div className="fixed top-0 left-0 right-0 bottom-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-[9999]" style={{
+            animation: "fadeIn 0.3s ease forwards",
+            position: "absolute",
+            inset: 0,
+          }}>
             <div className="bg-white p-6 rounded-lg shadow-lg border border-primary/20 flex flex-col items-center">
               <div className="h-10 w-10 animate-spin text-primary mb-4 border-2 border-primary/20 border-t-primary rounded-full" />
               <h3 className="text-lg font-medium text-gray-900 mb-1">Map Vernieuwen</h3>

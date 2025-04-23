@@ -49,6 +49,17 @@
   }
 }
 
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    backdrop-filter: blur(4px);
+  }
+}
+
 @keyframes folder-highlight {
   0% {
     transform: scale(1);
