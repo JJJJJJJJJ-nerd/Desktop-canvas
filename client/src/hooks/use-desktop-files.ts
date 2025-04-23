@@ -476,6 +476,7 @@ export function useDesktopFiles() {
     selectedFile,
     isLoading,
     error,
+    refetch,
     addFiles,
     updateFilePosition,
     updateFileDimensions,

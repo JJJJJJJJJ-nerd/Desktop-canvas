@@ -64,37 +64,40 @@ function areFilesOverlapping(file1Element: HTMLElement, file2Element: HTMLElemen
 }
 
 export default function Desktop() {
-  // Preload folder contents whenever a folder is visible on desktop
+  // Preload folder contents after the component is fully mounted and files are available
   useEffect(() => {
-    // Preload contents of all visible folders
-    const preloadFolderContents = async () => {
-      // Filter out only folder types
+    if (files.length > 0) {
+      // Find all folder type files on the desktop
       const folderFiles = files.filter(file => 
-        file.type === 'folder' || 
-        file.type === 'application/folder' || 
-        file.isFolder === 'true'
+        !file.parentId && // Only consider files on desktop
+        (file.type === 'folder' || 
+         file.type === 'application/folder' || 
+         file.isFolder === 'true')
       );
       
       if (folderFiles.length > 0) {
-        console.log(`Preloading contents for ${folderFiles.length} folders in desktop view`);
+        console.log(`Preloading contents for ${folderFiles.length} folders on desktop`);
         
-        // Preload each folder's contents
-        for (const folder of folderFiles) {
+        // Preload each folder's contents in sequence with a small delay to not overload the server
+        const preloadNextFolder = async (index = 0) => {
+          if (index >= folderFiles.length) return;
+          
+          const folder = folderFiles[index];
           if (folder.id) {
             try {
-              console.log(`Preloading content for folder ID: ${folder.id} (${folder.name})`);
               await fetch(`/api/folders/${folder.id}/files?t=${Date.now()}`);
+              console.log(`Preloaded folder ${folder.name} (${folder.id})`);
             } catch (err) {
-              console.error(`Error preloading contents for folder ID ${folder.id}:`, err);
+              console.error(`Error preloading folder ${folder.id}:`, err);
             }
           }
-        }
+          
+          // Small delay before loading the next folder
+          setTimeout(() => preloadNextFolder(index + 1), 100);
+        };
+        
+        preloadNextFolder();
       }
-    };
-    
-    // Run preload on initial load and whenever files list changes
-    if (files.length > 0) {
-      preloadFolderContents();
     }
   }, [files]);
   const { toast } = useToast();
@@ -103,7 +106,6 @@ export default function Desktop() {
     selectedFile,
     isLoading,
     error,
-    refetch,
     addFiles,
     updateFilePosition,
     updateFileDimensions,
