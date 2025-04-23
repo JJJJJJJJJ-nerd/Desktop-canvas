@@ -433,6 +433,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     console.log(`🔢 FetchCounter: ${fetchCountRef.current}`);
     
     // Voeg deze check alleen toe voor auto-refreshes
+    // @ts-ignore - Custom window property
     if (fetchCountRef.current > MAX_FETCH_CALLS && !window._lastFolderUpdateRequest) {
       console.log(`⛔ NOODSTOP: Te veel fetchFiles calls (${fetchCountRef.current}), blokkeert verder calls`);
       setIsLoading(false);
@@ -842,24 +843,6 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       const folderElement = document.getElementById(`folder-window-${folder.id}`);
       if (!folderElement) return;
       
-      // Create a visible drop indicator that appears when dragging
-      const dropIndicator = document.createElement('div');
-      dropIndicator.className = 'central-dropzone'; // Using our enhanced central dropzone style
-      dropIndicator.innerHTML = `
-        <div class="flex items-center justify-center mb-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-            <path d="M12 11v6"></path>
-            <path d="m9 14 3 3 3-3"></path>
-          </svg>
-        </div>
-        <p class="text-green-700 font-medium text-sm text-center mb-1">Drop files here</p>
-        <p class="text-green-600/75 text-xs text-center">Files will be moved to this folder</p>
-      `;
-      
-      // Add the drop indicator to the folder window
-      folderElement.appendChild(dropIndicator);
-      
       // Enhanced mouse movement tracking to reliably detect when cursor is over an open folder
       const handleMouseMove = (e: MouseEvent) => {
         // Only process if we're currently dragging a file
@@ -883,7 +866,6 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
           console.log(`🎯 DETECTED: File ${dragInfo.name} is hovering over open folder ${folder.name}`);
           
           // Show drop indicators
-          dropIndicator.classList.add('active');
           folderElement.classList.add('folder-highlight-dragover');
           setIsDraggingOver(true);
           
@@ -909,7 +891,6 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
           window._openFolderHoverId = folder.id;
         } else {
           // Mouse is not over this folder
-          dropIndicator.classList.remove('active');
           folderElement.classList.remove('folder-highlight-dragover');
           
           // Only reset the tracking properties if they were pointing to this folder
@@ -935,7 +916,6 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         e.preventDefault();
         e.stopPropagation();
         
-        dropIndicator.classList.remove('active');
         folderElement.classList.remove('folder-highlight-dragover');
         setIsDraggingOver(false);
         
@@ -1062,10 +1042,6 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         document.removeEventListener('mousemove', handleMouseMove);
         folderElement.removeEventListener('drop', handleDrop);
         folderElement.removeEventListener('dragover', e => e.preventDefault());
-        
-        if (folderElement.contains(dropIndicator)) {
-          folderElement.removeChild(dropIndicator);
-        }
       };
     }, 300);
     
