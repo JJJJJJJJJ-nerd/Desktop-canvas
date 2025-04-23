@@ -241,12 +241,18 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                   };
                   
                   // Update folder cache
+                  const updatedFolderFiles = [...folderFiles.files, fileForFolder];
                   queryClient.setQueryData(folderFilesKey, {
-                    files: [...folderFiles.files, fileForFolder]
+                    files: updatedFolderFiles
                   });
                   
                   // Set the folder files state to immediately show the change
-                  setFiles(prev => [...prev, fileForFolder]);
+                  setFiles(updatedFolderFiles);
+                  
+                  // Zet een timeout om isDraggingOver-status opnieuw te resetten (extra zekerheid)
+                  setTimeout(() => {
+                    setIsDraggingOver(false);
+                  }, 50);
                   
                   console.log(`✅ UI UPDATED: File ${draggedFile.name} moved to folder ${folder.name} in UI`);
                 }
@@ -453,6 +459,21 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   useEffect(() => {
     if (folder.id) {
       fetchFiles();
+
+      // Register a global update function so other components can update this folder's files
+      // @ts-ignore - Custom property
+      window._updateFolderView = (folderId: number, updatedFiles: DesktopFile[]) => {
+        if (folderId === folder.id) {
+          console.log(`🔄 Externe update voor map ${folder.name}: ${updatedFiles.length} bestanden`);
+          setFiles(updatedFiles);
+        }
+      };
+      
+      return () => {
+        // Clean up the global update function when component unmounts
+        // @ts-ignore - Custom property
+        window._updateFolderView = undefined;
+      };
     }
   }, [folder.id]);
 
