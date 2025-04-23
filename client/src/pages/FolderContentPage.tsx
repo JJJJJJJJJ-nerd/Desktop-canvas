@@ -143,14 +143,7 @@ export default function FolderContentPage() {
       borderRadius: '8px',
       border: '1px dashed #d1d5db',
     } as React.CSSProperties,
-    
-    debugSection: {
-      marginTop: '30px',
-      padding: '16px',
-      backgroundColor: '#f8fafc',
-      border: '1px solid #e2e8f0',
-      borderRadius: '4px',
-    } as React.CSSProperties,
+
   };
 
   // Page content
@@ -162,11 +155,9 @@ export default function FolderContentPage() {
     <div style={styles.container}>
       <div style={styles.header}>
         <div style={styles.title}>
-          {folderName} (ID: {folderId})
+          {folderName}
         </div>
-        <div style={styles.subtitle}>
-          Deze pagina toont de inhoud van de map rechtsreeks zonder complexe componenten
-        </div>
+
       </div>
       
       {loading ? (
