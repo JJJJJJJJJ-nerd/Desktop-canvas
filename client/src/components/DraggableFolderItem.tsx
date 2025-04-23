@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { DesktopFile } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useDesktopFiles } from '@/hooks/use-desktop-files';
+import { useWebSocket } from '@/hooks/use-websocket';
 import { FileText, Folder, Image, GripVertical } from 'lucide-react';
 
 interface DraggableFolderItemProps {
@@ -18,6 +19,7 @@ interface Position {
 export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderItemProps) {
   const { toast } = useToast();
   const { removeFileFromFolder } = useDesktopFiles();
+  const { isConnected, sendMessage, lastMessage, folderUpdates } = useWebSocket();
   
   // States voor de manual drag functionaliteit
   const [isDragging, setIsDragging] = useState(false);
@@ -452,6 +454,44 @@ export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderIte
   };
   
   // Effect om component op te ruimen als deze verwijderd wordt
+  // Luisteren naar WebSocket-verbinding
+  useEffect(() => {
+    if (isConnected && file.isFolder === 'true') {
+      console.log(`🔌 WebSocket verbonden voor map ${file.name} (ID: ${file.id})`);
+      
+      // Stuur bericht dat we deze map volgen
+      if (file.id) {
+        sendMessage({
+          type: 'subscribeToFolder',
+          folderId: file.id
+        });
+      }
+    }
+  }, [isConnected, file.id, file.name, file.isFolder, sendMessage]);
+  
+  // Luisteren naar WebSocket-berichten over nieuwe bestanden die naar mappen worden gesleept
+  useEffect(() => {
+    if (lastMessage && file.isFolder === 'true' && file.id) {
+      if (lastMessage.type === 'mapupdate' && lastMessage.folderId === file.id) {
+        console.log(`📩 WebSocket bericht ontvangen voor map ${file.name}: update met ${lastMessage.fileCount} bestanden`);
+        
+        // Toon visuele feedback als een bestand naar deze map is gesleept
+        if (dragElementRef.current) {
+          // Voeg een pulse animatie toe aan de map
+          dragElementRef.current.classList.add('folder-updated');
+          
+          // Verwijder de animatie na 1 seconde
+          setTimeout(() => {
+            if (dragElementRef.current) {
+              dragElementRef.current.classList.remove('folder-updated');
+            }
+          }, 1000);
+        }
+      }
+    }
+  }, [lastMessage, file.id, file.name, file.isFolder]);
+  
+  // Opruimen bij unmount
   useEffect(() => {
     return () => {
       // Clean-up als de component unmount
