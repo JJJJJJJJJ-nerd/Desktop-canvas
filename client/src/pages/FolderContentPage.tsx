@@ -201,25 +201,8 @@ export default function FolderContentPage() {
                 <div style={styles.fileName} title={file.name}>
                   {file.name}
                 </div>
-                <div style={styles.fileInfo}>
-                  ID: {file.id}
-                </div>
               </div>
             ))}
-          </div>
-          
-          <div style={styles.debugSection}>
-            <h4 style={{ fontSize: '16px', marginBottom: '12px' }}>Debug Informatie</h4>
-            <pre style={{ 
-              fontSize: '12px', 
-              backgroundColor: '#f1f5f9', 
-              padding: '12px', 
-              borderRadius: '4px',
-              overflow: 'auto',
-              maxHeight: '200px'
-            }}>
-              {JSON.stringify(files, null, 2)}
-            </pre>
           </div>
         </>
       )}
