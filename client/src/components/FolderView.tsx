@@ -1241,36 +1241,31 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                           const removedFile = {...folderContents.files[fileIndex]};
                           // Voeg animatie klasse toe aan het element voor het verdwijnen
                           try {
+                            // Belangrijkste fix - DIRECT de lokale state bijwerken
+                            // Dit zorgt ervoor dat het bestand direct uit de map verdwijnt
+                            setFiles(currentFiles => currentFiles.filter(f => f.id !== file.id));
+                            
                             // Find the DOM element for this file using its ID
                             const fileElement = document.querySelector(`[data-file-id="${file.id}"]`);
                             if (fileElement) {
                               // Add the teleport-out animation class
                               fileElement.classList.add('file-teleport-out');
-                              
-                              // Give animation time to play (shorter than actual animation time)
-                              setTimeout(() => {
-                                // Remove from folder view after short animation
-                                const updatedFolderFiles = [...folderContents.files];
-                                updatedFolderFiles.splice(fileIndex, 1);
-                                
-                                // Update folder contents cache after animation starts
-                                queryClient.setQueryData(folderFilesKey, {
-                                  files: updatedFolderFiles
-                                });
-                              }, 150);
-                            } else {
-                              // Fallback - no animation
-                              const updatedFolderFiles = [...folderContents.files];
-                              updatedFolderFiles.splice(fileIndex, 1);
-                              
-                              // Update folder contents cache immediately
-                              queryClient.setQueryData(folderFilesKey, {
-                                files: updatedFolderFiles
-                              });
                             }
+                            
+                            // Altijd de cache bijwerken
+                            const updatedFolderFiles = [...folderContents.files];
+                            updatedFolderFiles.splice(fileIndex, 1);
+                            
+                            // Update folder contents cache immediately
+                            queryClient.setQueryData(folderFilesKey, {
+                              files: updatedFolderFiles
+                            });
                           } catch (error) {
                             console.error("Animation error:", error);
-                            // Fallback - no animation
+                            // Fallback - no animation, maar wel direct de UI bijwerken
+                            setFiles(currentFiles => currentFiles.filter(f => f.id !== file.id));
+                            
+                            // Ook cache bijwerken
                             const updatedFolderFiles = [...folderContents.files];
                             updatedFolderFiles.splice(fileIndex, 1);
                             
@@ -1324,6 +1319,9 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                     } catch (error) {
                       console.error("Error updating UI before database:", error);
                       
+                      // Direct UI bijwerken voor een snellere gebruikerservaring
+                      setFiles(currentFiles => currentFiles.filter(f => f.id !== file.id));
+                      
                       // Fallback to direct API call if cache update fails
                       // @ts-ignore - We updated this function to accept parentId, but TypeScript definition hasn't caught up
                       removeFileFromFolder(file.id, mousePosition, folder.id)
@@ -1338,7 +1336,13 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                           queryClient.invalidateQueries({ queryKey: [`/api/folders/${folder.id}/files`] });
                           fetchFiles();
                         })
-                        .catch(err => console.error('Fout bij verplaatsen bestand naar bureaublad:', err));
+                        .catch(err => {
+                          console.error('Fout bij verplaatsen bestand naar bureaublad:', err);
+                          
+                          // Als er een fout optreedt, dan de bestandenlijst opnieuw ophalen
+                          // om eventuele verkeerde state te herstellen
+                          fetchFiles();
+                        });
                     }
                   }
                   
