@@ -877,8 +877,19 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       onDragOver={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        console.log(`🟢 DRAG OVER OPEN MAP: ${folder.name} (ID: ${folder.id})`);
-        setIsDraggingOver(true);
+        
+        // Verminder logboek om flikkeren te voorkomen
+        const now = Date.now();
+        if (!lastDragOverTime || now - lastDragOverTime > 250) {
+          console.log(`🟢 DRAG OVER OPEN MAP: ${folder.name} (ID: ${folder.id})`);
+          lastDragOverTime = now;
+        }
+        
+        // Voorkom flikkeren door niet constant de state te updaten
+        if (!isDraggingOver) {
+          setIsDraggingOver(true);
+        }
+        
         e.dataTransfer.dropEffect = 'move';
         
         // Sla de open map op als actieve drop target
