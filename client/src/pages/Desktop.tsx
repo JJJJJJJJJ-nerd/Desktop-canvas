@@ -4,8 +4,8 @@ import { DesktopToolbar } from "@/components/DesktopToolbar";
 import { FileItem } from "@/components/FileItem";
 import { FilePreviewModal } from "@/components/FilePreviewModal";
 import { WindowItem } from "@/components/WindowItem";
-// Directe DOM manipulatie versie
-import { BasicFolderWindowDirectRender } from "@/components/BasicFolderWindowDirectRender"; // MEEST EENVOUDIGE IMPLEMENTATIE
+// Super simpele versie zonder DOM manipulatie
+import { SimpleMapViewer } from "@/components/SimpleMapViewer"; // ALLEREENVOUDIGSTE IMPLEMENTATIE
 import { EmptyState } from "@/components/EmptyState";
 import { useDesktopFiles } from "@/hooks/use-desktop-files";
 import { DesktopFile } from "@/types";
@@ -1090,10 +1090,10 @@ export default function Desktop() {
                   
                   // Check if this is a folder 
                   if (file.isFolder === 'true') {
-                    console.log('DIRECTE DOM RENDER: Tonen van map', file);
-                    // Gebruik de directe DOM manipulatie versie
+                    console.log('SIMPELE MAP VIEWER: Tonen van map', file);
+                    // Gebruik de super simpele React versie
                     return (
-                      <BasicFolderWindowDirectRender
+                      <SimpleMapViewer
                         key={`folder-${fileId}`}
                         folder={file}
                         onClose={() => closeWindowFile(fileId)}
