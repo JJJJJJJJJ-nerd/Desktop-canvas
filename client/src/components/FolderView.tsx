@@ -45,6 +45,9 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isSelectMode, setIsSelectMode] = useState(false);
   
+  // WebSocket reference
+  const wsRef = useRef<WebSocket | null>(null);
+  
   // Toast notificaties
   const { toast } = useToast();
   
@@ -72,61 +75,150 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
   const fetchFiles = async () => {
     if (!folder.id) return;
     
+    console.log(`🔄 LOADING: Bestanden ophalen voor map ${folder.name} (ID: ${folder.id})`);
+    
     try {
       setIsRefreshing(true);
       const folderFilesKey = [`/api/folders/${folder.id}/files`];
       
-      // Try to get from cache first
-      const cachedData = queryClient.getQueryData<{files: DesktopFile[]}>(folderFilesKey);
-      
-      if (cachedData) {
-        console.log(`📂 FOLDER ${folder.id} DATA FOUND IN CACHE:`, cachedData.files.length);
-        setFiles(cachedData.files);
-      }
-      
-      // Force refetch to ensure data is fresh
+      // Haal altijd verse data op van de API
       const response = await fetch(`/api/folders/${folder.id}/files`);
       if (!response.ok) throw new Error('Failed to fetch folder files');
       
       const data = await response.json();
       
-      console.log(`📂 FOLDER ${folder.id} DATA FETCHED FROM API:`, data.files.length);
+      console.log(`📂 FOLDER ${folder.id} DATA FETCHED: ${data.files.length} bestanden gevonden`);
       
-      setFiles(data.files);
-      
-      // Update cache with fresh data
+      // Update het cachegeheugen
       queryClient.setQueryData(folderFilesKey, data);
       
+      // Zet de bestanden in de lokale staat
+      setFiles(data.files);
+      
+      // Log voor debug
+      if (data.files.length > 0) {
+        console.log(`📄 FOLDER BEVAT: ${data.files.map((f: any) => f.name).join(', ')}`);
+      } else {
+        console.log(`📄 FOLDER IS LEEG`);
+      }
+      
+      return data.files;
     } catch (err) {
-      console.error("Failed to fetch folder files:", err);
+      console.error("❌ FOUT bij ophalen mapinhoud:", err);
       setError(err instanceof Error ? err : new Error(String(err)));
       
       toast({
-        title: "Error",
-        description: "Failed to load folder contents",
+        title: "Fout",
+        description: "Kon de inhoud van de map niet laden",
         variant: "destructive"
       });
+      return [];
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
   };
   
-  // Load files when component mounts
+  // WebSocket setup
   useEffect(() => {
-    console.log(`📂 FOLDER ${folder.id} VIEW MOUNTED`);
+    if (!folder.id) return;
     
+    console.log(`🔌 Setting up WebSocket for folder ${folder.id}`);
+    
+    // WebSocket setup volgens het protocol dat overeenkomt met de pagina
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    
+    // Maak WebSocket verbinding
+    const socket = new WebSocket(wsUrl);
+    wsRef.current = socket;
+    
+    // Connection opened
+    socket.addEventListener('open', () => {
+      console.log(`🔌 WebSocket connected for folder ${folder.id}`);
+      
+      // Vraag om de mapinhoud bij verbinding
+      socket.send(JSON.stringify({
+        type: 'requestFolderRefresh',
+        folderId: folder.id,
+        timestamp: new Date().toISOString()
+      }));
+    });
+    
+    // Listen for messages
+    socket.addEventListener('message', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log(`📩 WebSocket message received for folder ${folder.id}:`, data.type);
+        
+        // Verwerk verschillende soorten berichten
+        if (data.type === 'folderContents' && data.folderId === folder.id) {
+          console.log(`📂 WebSocket: Ontvangen mapinhoud voor ${folder.id}: ${data.files.length} bestanden`);
+          setFiles(data.files);
+          setIsLoading(false);
+          setIsRefreshing(false);
+          
+          // Update cache voor consistentie
+          queryClient.setQueryData([`/api/folders/${folder.id}/files`], { files: data.files });
+          
+        } else if (data.type === 'folderUpdate' && data.folderId === folder.id) {
+          console.log(`🔄 WebSocket: Mapupdate ontvangen voor ${folder.id}`);
+          setFiles(data.files);
+          
+          // Update cache voor consistentie
+          queryClient.setQueryData([`/api/folders/${folder.id}/files`], { files: data.files });
+        }
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
+      }
+    });
+    
+    // Connection closed
+    socket.addEventListener('close', () => {
+      console.log(`🔌 WebSocket disconnected for folder ${folder.id}`);
+    });
+    
+    // Connection error
+    socket.addEventListener('error', (error) => {
+      console.error(`🔌 WebSocket error for folder ${folder.id}:`, error);
+      
+      // Als de WebSocket mislukt, val terug op gewone HTTP
+      console.log('Falling back to traditional HTTP for folder data');
+      fetchFiles();
+    });
+    
+    // Clean up
+    return () => {
+      console.log(`🔌 Closing WebSocket for folder ${folder.id}`);
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.close();
+      }
+    };
+  }, [folder.id, folder.name]);
+  
+  // Load files when component mounts - Traditional fallback method
+  useEffect(() => {
+    console.log(`📂 FOLDER VIEW MOUNTED: Map ${folder.name} (ID: ${folder.id})`);
+    
+    // Zet laadstatus om laad-indicator te tonen
     setIsLoading(true);
     
-    // Set initial position from folder data
+    // Stel lokale positie in op basis van folderdata
     setLocalPosition(folder.position);
     
+    // Direct laden
+    fetchFiles();
+    
+    // En nogmaals na een korte vertraging om mislukte eerste pogingen te compenseren
     const timeoutId = setTimeout(() => {
-      fetchFiles();
-    }, 300);
+      if (files.length === 0) {
+        console.log(`🔄 RETRY: Geen bestanden geladen, probeer opnieuw voor map ${folder.id}`);
+        fetchFiles();
+      }
+    }, 800);
     
     return () => clearTimeout(timeoutId);
-  }, [folder.id]);
+  }, [folder.id, folder.name]);
   
   // Handle the window/folder dragging
   useEffect(() => {
@@ -154,9 +246,14 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
     
     const handleMouseMove = (e: MouseEvent) => {
       if (dragging) {
+        // Voorkom dat de map buiten het scherm kan worden gesleept
+        const newX = Math.max(0, e.clientX - dragOffset.x);
+        const newY = Math.max(0, e.clientY - dragOffset.y);
+        
+        // Update de lokale positie voor directe visuele feedback
         setLocalPosition({
-          x: Math.max(0, e.clientX - dragOffset.x),
-          y: Math.max(0, e.clientY - dragOffset.y)
+          x: newX,
+          y: newY
         });
       }
     };
@@ -165,27 +262,42 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
       if (dragging) {
         setDragging(false);
         
+        // Bereken de uiteindelijke positie bij loslaten
+        const finalX = Math.max(0, e.clientX - dragOffset.x);
+        const finalY = Math.max(0, e.clientY - dragOffset.y);
+        
+        // Update de lokale positie met de definitieve waarden
+        setLocalPosition({
+          x: finalX,
+          y: finalY
+        });
+        
         // Update the server with the new position
         if (folder.id) {
+          console.log(`Updating folder ${folder.id} position to:`, { x: finalX, y: finalY });
+          
           fetch(`/api/files/${folder.id}/position`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               position: {
-                x: Math.max(0, e.clientX - dragOffset.x),
-                y: Math.max(0, e.clientY - dragOffset.y)
+                x: finalX,
+                y: finalY
               }
             })
           })
           .then(response => {
             if (!response.ok) throw new Error('Failed to update folder position');
-            console.log(`Folder position updated to:`, {
-              x: e.clientX - dragOffset.x,
-              y: e.clientY - dragOffset.y
+            console.log(`✅ Folder position successfully updated to:`, {
+              x: finalX,
+              y: finalY
             });
           })
           .catch(err => {
             console.error('Error updating folder position:', err);
+            
+            // Bij fout, herstel naar de originele positie
+            setLocalPosition(folder.position);
           });
         }
       }

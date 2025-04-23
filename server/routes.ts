@@ -6,6 +6,7 @@ import multer from "multer";
 import { z } from "zod";
 import { insertDesktopFileSchema, type DesktopFile } from "@shared/schema";
 import { setupAuth } from "./auth";
+import { WebSocketServer, WebSocket } from "ws";
 
 // Configure multer for memory storage
 const upload = multer({ 
@@ -265,6 +266,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       console.log(`✅ Bestand ${updatedFile.name} (ID: ${updatedFile.id}) succesvol aan map toegevoegd`);
+      
+      // Stuur een update naar alle verbonden clients
+      await broadcastFolderUpdate(folderId);
+      
       return res.status(200).json({ file: updatedFile });
     } catch (error) {
       console.error('Error adding file to folder:', error);
@@ -341,6 +346,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
-
+  
+  // Setup WebSocket server op een apart pad
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  
+  // Websocket server setup
+  wss.on('connection', (ws) => {
+    console.log('🔌 WebSocket client connected');
+    
+    // Stuur een bevestiging naar de client
+    ws.send(JSON.stringify({
+      type: 'connection',
+      message: 'WebSocket connection established',
+      timestamp: new Date().toISOString()
+    }));
+    
+    // Luister naar berichten van de client
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        console.log('📱 WebSocket bericht ontvangen:', data);
+        
+        // Verwerk verschillende soorten berichten
+        if (data.type === 'requestFolderRefresh' && data.folderId) {
+          console.log(`🔄 WebSocket: verzoek om map ${data.folderId} te verversen`);
+          
+          // Haal de mapinhoud op en stuur terug
+          storage.getFilesInFolder(data.folderId)
+            .then(files => {
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'folderContents',
+                  folderId: data.folderId,
+                  files: files,
+                  timestamp: new Date().toISOString()
+                }));
+                console.log(`📤 WebSocket: mapinhoud verzonden voor map ${data.folderId}, ${files.length} bestanden`);
+              }
+            })
+            .catch(error => {
+              console.error(`❌ WebSocket: fout bij ophalen mapinhoud:`, error);
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'error',
+                  message: 'Error fetching folder contents',
+                  error: error.message,
+                  timestamp: new Date().toISOString()
+                }));
+              }
+            });
+        }
+      } catch (error) {
+        console.error('❌ WebSocket: Fout bij verwerken bericht:', error);
+      }
+    });
+    
+    // Onderhoud een heartbeat om de connectie actief te houden
+    const interval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'ping', timestamp: new Date().toISOString() }));
+      }
+    }, 30000);
+    
+    // Cleanup bij disconnect
+    ws.on('close', () => {
+      console.log('🔌 WebSocket client disconnected');
+      clearInterval(interval);
+    });
+  });
+  
+  // Helper functie om updates naar alle clients te sturen
+  const broadcastToClients = (data: any) => {
+    wss.clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(data));
+      }
+    });
+  };
+  
+  // Event broadcaster voor mapupdates
+  const broadcastFolderUpdate = async (folderId: number) => {
+    try {
+      const files = await storage.getFilesInFolder(folderId);
+      broadcastToClients({
+        type: 'folderUpdate',
+        folderId,
+        files,
+        timestamp: new Date().toISOString()
+      });
+      console.log(`📢 WebSocket broadcast: mapupdate voor map ${folderId}, ${files.length} bestanden`);
+    } catch (error) {
+      console.error(`❌ WebSocket broadcast fout:`, error);
+    }
+  };
+  
+  // Exporteer de httpServer
   return httpServer;
 }
