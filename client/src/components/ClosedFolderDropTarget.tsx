@@ -41,7 +41,7 @@ export function ClosedFolderDropTarget({ file }: ClosedFolderDropTargetProps) {
       
       // Sla de map op als potentiële drop target
       // @ts-ignore - Custom property
-      window._hoveredFolderId = file.id;
+      window._hoveredFolderId = folderId;
       // @ts-ignore - Custom property 
       window._hoveredFolderName = file.name;
     }
@@ -54,7 +54,7 @@ export function ClosedFolderDropTarget({ file }: ClosedFolderDropTargetProps) {
     
     // Wis de map als drop target
     // @ts-ignore - Custom property
-    if (window._hoveredFolderId === file.id) {
+    if (window._hoveredFolderId === folderId) {
       // @ts-ignore - Custom property
       window._hoveredFolderId = null;
       // @ts-ignore - Custom property
@@ -84,7 +84,7 @@ export function ClosedFolderDropTarget({ file }: ClosedFolderDropTargetProps) {
       }
       
       // Voorkom dat een map in zichzelf wordt geplaatst
-      if (fileId === file.id) {
+      if (fileId === folderId) {
         console.log('❌ Een map kan niet in zichzelf worden geplaatst');
         toast({
           title: "Niet toegestaan",
@@ -125,7 +125,7 @@ export function ClosedFolderDropTarget({ file }: ClosedFolderDropTargetProps) {
             const movedFile = {...updatedDesktopFiles[fileIndex]};
             
             // Update het bestand met de nieuwe parent map 
-            movedFile.parentId = file.id;
+            movedFile.parentId = folderId;
             
             // Verwijder het bestand uit desktop view
             updatedDesktopFiles.splice(fileIndex, 1);
@@ -172,7 +172,7 @@ export function ClosedFolderDropTarget({ file }: ClosedFolderDropTargetProps) {
           
           // Cache vernieuwen
           queryClient.invalidateQueries({ queryKey: ['/api/files'] });
-          const folderFilesKey = [`/api/folders/${file.id}/files`];
+          const folderFilesKey = [`/api/folders/${folderId}/files`];
           queryClient.invalidateQueries({ queryKey: folderFilesKey });
         } catch (error) {
           console.error('❌ Fout bij verplaatsen van bestand naar map:', error);
@@ -201,7 +201,7 @@ export function ClosedFolderDropTarget({ file }: ClosedFolderDropTargetProps) {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       data-is-folder-drop-target="true"
-      data-folder-id={file.id}
+      data-folder-id={folderId}
     />
   );
 }
