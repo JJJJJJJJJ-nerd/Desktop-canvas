@@ -998,13 +998,13 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
               </div>
             )}
             
-            {/* Files grid - met vaste afmetingen en een apart scrollgebied */}
-            <div className="overflow-auto border border-gray-200 rounded-md mb-2" style={{
+            {/* Files grid - volledig onafhankelijk van folder structuur */}
+            <div className="files-container overflow-auto border border-gray-200 rounded-md mb-2" style={{
               height: '250px',
               maxHeight: '250px',
               width: '100%'
             }}>
-              <div className={`grid grid-cols-2 md:grid-cols-3 gap-2 p-2 auto-rows-max ${(isLoading || files.length === 0) ? 'opacity-0' : 'opacity-100'}`}>
+              <div className={`grid grid-cols-1 sm:grid-cols-2 gap-2 p-2 auto-rows-max ${(isLoading || files.length === 0) ? 'opacity-0' : 'opacity-100'}`}>
                 {files.map((file) => {
                   // Log alleen in ontwikkelomgeving
                   if (process.env.NODE_ENV === 'development') {
@@ -1016,6 +1016,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                     <div 
                       key={file.id}
                       className={`file-container rounded-lg p-1 ${selectedFileIds.includes(file.id || 0) ? 'bg-blue-50 border border-blue-200 shadow-sm' : ''}`}
+                      style={{ width: '100%', maxWidth: '100%' }}
                       onClick={() => {
                         // Selecteer het bestand bij klikken
                         setSelectedFileIds(prev => 
@@ -1029,7 +1030,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
                         onSelectFile(file);
                       }}
                     >
-                      {/* Gebruik onze nieuwe component voor drag & drop binnen mappen */}
+                      {/* Volledig losgekoppelde component voor files in folders */}
                       <DraggableFolderItem 
                         file={file} 
                         parentFolderId={folder.id}

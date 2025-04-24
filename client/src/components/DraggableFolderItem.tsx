@@ -517,9 +517,12 @@ export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderIte
       className={`folder-item-container ${isDragging ? 'opacity-50' : ''}`} 
       ref={dragElementRef}
       style={{ maxWidth: '100%', width: '100%' }}
+      draggable="true"
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
     >
       <div className="flex items-center mb-1 rounded-md overflow-hidden" style={{ maxWidth: '100%', width: '100%' }}>
-        {/* Grip handle voor slepen */}
+        {/* Grip handle voor slepen (manual) */}
         <div 
           className="bg-blue-50 hover:bg-blue-100 p-2 cursor-grab active:cursor-grabbing flex-shrink-0"
           onMouseDown={startDrag}
@@ -528,7 +531,7 @@ export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderIte
           <GripVertical size={16} className="text-blue-600" />
         </div>
         
-        {/* Bestandsitem (alleen klikbaar) - met expliciete max-width beperkingen */}
+        {/* Bestandsitem (alleen klikbaar) - volledig losstaand onderdeel */}
         <div
           className="folder-item flex items-center p-3 pl-3 hover:bg-gray-100 border-y border-r border-gray-200 bg-white"
           onClick={handleFileClick}
