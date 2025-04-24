@@ -971,7 +971,8 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         
         {/* Folder content area */}
         <div 
-          className="p-4 h-[calc(100%-48px)] overflow-auto bg-white/90"
+          className="p-4 relative bg-white/90"
+          style={{ height: 'auto', maxHeight: '500px' }}
           ref={dropAreaRef}
         >
           {/* We gebruiken een compleet andere aanpak die niet afhankelijk is van conditionele rendering */}
@@ -995,40 +996,46 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
               </div>
             )}
             
-            {/* Files grid - always rendered, but can be empty */}
-            <div className={`grid grid-cols-4 gap-4 auto-rows-max ${(isLoading || files.length === 0) ? 'opacity-0' : 'opacity-100'}`}>
-              {files.map((file) => {
-                // Log alleen in ontwikkelomgeving
-                if (process.env.NODE_ENV === 'development') {
-                  // Gebruik console.log buiten JSX
-                  console.log(`🔍 RENDERING FILE: ${file.id} - ${file.name}`);
-                }
-                
-                return (
-                  <div 
-                    key={file.id}
-                    className={`file-container rounded-lg p-1 ${selectedFileIds.includes(file.id || 0) ? 'bg-blue-50 border border-blue-200 shadow-sm' : ''}`}
-                    onClick={() => {
-                      // Selecteer het bestand bij klikken
-                      setSelectedFileIds(prev => 
-                        prev.includes(file.id || 0) 
-                          ? prev.filter(id => id !== file.id) 
-                          : [...prev, file.id || 0]
-                      );
-                    }}
-                    onDoubleClick={() => {
-                      // Preview het bestand bij dubbelklikken
-                      onSelectFile(file);
-                    }}
-                  >
-                    {/* Gebruik onze nieuwe component voor drag & drop binnen mappen */}
-                    <DraggableFolderItem 
-                      file={file} 
-                      parentFolderId={folder.id}
-                    />
-                  </div>
-                );
-              })}
+            {/* Files grid - met vaste afmetingen en een apart scrollgebied */}
+            <div className="overflow-auto border border-gray-200 rounded-md mb-2" style={{
+              height: '250px',
+              maxHeight: '250px',
+              width: '100%'
+            }}>
+              <div className={`grid grid-cols-2 md:grid-cols-3 gap-2 p-2 auto-rows-max ${(isLoading || files.length === 0) ? 'opacity-0' : 'opacity-100'}`}>
+                {files.map((file) => {
+                  // Log alleen in ontwikkelomgeving
+                  if (process.env.NODE_ENV === 'development') {
+                    // Gebruik console.log buiten JSX
+                    console.log(`🔍 RENDERING FILE: ${file.id} - ${file.name}`);
+                  }
+                  
+                  return (
+                    <div 
+                      key={file.id}
+                      className={`file-container rounded-lg p-1 ${selectedFileIds.includes(file.id || 0) ? 'bg-blue-50 border border-blue-200 shadow-sm' : ''}`}
+                      onClick={() => {
+                        // Selecteer het bestand bij klikken
+                        setSelectedFileIds(prev => 
+                          prev.includes(file.id || 0) 
+                            ? prev.filter(id => id !== file.id) 
+                            : [...prev, file.id || 0]
+                        );
+                      }}
+                      onDoubleClick={() => {
+                        // Preview het bestand bij dubbelklikken
+                        onSelectFile(file);
+                      }}
+                    >
+                      {/* Gebruik onze nieuwe component voor drag & drop binnen mappen */}
+                      <DraggableFolderItem 
+                        file={file} 
+                        parentFolderId={folder.id}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
             </div>
             
             {/* Force manual file debug here */}
