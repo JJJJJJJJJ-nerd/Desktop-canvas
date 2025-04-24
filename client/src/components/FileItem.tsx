@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, Fragment } from "react";
+import { useRef, useState, useEffect, useLayoutEffect, Fragment } from "react";
 import { DesktopFile } from "@/types";
 import { getFileIcon, formatFileSize } from "@/utils/file-utils";
 import { cn } from "@/lib/utils";
@@ -301,7 +301,7 @@ export function FileItem({
           isFolder: file.isFolder === 'true',
           parentId: file.parentId,
           startTime: Date.now(),
-          element: e.currentTarget, // Store the dragged element
+          element: e.currentTarget instanceof HTMLElement ? e.currentTarget : null, // Store the dragged element
           initialPosition: { 
             x: e.clientX, 
             y: e.clientY 
@@ -393,13 +393,16 @@ export function FileItem({
               window._hoverFolderId = file.id;
               
               // Consistente activeDropFolder eigenschap bijwerken voor alle foldervensters
-              // @ts-ignore - Custom property
-              window._activeDropFolder = {
-                id: file.id,
-                name: file.name,
-                element: fileRef.current,
-                timestamp: Date.now()
-              };
+              // Controleer of file.id een getal is
+              if (typeof file.id === 'number') {
+                // @ts-ignore - Custom property
+                window._activeDropFolder = {
+                  id: file.id,
+                  name: file.name,
+                  element: fileRef.current,
+                  timestamp: Date.now()
+                };
+              }
               
               console.log(`✓ FOLDER READY: Closed folder ${file.name} (ID: ${file.id}) is now ready to receive files`);
               
@@ -533,6 +536,12 @@ export function FileItem({
             // Met vertraging toevoegen voor betere visuele feedback
             setTimeout(async () => {
               try {
+                // Zorg ervoor dat file.id een geldige waarde heeft
+                if (typeof file.id !== 'number') {
+                  console.error('Ongeldige folder ID:', file.id);
+                  return;
+                }
+                
                 // Toevoegen aan de map met de API - dit zal ook een WebSocket-bericht sturen via de hook
                 await addFileToFolder(fileId, file.id);
                 
@@ -847,17 +856,25 @@ export function FileItem({
   }, [file.dimensions, isImage]);
   
   // Register the file element with the parent component for overlap detection
-  useEffect(() => {
-    if (registerRef && fileRef.current) {
+  // Use a layout effect to ensure ref is registered before any DOM measurements
+  const registeredRef = useRef(false);
+  
+  useLayoutEffect(() => {
+    // Only register once on mount to avoid infinite loops
+    if (!registeredRef.current && registerRef && fileRef.current && file.id) {
+      // console.log(`🔄 Registreren element voor bestand ID: ${file.id}`);
       registerRef(file.id, fileRef.current);
+      registeredRef.current = true;
     }
     
+    // Cleanup on unmount
     return () => {
-      if (registerRef) {
+      if (registerRef && file.id) {
+        // console.log(`🔄 Deregistreren element voor bestand ID: ${file.id}`);
         registerRef(file.id, null);
       }
     };
-  }, [file.id, registerRef]);
+  }, []);
 
   return (
     <>
