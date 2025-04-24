@@ -622,17 +622,8 @@ export function FileItem({
     setLocalPosition({ x: file.position.x, y: file.position.y });
   }, []);
   
-  // Register element ref for external tracking
-  useEffect(() => {
-    if (file.id && registerRef) {
-      registerRef(file.id, fileRef.current);
-      
-      // Clean up when unmounting
-      return () => {
-        registerRef(file.id, null);
-      };
-    }
-  }, [file.id, registerRef]);
+  // BELANGRIJK: Alleen één registerRef effect 
+  // Voeg hier geen duplicaat useEffect toe voor registerRef!
 
   // Track mouse position during dragging in non-reactive ref
   // to avoid re-renders that might cause jumps
