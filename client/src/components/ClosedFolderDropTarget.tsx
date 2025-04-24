@@ -160,6 +160,22 @@ export function ClosedFolderDropTarget({ file }: ClosedFolderDropTargetProps) {
       setTimeout(async () => {
         try {
           // API aanroep om het bestand in de map te plaatsen
+          console.log(`🔄 CLOSED FOLDER TARGET: Verplaats bestand ${fileId} naar map ${folderId}`);
+          
+          // Haal het bestand op uit de desktop bestanden
+          const desktopFiles = queryClient.getQueryData<{files: DesktopFile[]}>(['/api/files'])?.files || [];
+          const draggedFile = desktopFiles.find(f => f.id === fileId);
+          
+          if (draggedFile) {
+            console.log(`📂 Voeg ${draggedFile.name} (ID: ${fileId}) toe aan map ${file.name} (ID: ${folderId})`);
+            
+            // Animatie toevoegen aan bestand (teleport effect)
+            const draggedElement = document.querySelector(`[data-file-id="${fileId}"]`);
+            if (draggedElement) {
+              draggedElement.classList.add('teleport-out');
+            }
+          }
+          
           // Gebruik folderId (vaste waarde) in plaats van file.id (die kan undefined zijn)
           await addFileToFolder(fileId, folderId);
           
