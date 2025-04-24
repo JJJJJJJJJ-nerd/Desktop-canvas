@@ -480,7 +480,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
           // Store this folder as the global active target for files
           // @ts-ignore - Custom global properties
           window._activeDropFolder = {
-            id: folder.id,
+            id: folder.id || 0, // Fallback to 0 if undefined
             name: folder.name,
             element: folderElement,
             timestamp: Date.now()
@@ -672,9 +672,9 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         }`}
         style={{
         width: '600px',
-        height: 'auto', 
-        maxWidth: '95vw',
-        maxHeight: '85vh',
+        height: '450px', 
+        maxWidth: '800px',
+        maxHeight: '500px',
         left: localPosition.x,
         top: localPosition.y,
         zIndex: dragging ? 1000 : 30, // Higher when dragging, lower when static but still allow files to be visible above
@@ -698,7 +698,7 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
           // Sla de open map op als actieve drop target
           // @ts-ignore - Custom property
           window._activeDropFolder = {
-            id: folder.id,
+            id: folder.id || 0,
             name: folder.name,
             element: document.getElementById(`folder-window-${folder.id}`),
             timestamp: Date.now()

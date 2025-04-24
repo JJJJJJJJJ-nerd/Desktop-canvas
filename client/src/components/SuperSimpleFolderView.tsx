@@ -62,7 +62,7 @@ export function SuperSimpleFolderView({ folder, onClose }: SuperSimpleFolderView
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="bg-white rounded-lg shadow-lg w-4/5 h-4/5 max-w-5xl overflow-hidden flex flex-col"
+        className="bg-white rounded-lg shadow-lg w-[600px] h-[450px] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
