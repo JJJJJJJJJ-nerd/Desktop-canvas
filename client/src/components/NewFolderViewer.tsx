@@ -74,7 +74,8 @@ export function NewFolderViewer({ folderId, folderName, onClose }: NewFolderView
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div 
-        className="relative bg-white w-[600px] h-[400px] rounded-lg overflow-hidden shadow-2xl"
+        className="relative bg-white w-[90vw] max-w-5xl rounded-lg overflow-hidden shadow-2xl"
+        style={{ height: 'calc(90vh - 40px)' }}
         onClick={e => e.stopPropagation()}
       >
         {/* Titelbalk */}
