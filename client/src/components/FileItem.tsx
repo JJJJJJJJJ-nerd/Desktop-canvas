@@ -862,7 +862,7 @@ export function FileItem({
   useLayoutEffect(() => {
     // Only register once on mount to avoid infinite loops
     if (!registeredRef.current && registerRef && fileRef.current && file.id) {
-      // console.log(`🔄 Registreren element voor bestand ID: ${file.id}`);
+      console.log(`🔄 Registreren element voor bestand ID: ${file.id}`);
       registerRef(file.id, fileRef.current);
       registeredRef.current = true;
     }
@@ -870,11 +870,11 @@ export function FileItem({
     // Cleanup on unmount
     return () => {
       if (registerRef && file.id) {
-        // console.log(`🔄 Deregistreren element voor bestand ID: ${file.id}`);
+        console.log(`🔄 Deregistreren element voor bestand ID: ${file.id}`);
         registerRef(file.id, null);
       }
     };
-  }, []);
+  }, [registerRef, file.id]);
 
   return (
     <>
