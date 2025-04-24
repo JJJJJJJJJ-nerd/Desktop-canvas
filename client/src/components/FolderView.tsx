@@ -681,6 +681,8 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
         transition: dragging ? 'none' : 'all 0.15s ease',
         border: isDraggingOver ? '2px solid #3b82f6' : '1px solid rgba(0,0,0,0.1)'
       }}
+      data-folder-id={folder.id}
+      data-folder-name={folder.name}
       onDragOver={(e) => {
         e.preventDefault();
         e.stopPropagation();
