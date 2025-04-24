@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useToast } from "@/hooks/use-toast";
+import { ClosedFolderDropTarget } from "./ClosedFolderDropTarget";
 
 // Function to highlight text with fuzzy matches
 function highlightMatchedText(text: string, searchTerm: string) {
@@ -956,6 +957,9 @@ export function FileItem({
                 <Maximize2 className="w-3 h-3 text-white" />
               </div>
             )}
+            
+            {/* Folder drop target voor gesloten mappen */}
+            {isFolder && <ClosedFolderDropTarget file={file} />}
             
             {/* Drop indicator for folders - enhanced teleportation effect */}
             {isFolder && (isDragOver || file.id === (window as any)._hoverFolderId) && (

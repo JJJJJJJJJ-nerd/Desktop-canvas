@@ -20,8 +20,11 @@ export function ClosedFolderDropTarget({ file }: ClosedFolderDropTargetProps) {
                   file.type === 'folder' || 
                   file.type === 'application/folder';
 
+  // Fix voor TypeScript: zorg ervoor dat file.id altijd een nummer is
+  const folderId = file.id || 0;
+
   // Alleen actief voor mappen, niet voor andere bestandstypes
-  if (!isFolder || !file.id) return null;
+  if (!isFolder || !folderId) return null;
 
   // Handlers voor drag & drop
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -75,7 +78,7 @@ export function ClosedFolderDropTarget({ file }: ClosedFolderDropTargetProps) {
     
     try {
       const fileId = parseInt(fileIdText);
-      if (isNaN(fileId)) {
+      if (isNaN(fileId) || !fileId) {
         console.error('❌ Ongeldig bestand-ID:', fileIdText);
         return;
       }
@@ -157,7 +160,8 @@ export function ClosedFolderDropTarget({ file }: ClosedFolderDropTargetProps) {
       setTimeout(async () => {
         try {
           // API aanroep om het bestand in de map te plaatsen
-          await addFileToFolder(fileId, file.id);
+          // Gebruik folderId (vaste waarde) in plaats van file.id (die kan undefined zijn)
+          await addFileToFolder(fileId, folderId);
           
           // Bevestiging tonen
           toast({
