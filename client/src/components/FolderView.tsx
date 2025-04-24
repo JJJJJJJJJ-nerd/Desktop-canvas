@@ -671,8 +671,10 @@ export function FolderView({ folder, onClose, onSelectFile, onRename }: FolderVi
           isDraggingOver ? 'folder-highlight-dragover' : ''
         }`}
         style={{
-        width: folder.dimensions?.width || 600,
-        height: folder.dimensions?.height || 400,
+        width: '600px',
+        height: 'auto', 
+        maxWidth: '95vw',
+        maxHeight: '85vh',
         left: localPosition.x,
         top: localPosition.y,
         zIndex: dragging ? 1000 : 30, // Higher when dragging, lower when static but still allow files to be visible above

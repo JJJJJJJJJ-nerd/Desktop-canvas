@@ -516,28 +516,39 @@ export function DraggableFolderItem({ file, parentFolderId }: DraggableFolderIte
     <div 
       className={`folder-item-container ${isDragging ? 'opacity-50' : ''}`} 
       ref={dragElementRef}
+      style={{ maxWidth: '100%', width: '100%' }}
     >
-      <div className="flex items-center mb-1 rounded-md overflow-hidden">
+      <div className="flex items-center mb-1 rounded-md overflow-hidden" style={{ maxWidth: '100%', width: '100%' }}>
         {/* Grip handle voor slepen */}
         <div 
           className="bg-blue-50 hover:bg-blue-100 p-2 cursor-grab active:cursor-grabbing flex-shrink-0"
           onMouseDown={startDrag}
+          style={{ flexBasis: '30px', flexShrink: 0 }}
         >
           <GripVertical size={16} className="text-blue-600" />
         </div>
         
-        {/* Bestandsitem (alleen klikbaar) */}
+        {/* Bestandsitem (alleen klikbaar) - met expliciete max-width beperkingen */}
         <div
-          className="folder-item flex-grow flex items-center p-3 pl-3 hover:bg-gray-100 border-y border-r border-gray-200 bg-white"
+          className="folder-item flex items-center p-3 pl-3 hover:bg-gray-100 border-y border-r border-gray-200 bg-white"
           onClick={handleFileClick}
           data-file-id={file.id}
           data-parent-folder={parentFolderId}
+          style={{ 
+            flexGrow: 1, 
+            maxWidth: 'calc(100% - 30px)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}
         >
-          <div className="flex items-center gap-3 w-full">
-            <div>
+          <div className="flex items-center gap-3" style={{ width: '100%', maxWidth: '100%' }}>
+            <div style={{ flexShrink: 0 }}>
               {getIcon()}
             </div>
-            <div className="truncate font-medium text-sm">{file.name}</div>
+            <div className="truncate font-medium text-sm" style={{ maxWidth: 'calc(100% - 30px)' }}>
+              {file.name}
+            </div>
           </div>
         </div>
       </div>
